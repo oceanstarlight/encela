@@ -123,11 +123,3 @@ Run these yourself before handing the prototype to the user:
 - **Only the author playtests.** The author knows the controls and the intent. One uncoached
   player reveals more in two minutes than an hour of self-play, so always ask the user for a
   report rather than judging it yourself.
-
-## Related skills
-
-- `game-jam`: the same scope discipline under a deadline with a submission.
-- `level-design`: when the question is about a level's layout rather than a mechanic.
-- `game-feel`: juice, only after the verb is proven.
-- Engine cores (`godot-gdscript`, `phaser-core`, `love2d-core`, `unity-csharp-scripting`, ...)
-  for the greybox itself and for the rewrite after a keep.

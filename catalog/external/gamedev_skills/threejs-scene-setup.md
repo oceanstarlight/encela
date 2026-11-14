@@ -236,13 +236,6 @@ restore did not rebuild.
   parenting with `Group`, `OrthographicCamera` for 2.5D, disposing geometries, materials and
   textures between levels, stopping the loop, render-on-demand, and adaptive resolution.
 
-## Related skills
-
-- `threejs-materials-lighting`: lights, shadows, PBR and environment maps.
-- `threejs-gltf-loading`: loading models and playing their animations.
-- `camera-systems`: follow, orbit and first-person camera design.
-- `fps-shooter`: a 3D genre that builds on these skills.
-
 ## Version notes
 
 Last verified: 2026-11-11 against three r187 (npm `three@0.187.0`, published 2026-10-30;

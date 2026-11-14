@@ -155,7 +155,7 @@ Say which path you used.
   surface's `m_NavMeshData:` line; `{fileID: 0}` means it was never baked or was cleared, and a
   `guid:` means baked data exists (check that asset file is present). Then write a PlayMode
   test that loads the scene, calls `NavMesh.CalculatePath` between two known points and
-  asserts `PathComplete`; run it as described in `unity-csharp-scripting`.
+  asserts `PathComplete`.
 - **Behavior you cannot assert:** ask the user to press Play and report whether each agent
   reaches the target and roughly how long it takes.
 
@@ -190,13 +190,6 @@ Say which path you used.
 - AI Navigation manual: https://docs.unity3d.com/Packages/com.unity.ai.navigation@2.0/manual/index.html
   (read the `NavMeshSurface`, `NavMeshLink` and "Use NavMesh Agent with other components"
   pages when changing bake settings or mixing agents with physics).
-
-## Related skills
-
-- `game-ai`: engine-neutral decisions (FSM, steering, perception) that use this movement.
-- `unity-csharp-scripting`: the MonoBehaviour around the agent, test assemblies and the
-  `.meta` checker.
-- `tower-defense`, `fps-shooter`: genres that combine pathfinding with gameplay.
 
 ## Version notes
 

@@ -93,7 +93,7 @@ Niagara Variable (Float, LinearColor and so on) on the returned component.
 
 Say which of these you ran.
 
-1. **Compile** the module (`Build.bat`/`Build.sh` as in `unreal-cpp-gameplay`).
+1. **Compile** the module (`Build.bat`/`Build.sh`).
 2. **Validate assets:** `UnrealEditor-Cmd <Project>.uproject -run=DataValidation -unattended`
    and fix errors in the systems you touched.
 3. **Functional test for gameplay-spawned effects:** spawn the system in a test map, assert the
@@ -105,8 +105,6 @@ Say which of these you ran.
    to list live components in the log, `stat Niagara` for cost. Ask them to report whether the
    effect appears, whether it disappears when its origin leaves the screen (bounds), and the
    active component count after a minute of play (leaks).
-5. **Optional:** Epic's `unreal-mcp` skill can author and inspect Niagara systems in a running
-   editor when it is installed; the checks above do not need it.
 
 ## Gotchas
 
@@ -135,13 +133,6 @@ Say which of these you ran.
 - Epic docs: [Overview of Niagara Effects](https://dev.epicgames.com/documentation/unreal-engine/overview-of-niagara-effects-for-unreal-engine),
   [Niagara Debugger](https://dev.epicgames.com/documentation/unreal-engine/niagara-debugger-for-unreal-engine),
   [Console commands reference](https://dev.epicgames.com/documentation/unreal-engine/unreal-engine-console-commands-reference).
-
-## Related skills
-
-- `shader-programming`: particle material and shader concepts.
-- `game-feel`: shake, hit-stop and timing around the effect.
-- `unreal-cpp-gameplay`: module setup and the actors that spawn effects.
-- `unreal-blueprints`: triggering effects from graphs.
 
 ## Version notes
 

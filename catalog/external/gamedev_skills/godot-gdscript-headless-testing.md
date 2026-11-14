@@ -147,8 +147,7 @@ The `run:` step fails on a non-zero exit code by itself; the discipline lives in
 - **Exit code 0 although the log shows `SCRIPT ERROR`** → expected: errors never change the
   exit code. Scan logs of smoke runs with `grep`, as in the workflow.
 - **`--check-only` fails with `Identifier not found: SomeAutoload`** → `--check-only` parses a
-  single script without registering autoloads. Load scripts from a runner instead
-  (`godot-gdscript` ships a compile check that does).
+  single script without registering autoloads. Load scripts from a runner instead.
 - **The log grep flags `... still in use at exit` or `... leaked at exit`** → shutdown leak
   reports for objects the test created and never freed. Free them (or `queue_free()` and
   wait a frame before `quit()`); they are not test failures, so filter them if you must.
@@ -161,13 +160,6 @@ The `run:` step fails on a non-zero exit code by itself; the discipline lives in
   `InputMap.add_action()`, but the game needs the real Input Map entry.
 - **Output missing or out of order in PowerShell or some CI shells** → redirect stdout and
   stderr to files and read them after the process exits, as in Pattern 3.
-
-## Related skills
-
-- `godot-gdscript`: language rules, plus a compile check for every script in the project.
-- `godot-2d-movement`, `godot-animation`: ready-made headless tests for controllers and
-  animation states that plug into this runner.
-- `godot-export`: exporting builds in CI, a different `--headless` use.
 
 ## Version notes
 

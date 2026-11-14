@@ -84,7 +84,7 @@ Say which of these you ran and quote the lines that prove it.
    first, then ask the user to launch the Shipping build and report whether it reaches the main
    menu and can quit from the game's own menu.
 4. **Optional:** if the project has automation tests, run them on the packaged Development
-   build or in the editor as in `unreal-cpp-gameplay` before shipping.
+   build or in the editor before shipping.
 
 ## Gotchas
 
@@ -116,12 +116,6 @@ Say which of these you ran and quote the lines that prove it.
   [Build operations: cooking, packaging, deploying](https://dev.epicgames.com/documentation/unreal-engine/build-operations-cooking-packaging-deploying-and-running-projects-in-unreal-engine),
   [Zenserver as Cooked Output Store](https://dev.epicgames.com/documentation/unreal-engine/using-zen-storage-server-as-cooked-output-store-for-unreal-engine),
   [Unreal Automation Tool overview](https://dev.epicgames.com/documentation/unreal-engine/unreal-automation-tool-overview-for-unreal-engine).
-
-## Related skills
-
-- `steam-publish` / `itch-publish`: uploading the archived build.
-- `unreal-cpp-gameplay`: compile errors and automation tests.
-- `performance-optimization`: profiling the packaged build.
 
 ## Version notes
 

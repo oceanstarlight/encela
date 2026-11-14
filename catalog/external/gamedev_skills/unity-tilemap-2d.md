@@ -145,8 +145,7 @@ sub-assets.
   For Rule Tiles, paint a small block into a throwaway tilemap and read
   `GetSprite(cell)` for the corner, edge and centre cells.
 - **No CLI:** a PlayMode or EditMode test can build a `Grid` and `Tilemap` in code, call
-  `SetTilesBlock`, and assert `GetUsedTilesCount()` and `GetSprite` results (setup in
-  `unity-csharp-scripting`).
+  `SetTilesBlock`, and assert `GetUsedTilesCount()` and `GetSprite` results.
 - **Looks:** ask the user to enter Play mode and report any visible seams or sorting
   problems, with a screenshot if possible.
 
@@ -170,13 +169,6 @@ sub-assets.
   erased until you call `CompressBounds()`.
 - **Paint lands on the wrong layer.** The Tile Palette paints into its Active Tilemap; check
   that dropdown, or set the tilemap reference explicitly in code.
-
-## Related skills
-
-- `level-design`: blockout, pacing and layout practice.
-- `procedural-gen`: generating the tile data you feed to `SetTilesBlock`.
-- `unity-physics`: `Rigidbody2D` movement and 2D queries against the merged collider.
-- `platformer`, `roguelike`, `puzzle`: genres that combine this with movement and generation.
 
 ## Version notes
 

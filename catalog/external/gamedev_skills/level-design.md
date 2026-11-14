@@ -232,13 +232,6 @@ the level must never trap them; a one-way drop into a dead end fails that call.
   introduce-develop-twist-test loop for a new mechanic, choosing gating tools, guiding players
   through 2D or 3D space, or running a blockout review.
 
-## Related skills
-
-- `platformer`: jump tuning that produces the metrics; re-measure after it changes.
-- `procedural-gen`: generated layouts that complement authored structure.
-- `godot-tilemap`, `unity-tilemap-2d`: painting the 2D grid.
-- `game-ai`: enemies that navigate the space; `camera-systems`: what the player can see.
-
 ## Version notes
 
 Last verified: 2026-11-11.
