@@ -1,0 +1,1121 @@
+// `encela mcp`: the MCP server the plugin gives Claude Code (stdio).
+//
+// - Pieces: find_pieces, get_piece, piece_add look through and add to the
+//   registry.
+// - Blueprints: blueprint_save, blueprint_get, blueprint_approve,
+//   blueprint_assemble, blueprint_step. Nothing is assembled before the user
+//   has approved the blueprint.
+// - The hub: an MCP server piece starts only when it is opened; its tools
+//   then appear as <piece>__<tool>. A CLI or library piece hands over its
+//   guide, a document piece its text.
+// - Pipelines: pipeline_run, pipeline_resume, pipeline_get. Encela makes a
+//   pipeline's tool calls itself and passes data from piece to piece; only a
+//   short report, and the steps that need judgment, come back to Claude.
+// - The `go` prompt: the whole flow for one request.
+import { createHash } from "node:crypto";
+import { createInterface } from "node:readline";
+import { briefs, type Copy, writeCopies } from "./assemble";
+import {
+  approve,
+  type Blueprint,
+  Blueprints,
+  MAIN,
+  normalizeBlueprint,
+  progress,
+  ready,
+  render,
+  type StepStatus,
+} from "./blueprint";
+import { Client, forThisOs, supported } from "./client";
+import { type Answer, Engine, type Host } from "./engine";
+import { lang, projectDir, VERSION } from "./paths";
+import { cautions, isDocument, KINDS, type McpConfig, type Piece, type PieceKind } from "./piece";
+import { describe, markedSteps, marksOf, type Pipeline, PipelineError } from "./pipeline";
+import { Registry } from "./registry";
+import { Sandbox } from "./sandbox";
+import { signature } from "./schema";
+import { line, search } from "./search";
+import { type KnownTool, knownTool, ToolCache } from "./tools";
+
+type Json = Record<string, unknown>;
+const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
+/** Claude Code names a plugin's tool `mcp__plugin_encela_encela__<name>`; the API allows 64. */
+const MAX_TOOL_NAME = 64 - "mcp__plugin_encela_encela__".length;
+/** How long the user has to answer the approval question. */
+const ASK_TIMEOUT = 30 * 60_000;
+
+/** How a request goes through Encela; the server's instructions, the `go` prompt and the command use it. */
+export const FLOW = `How to take a request through Encela (the encela:orchestrate skill has the details):
+1. Analyse the request: the goal, the requirements, what is unknown.
+2. Find pieces with find_pieces, several queries of English keywords at once (what the task needs, not the user's words: "an app like Paint" needs frontend design and canvas drawing). Read the promising ones with get_piece. Something needed that Encela lacks can be found outside and kept with piece_add.
+3. Write the blueprint with blueprint_save: goal, requirements, the pieces with each one's role and why, workers for parts that can run side by side, ordered steps, and choices the user should make. Keep only pieces that clearly help; a blueprint with no pieces is fine.
+4. Show the blueprint to the user and call blueprint_approve. Never assemble or build before it is approved; when the user wants changes, save the blueprint again and ask again.
+5. Call blueprint_assemble: MCP pieces start (their tools appear as <piece>__<tool>), documents get working copies, and you get a brief for each worker.
+6. Build: adapt the working copies as the blueprint says (encela:assembler subagent), run workers whose steps don't depend on each other as parallel subagents with their briefs, and record each step with blueprint_step. Where one tool runs over many items, or a tool's large output only feeds another tool, put that chain in the blueprint as a pipeline and run it with pipeline_run: Encela makes the calls and you get a short report.
+7. When every step is done, tell the user what was built and with which pieces.`;
+
+const INSTRUCTIONS = `Encela holds pieces for Claude Code: MCP servers, command line tools, libraries, skills, rules, instructions and subagents. For a request that builds, changes or produces something beyond a quick answer, Encela turns it into a blueprint the user approves, then assembles the pieces. Nothing runs until then.\n${FLOW}`;
+
+export function exposed(piece: string, tool: string): string {
+  const clean = (s: string) => s.replace(/[^A-Za-z0-9_-]/g, "_");
+  const full = `${clean(piece)}__${clean(tool)}`;
+  if (full.length <= MAX_TOOL_NAME) return full;
+  const hash = createHash("sha256").update(`${piece}\0${tool}`).digest("hex").slice(0, 6);
+  return `${full.slice(0, MAX_TOOL_NAME - hash.length - 1)}_${hash}`;
+}
+
+const text = (t: string, isError = false) => ({ content: [{ type: "text", text: t }], isError });
+
+function tool(
+  name: string,
+  description: string,
+  properties: Json,
+  required: string[],
+  readOnly: boolean,
+  annotations: Json = {},
+) {
+  return {
+    name,
+    description,
+    inputSchema: { type: "object", properties, required },
+    annotations: {
+      readOnlyHint: readOnly,
+      destructiveHint: false,
+      openWorldHint: !readOnly,
+      ...annotations,
+    },
+  };
+}
+
+function ownTools() {
+  const piece = { type: "string", description: "A piece id, e.g. mcp:repomix" };
+  const blueprint = { type: "string", description: "The blueprint's id" };
+  const strings = { type: "array", items: { type: "string" } };
+  return [
+    tool(
+      "find_pieces",
+      "Searches Encela's pieces (MCP servers, CLIs, libraries, skills, rules, instructions, subagents) by keywords. Give several queries at once, in English, for what the task needs. Returns ids with one line each; you decide which ones fit.",
+      {
+        queries: { ...strings, description: 'e.g. ["frontend design", "canvas drawing", "e2e"]' },
+        kinds: { type: "array", items: { type: "string", enum: [...KINDS] } },
+        limit: { type: "number", description: "How many to return (15)" },
+      },
+      ["queries"],
+      true,
+    ),
+    tool(
+      "get_piece",
+      "A piece in full: what it does, takes and gives, where it comes from, what the user should know before it is used, a document's text, and for an MCP piece that has run before, its tools with their arguments.",
+      { id: piece },
+      ["id"],
+      true,
+    ),
+    tool(
+      "piece_add",
+      "Keeps a piece found outside Encela (an MCP server, CLI or library from GitHub, or a skill, rule, instruction or subagent). It can be used once the user approves a blueprint that includes it.",
+      {
+        piece: {
+          type: "object",
+          description:
+            "kind, name, summary, tags, capabilities, inputs, outputs, source {repo, commit, path}, license, warnings; for mcp: config {transport stdio|http, command, args, env, url, headers}; for cli/library: guide, install; for documents: body",
+        },
+      },
+      ["piece"],
+      false,
+    ),
+    tool(
+      "blueprint_save",
+      "Saves a blueprint (a new one, or a changed one with its id) and returns it as text to show the user. Changing the pieces of an approved blueprint needs approval again.",
+      {
+        blueprint: {
+          type: "object",
+          description:
+            "id (only when changing one), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, retry, onError, parallel, after. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}.",
+        },
+      },
+      ["blueprint"],
+      false,
+    ),
+    tool(
+      "blueprint_get",
+      "A blueprint as text and as data; without an id, the one being built (or the latest) and the list of the project's blueprints. With `pipeline`, that pipeline alone, as JSON.",
+      { id: blueprint, pipeline: { type: "string", description: "A pipeline's name" } },
+      [],
+      true,
+    ),
+    tool(
+      "blueprint_approve",
+      "Asks the user to approve a blueprint. Where the user can't be asked directly, ask them yourself (AskUserQuestion) after showing the blueprint, then pass their answer in user_answer.",
+      {
+        id: blueprint,
+        user_answer: {
+          type: "string",
+          enum: ["approve", "revise", "cancel"],
+          description: "What the user answered when you asked them",
+        },
+        note: { type: "string", description: "What the user said, e.g. the changes they want" },
+      },
+      ["id"],
+      false,
+    ),
+    tool(
+      "blueprint_assemble",
+      "Assembles an approved blueprint: starts its MCP pieces, writes working copies of its documents into .encela/build/, and returns a brief for each worker.",
+      { id: blueprint },
+      ["id"],
+      false,
+    ),
+    tool(
+      "blueprint_step",
+      "Records where a step stands (doing, done, failed) with a short note, and returns the steps that can start next.",
+      {
+        id: blueprint,
+        step: { type: "string", description: "The step's id" },
+        status: { type: "string", enum: ["todo", "doing", "done", "failed"] },
+        note: { type: "string" },
+      },
+      ["id", "step", "status"],
+      false,
+    ),
+    tool(
+      "piece_open",
+      "Opens a piece outside a blueprint: an MCP server starts and its tools are added as <piece>__<tool>; a CLI or library returns its guide; a document returns its text.",
+      { id: piece },
+      ["id"],
+      false,
+    ),
+    tool(
+      "piece_tools",
+      "The tools of a running MCP piece with their input schemas.",
+      { id: piece, tools: strings },
+      ["id"],
+      true,
+    ),
+    tool(
+      "piece_call",
+      "Calls a tool of a running MCP piece by its own name, when the <piece>__<tool> tools didn't appear (e.g. inside a subagent).",
+      { id: piece, tool: { type: "string" }, arguments: { type: "object" } },
+      ["id", "tool"],
+      false,
+    ),
+    tool(
+      "piece_close",
+      "Stops a running MCP piece and removes its tools.",
+      { id: piece },
+      ["id"],
+      false,
+    ),
+    tool(
+      "pipeline_run",
+      "Runs a pipeline of an approved blueprint. Encela makes its tool calls itself and passes data from piece to piece, so the results stay out of your context. Returns a short report: where each step stands, where its output is, and the one call to make next. A run still going after `wait` seconds keeps going; pipeline_get waits for it again.",
+      {
+        id: blueprint,
+        pipeline: { type: "string", description: "The pipeline's name" },
+        inputs: { type: "object", description: "Values for the pipeline's inputs" },
+        wait: { type: "number", description: "Seconds to wait for it (50; at most 100)" },
+      },
+      ["id", "pipeline"],
+      false,
+      // It runs whatever the pipeline's tools do.
+      { destructiveHint: true, openWorldHint: true },
+    ),
+    tool(
+      "pipeline_resume",
+      "Continues a run. answers: what you worked out for the steps that wait for you, each {step, output} (or {step, file} for an answer written to a file in the run's folder). retry: true runs a failed or interrupted run again from the first failed or changed step, with the pipeline as the blueprint has it now. cancel: true stops it.",
+      {
+        run: { type: "string", description: "The run's id" },
+        answers: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { step: { type: "string" }, output: {}, file: { type: "string" } },
+            required: ["step"],
+          },
+        },
+        retry: { type: "boolean" },
+        cancel: { type: "boolean" },
+        wait: { type: "number", description: "Seconds to wait for it (50; at most 100)" },
+      },
+      ["run"],
+      false,
+      { destructiveHint: true, openWorldHint: true },
+    ),
+    tool(
+      "pipeline_get",
+      'A run\'s report (the latest run when `run` is left out), after waiting up to `wait` seconds for it to need you. With `step`: that step\'s output, cut at `max` characters; `query` is a jq expression over the output object {text, json, structured, file, files, items, ...}, e.g. ".json.items[:5]" or ".text | split("\\n")[:20]". For a step that waits for you, what it asks.',
+      {
+        run: { type: "string", description: "The run's id" },
+        step: { type: "string", description: "A step's id" },
+        query: { type: "string", description: "A jq expression over the step's output" },
+        max: { type: "number", description: "Characters to return at most (4000; up to 20000)" },
+        wait: { type: "number", description: "Seconds to wait (0; at most 100)" },
+      },
+      [],
+      true,
+    ),
+  ];
+}
+
+interface Running {
+  client: Client;
+  /** The only tools to show, or null for all. */
+  allow: Set<string> | null;
+  /** The extra environment it was started with: another blueprint's settings need another process. */
+  env: Record<string, string>;
+}
+
+export interface ServerOptions {
+  project?: string;
+  registry?: Registry;
+  tools?: ToolCache;
+}
+
+const envKey = (env: Record<string, string>) => JSON.stringify(Object.entries(env).sort());
+const seconds = (v: unknown, fallback: number) =>
+  Math.min(100, Math.max(0, Number.isFinite(Number(v)) && v !== undefined ? Number(v) : fallback));
+
+export class Server {
+  private open = new Map<string, Running>();
+  private starting = new Map<string, Promise<Client>>();
+  private changed = false;
+  private canAsk = false;
+  private nextId = 1;
+  private asked = new Map<number, (m: Json) => void>();
+  private project: string;
+  private registry: Registry;
+  private blueprints: Blueprints;
+  private tools: ToolCache;
+  private sandbox = new Sandbox();
+  private engine: Engine;
+  private progressed = 0;
+
+  constructor(
+    private send: (m: Json) => void,
+    opts: ServerOptions = {},
+  ) {
+    this.project = opts.project ?? projectDir();
+    this.registry = opts.registry ?? new Registry();
+    this.tools = opts.tools ?? new ToolCache();
+    this.blueprints = new Blueprints(this.project);
+    this.engine = new Engine(this.project, this.host(), (source, input, vars) =>
+      this.sandbox.run(source, input, vars),
+    );
+  }
+
+  /** What the pipeline engine may do with the running pieces. */
+  private host(): Host {
+    return {
+      call: async (id, name, args, timeout) => {
+        const piece = this.registry.get(id);
+        let running = this.running(piece.name);
+        if (!running.client.alive) {
+          // Its process died: start it again as it was, then make the call.
+          await this.openPiece(piece, [...(running.allow ?? [])], running.env);
+          running = this.running(piece.name);
+        }
+        return running.client.call(name, args, timeout);
+      },
+      tools: (id) => {
+        const piece = this.registry.find(id);
+        const running = piece && this.open.get(piece.name);
+        return running ? running.client.tools().map(knownTool) : null;
+      },
+    };
+  }
+
+  /** The reply to a message; notifications and replies get none. */
+  async handle(m: Json): Promise<Json | null> {
+    if (m.id !== undefined && typeof m.method !== "string") {
+      // The client's answer to something this server asked.
+      this.asked.get(m.id as number)?.(m);
+      this.asked.delete(m.id as number);
+      return null;
+    }
+    if (m.id === undefined || typeof m.method !== "string") return null;
+    const params = (m.params as Json) ?? {};
+    const ok = (result: unknown) => ({ jsonrpc: "2.0", id: m.id, result });
+    switch (m.method) {
+      case "initialize": {
+        const asked = String(params.protocolVersion ?? "");
+        this.canAsk = !!(params.capabilities as Json | undefined)?.elicitation;
+        return ok({
+          protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
+          capabilities: { tools: { listChanged: true }, prompts: { listChanged: false } },
+          serverInfo: { name: "encela", version: VERSION },
+          instructions: INSTRUCTIONS,
+        });
+      }
+      case "ping":
+        return ok({});
+      case "tools/list":
+        return ok({ tools: await this.toolList() });
+      case "tools/call": {
+        const result = await this.call(
+          String(params.name ?? ""),
+          (params.arguments as Json) ?? {},
+          (params._meta as Json | undefined)?.progressToken,
+        );
+        if (this.changed) {
+          this.changed = false;
+          queueMicrotask(() =>
+            this.send({ jsonrpc: "2.0", method: "notifications/tools/list_changed" }),
+          );
+        }
+        return ok(result);
+      }
+      case "prompts/list":
+        return ok({
+          prompts: [
+            {
+              name: "go",
+              description: "Blueprint, approve, assemble, build: one request through Encela",
+              arguments: [{ name: "request", description: "What you want made", required: true }],
+            },
+          ],
+        });
+      case "prompts/get": {
+        const request = String((params.arguments as Json | undefined)?.request ?? "");
+        return ok({
+          description: "Take a request through Encela",
+          messages: [
+            { role: "user", content: { type: "text", text: `${request}\n\n[Encela]\n${FLOW}` } },
+          ],
+        });
+      }
+      default:
+        return {
+          jsonrpc: "2.0",
+          id: m.id,
+          error: { code: -32601, message: `Method not found: ${m.method}` },
+        };
+    }
+  }
+
+  /** Asks the client something (the user, through an elicitation) and waits for the answer. */
+  private ask(method: string, params: Json, timeout: number): Promise<Json> {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.asked.delete(id);
+        reject(new Error("No answer in time"));
+      }, timeout);
+      this.asked.set(id, (m) => {
+        clearTimeout(timer);
+        if (m.error) reject(new Error(String((m.error as Json).message ?? "error")));
+        else resolve((m.result as Json) ?? {});
+      });
+      this.send({ jsonrpc: "2.0", id, method, params });
+    });
+  }
+
+  async toolList(): Promise<Json[]> {
+    const tools: Json[] = ownTools();
+    for (const [name, running] of this.open) {
+      for (const t of await running.client.freshTools()) {
+        if (running.allow && !running.allow.has(String(t.name))) continue;
+        tools.push({
+          ...t,
+          name: exposed(name, String(t.name)),
+          description: `[${name}] ${String(t.description ?? "")}`,
+        });
+      }
+    }
+    return tools;
+  }
+
+  async call(name: string, args: Json, progressToken?: unknown): Promise<Json> {
+    try {
+      switch (name) {
+        case "find_pieces":
+          return text(this.findPieces(args));
+        case "get_piece": {
+          const piece = this.registry.get(String(args.id ?? ""));
+          return text(pieceText(piece, this.tools.load(piece.name, piece.config)));
+        }
+        case "pipeline_run":
+          return text(await this.pipelineRun(args, progressToken));
+        case "pipeline_resume":
+          return text(await this.pipelineResume(args, progressToken));
+        case "pipeline_get":
+          return text(await this.pipelineGet(args, progressToken));
+        case "piece_add":
+          return text(this.addPiece(args.piece));
+        case "blueprint_save":
+          return text(this.saveBlueprint(args.blueprint));
+        case "blueprint_get":
+          return text(
+            this.getBlueprint(args.id as string | undefined, args.pipeline as string | undefined),
+          );
+        case "blueprint_approve":
+          return text(await this.approve(args));
+        case "blueprint_assemble":
+          return text(await this.assemble(String(args.id ?? "")));
+        case "blueprint_step":
+          return text(this.step(args));
+        case "piece_open":
+          return text(await this.openPiece(this.registry.get(String(args.id ?? ""))));
+        case "piece_tools":
+          return text(await this.pieceTools(String(args.id ?? ""), args.tools as string[]));
+        case "piece_call": {
+          const piece = this.registry.get(String(args.id ?? ""));
+          const running = this.running(piece.name);
+          const wanted = String(args.tool ?? "");
+          if (running.allow && !running.allow.has(wanted)) {
+            throw new Error(`The blueprint doesn't allow ${piece.name}'s tool ${wanted}`);
+          }
+          return await running.client.call(wanted, args.arguments);
+        }
+        case "piece_close":
+          return text(this.closePiece(this.registry.get(String(args.id ?? "")).name));
+        default: {
+          for (const [piece, running] of this.open) {
+            const t = running.client.tools().find((x) => exposed(piece, String(x.name)) === name);
+            if (t && (!running.allow || running.allow.has(String(t.name)))) {
+              return await running.client.call(String(t.name), args);
+            }
+          }
+          return text(`Unknown tool ${name}. Its piece isn't running: assemble or open it.`, true);
+        }
+      }
+    } catch (e) {
+      return text(e instanceof Error ? e.message : String(e), true);
+    }
+  }
+
+  private findPieces(args: Json): string {
+    const queries = Array.isArray(args.queries)
+      ? args.queries.map(String)
+      : [String(args.queries ?? args.query ?? "")];
+    const kinds = Array.isArray(args.kinds) ? (args.kinds as PieceKind[]) : undefined;
+    const found = search(this.registry.all(), queries, {
+      kinds,
+      limit: Number(args.limit) > 0 ? Number(args.limit) : 15,
+    });
+    if (!found.length) {
+      return "No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look outside (GitHub) and keep what you find with piece_add, or go without.";
+    }
+    return `${found.map((m) => line(m.piece)).join("\n")}\n\nThese are keyword matches. Read the ones that look right with get_piece and keep only what clearly helps.`;
+  }
+
+  private addPiece(raw: unknown): string {
+    const piece = this.registry.add(raw, "claude");
+    const notes = cautions(piece);
+    return `Kept ${piece.id}.${piece.trusted ? "" : " It can run once the user approves a blueprint that includes it."}${notes.length ? `\nThe user will be shown:\n${notes.map((c) => `- ${c}`).join("\n")}` : ""}`;
+  }
+
+  private saveBlueprint(raw: unknown): string {
+    const given = (raw ?? {}) as Json;
+    const id = String(given.id ?? "").trim();
+    const previous = id ? this.blueprints.load(id) : null;
+    // Only pipelines given for a saved blueprint: change those, keep the rest.
+    const patch = !!previous && Array.isArray(given.pipelines) && given.goal === undefined;
+    let input: unknown = raw;
+    if (previous && patch) {
+      const changed = (given.pipelines as Json[]).filter((p) => p && typeof p === "object");
+      const names = new Set(changed.map((p) => String(p.name ?? "")));
+      input = {
+        ...previous,
+        pipelines: [
+          ...previous.pipelines.filter((p) => !names.has(p.name)),
+          ...changed.filter((p) => p.remove !== true),
+        ],
+      };
+    }
+    const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
+    if (!previous) b.id = this.blueprints.freeId(b.id);
+    this.blueprints.save(b);
+    const marker = (piece: string, name: string) => this.marks(piece, name);
+    const again =
+      previous && previous.status !== "draft" && b.status === "draft"
+        ? " It was approved before; what changed (the pieces, or a pipeline call that may change things or reach outside) needs the user's approval again."
+        : "";
+    if (patch) {
+      const shown = b.pipelines
+        .filter((p) => (given.pipelines as Json[]).some((g) => g?.name === p.name))
+        .flatMap((p) => describe(p, marker));
+      return `${shown.join("\n") || "Removed."}\n\nSaved ${b.id}; it is ${b.status}.${again}${b.status === "draft" ? " Show the user the changed pipelines, then call blueprint_approve." : ""}`;
+    }
+    const next =
+      b.status === "draft"
+        ? `Show this blueprint to the user in their language (every piece, its warnings marked with !, every pipeline with its marked calls and their arguments, and the choices), then call blueprint_approve.${again}`
+        : `Saved; still ${b.status} (nothing the user approved has changed).`;
+    return `${render(b, this.registry, false, this.tools)}\n\n${next}`;
+  }
+
+  /** A tool's marks: from the running piece when there is one, else from what it showed last time. */
+  private marks(pieceId: string, name: string) {
+    const piece = this.registry.find(pieceId);
+    const running = piece && this.open.get(piece.name);
+    const known = running
+      ? running.client.tools().map(knownTool)
+      : piece
+        ? this.tools.load(piece.name, piece.config)
+        : null;
+    return marksOf(name, known);
+  }
+
+  private getBlueprint(id?: string, pipeline?: string): string {
+    const all = this.blueprints.list();
+    const b = id ? this.blueprints.get(id) : (this.blueprints.active() ?? all[0]);
+    if (!b) return "This project has no blueprint yet.";
+    if (pipeline) {
+      const p = b.pipelines.find((x) => x.name === pipeline);
+      if (!p) {
+        throw new Error(
+          `No pipeline "${pipeline}" in ${b.id}: ${b.pipelines.map((x) => x.name).join(", ") || "it has none"}`,
+        );
+      }
+      return JSON.stringify(p, null, 1);
+    }
+    const others = all
+      .filter((x) => x.id !== b.id)
+      .map((x) => `- ${x.id} (${x.status}, ${progress(x)}): ${x.goal}`);
+    const next = ready(b).map((s) => `- ${s.id}: ${s.title}`);
+    return [
+      render(b, this.registry, false, this.tools),
+      next.length && b.status === "assembled" ? `\nCan start now:\n${next.join("\n")}` : "",
+      // Pipelines stay out of the data: a save without them keeps them, and one is read with `pipeline`.
+      `\nData (without pipelines):\n${JSON.stringify({ ...b, pipelines: undefined })}`,
+      others.length && !id ? `\nOther blueprints:\n${others.join("\n")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  /** The user's decision on a blueprint: asked here when the client allows, else passed in. */
+  private async approve(args: Json): Promise<string> {
+    const b = this.blueprints.get(String(args.id ?? ""));
+    if (b.status === "approved" || b.status === "assembled") {
+      return `${b.id} is already approved. Call blueprint_assemble.`;
+    }
+    let answer = "";
+    let note = String(args.note ?? "").trim();
+    let direct = false;
+    if (this.canAsk) {
+      try {
+        const reply = await this.ask(
+          "elicitation/create",
+          {
+            message: `${render(b, this.registry, true, this.tools)}\n\nApprove this blueprint?`,
+            requestedSchema: {
+              type: "object",
+              properties: {
+                decision: {
+                  type: "string",
+                  title: "Decision",
+                  enum: ["approve", "revise", "cancel"],
+                  enumNames: ["Approve and build", "I want changes", "Cancel"],
+                },
+                note: { type: "string", title: "Changes or notes (optional)" },
+              },
+              required: ["decision"],
+            },
+          },
+          ASK_TIMEOUT,
+        );
+        direct = true;
+        const content = (reply.content as Json) ?? {};
+        if (reply.action !== "accept") {
+          return `The user closed the approval question without deciding, so ${b.id} is still a draft and nothing may be assembled. Ask them what they would like to do.`;
+        }
+        answer = String(content.decision ?? "");
+        note = String(content.note ?? "").trim() || note;
+      } catch {
+        // The client said it could ask but didn't: fall back to Claude asking.
+      }
+    }
+    if (!direct) {
+      answer = String(args.user_answer ?? "");
+      if (!["approve", "revise", "cancel"].includes(answer)) {
+        return `The user hasn't decided yet. Show them the blueprint, ask with AskUserQuestion (approve / change something / cancel; let them drop or swap pieces), then call blueprint_approve again with user_answer and what they said in note.\n\n${render(b, this.registry, false, this.tools)}`;
+      }
+    }
+    b.approvalNote = note;
+    b.updatedAt = new Date().toISOString();
+    if (answer === "approve") {
+      approve(b, direct ? "direct" : "relayed", this.registry, this.tools);
+      this.blueprints.save(b);
+      // The user has now seen what each outside piece is and runs.
+      this.registry.trust(b.pieces.map((p) => p.piece));
+      const relayed =
+        !direct && b.approvedCalls.length
+          ? " Its pipelines have calls that may change things or reach outside, and the user's answer came through you, not to Encela directly: Encela won't run those pipelines itself. Make those calls one at a time instead, so the user sees each."
+          : "";
+      return `Approved${note ? ` with a note: ${note}` : ""}. Call blueprint_assemble with id ${b.id}.${relayed}`;
+    }
+    if (answer === "cancel") {
+      b.status = "cancelled";
+      this.blueprints.save(b);
+      return `The user cancelled this blueprint${note ? `: ${note}` : ""}. Don't build it; ask what they want instead.`;
+    }
+    this.blueprints.save(b);
+    return `The user wants changes${note ? `: ${note}` : " (ask them which)"}. Change the blueprint, save it with blueprint_save (id ${b.id}) and ask for approval again.`;
+  }
+
+  private async assemble(id: string): Promise<string> {
+    const b = this.blueprints.get(id);
+    if (b.status !== "approved" && b.status !== "assembled") {
+      throw new Error(
+        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing was assembled.`,
+      );
+    }
+    const usage = new Map<string, string>();
+    const out: string[] = [`Assembled ${b.id}: ${b.goal}`, "", "## Pieces"];
+    let failed = 0;
+    const copies = writeCopies(
+      b,
+      (pid) => this.registry.find(pid),
+      this.blueprints.buildDir(b.id),
+      this.project,
+    );
+    for (const entry of b.pieces) {
+      const piece = this.registry.find(entry.piece);
+      if (!piece) {
+        failed++;
+        out.push(`- ${entry.piece}: no longer in the registry`);
+        continue;
+      }
+      if (isDocument(piece.kind)) {
+        const copy = copies.find((c) => c.piece.id === piece.id) as Copy;
+        usage.set(piece.id, documentUsage(copy));
+        out.push(
+          `- ${piece.id}: working copy at ${copy.path}${copy.written ? "" : " (kept the one already there)"}${entry.adapt ? `. To adapt: ${entry.adapt}` : ""}`,
+        );
+        continue;
+      }
+      if (piece.kind !== "mcp") {
+        usage.set(piece.id, `${piece.id} (${entry.role}): ${guideText(piece)}`);
+        out.push(`- ${piece.id}: ${guideText(piece)}`);
+        continue;
+      }
+      try {
+        const opened = await this.openPiece(piece, entry.tools, entry.env);
+        usage.set(
+          piece.id,
+          `${piece.id} (${entry.role}): MCP tools named ${exposed(piece.name, "<tool>")}; if they aren't in your tool list, call them with the encela tool piece_call {id: "${piece.id}", tool, arguments} (schemas: piece_tools).`,
+        );
+        out.push(`- ${opened}`);
+      } catch (e) {
+        failed++;
+        usage.set(piece.id, `${piece.id}: could not be started`);
+        out.push(`- ${piece.id}: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    b.status = "assembled";
+    b.updatedAt = new Date().toISOString();
+    this.blueprints.save(b);
+
+    const toAdapt = copies.filter((c) => c.entry.adapt);
+    if (toAdapt.length) {
+      out.push(
+        "",
+        "## Adapt first",
+        "Hand these working copies to the encela:assembler subagent (or edit them yourself) before the steps that use them. Only the copies change, never the pieces:",
+        ...toAdapt.map((c) => `- ${c.path}: ${c.entry.adapt}`),
+      );
+    }
+    out.push("", "## Briefs");
+    for (const brief of briefs(b, (pid) => usage.get(pid) ?? pid)) {
+      out.push(
+        brief.worker === MAIN
+          ? brief.text
+          : `Start a subagent for this worker with the brief below, in parallel with other workers whose steps don't wait on each other:\n${brief.text}`,
+        "",
+      );
+    }
+    const first = ready(b).map((s) => `${s.id} (${s.worker})`);
+    out.push(
+      `Can start now: ${first.join(", ") || "nothing (every step is done or waiting)"}`,
+      "Record each step with blueprint_step as it starts and ends.",
+    );
+    if (failed) {
+      out.push(
+        `${failed} piece(s) could not be set up: tell the user, and go on without them or fix the blueprint.`,
+      );
+    }
+    return out.join("\n");
+  }
+
+  private step(args: Json): string {
+    const b = this.blueprints.get(String(args.id ?? ""));
+    if (b.status !== "assembled" && b.status !== "done") {
+      throw new Error(`${b.id} is ${b.status}: approve and assemble it before working on steps.`);
+    }
+    const s = b.steps.find((x) => x.id === String(args.step ?? ""));
+    if (!s)
+      throw new Error(`No step "${args.step}" in ${b.id}: ${b.steps.map((x) => x.id).join(", ")}`);
+    const status = String(args.status ?? "") as StepStatus;
+    if (!["todo", "doing", "done", "failed"].includes(status)) {
+      throw new Error("status is todo, doing, done or failed");
+    }
+    s.status = status;
+    if (typeof args.note === "string") s.note = args.note.trim();
+    b.updatedAt = new Date().toISOString();
+    const allDone = b.steps.every((x) => x.status === "done");
+    b.status = allDone ? "done" : "assembled";
+    this.blueprints.save(b);
+    if (allDone) {
+      // The build is over: its MCP pieces aren't needed any more.
+      const kept: string[] = [];
+      for (const entry of b.pieces) {
+        const piece = this.registry.find(entry.piece);
+        if (!piece || !this.open.has(piece.name)) continue;
+        if (this.engine.uses(piece.id)) kept.push(piece.id);
+        else this.closePiece(piece.name);
+      }
+      return `Every step of ${b.id} is done and its MCP pieces are stopped${kept.length ? ` (except ${kept.join(", ")}, which a pipeline run still uses)` : ""}. Tell the user what was built, with which pieces, and anything left open.`;
+    }
+    const next = ready(b).map((x) => `- ${x.id} (${x.worker}): ${x.title}`);
+    return `${s.id} is ${status}. ${progress(b)}.${next.length ? `\nCan start now:\n${next.join("\n")}` : ""}`;
+  }
+
+  /** Starts an MCP piece (or hands over a guide or a document's text). */
+  async openPiece(piece: Piece, tools: string[] = [], env: Record<string, string> = {}) {
+    if (!piece.trusted) {
+      throw new Error(
+        `${piece.id} was found outside Encela and the user hasn't approved it. Put it in a blueprint; it can run once that is approved.`,
+      );
+    }
+    if (isDocument(piece.kind)) return pieceText(piece);
+    if (piece.kind !== "mcp") return guideText(piece);
+    const config = piece.config as McpConfig;
+    if (!supported(config)) {
+      throw new Error(
+        `Encela can't start ${piece.name} (${config.transport}). Add it to the project's MCP servers instead.`,
+      );
+    }
+    let running = this.open.get(piece.name);
+    if (running && (!running.client.alive || envKey(running.env) !== envKey(env))) {
+      // Its process died, or it runs with another blueprint's settings: it has to start anew.
+      if (running.client.alive && this.engine.uses(piece.id)) {
+        throw new Error(
+          `${piece.id} is running with other settings for a pipeline run that isn't finished. Let that run finish or cancel it first.`,
+        );
+      }
+      running.client.close();
+      this.open.delete(piece.name);
+      running = undefined;
+    }
+    if (!running) {
+      let start = this.starting.get(piece.name);
+      if (!start) {
+        const withEnv = { ...config, env: { ...config.env, ...env } };
+        const name = piece.name;
+        start = Client.start(forThisOs(withEnv), this.project, () => {
+          this.send({ jsonrpc: "2.0", method: "notifications/tools/list_changed" });
+          // What it says about its tools changed: keep the new list for the next blueprint.
+          const now = this.open.get(name);
+          void now?.client.freshTools().then((list) => this.tools.save(name, config, list));
+        });
+        this.starting.set(piece.name, start);
+      }
+      let client: Client;
+      try {
+        client = await start;
+      } catch (e) {
+        throw new Error(`Couldn't start ${piece.name}: ${e instanceof Error ? e.message : e}`);
+      } finally {
+        this.starting.delete(piece.name);
+      }
+      running = this.open.get(piece.name) ?? { client, allow: null, env };
+      this.open.set(piece.name, running);
+      this.changed = true;
+      // Kept so that later blueprints can be checked, and their tools marked, before anything starts.
+      this.tools.save(piece.name, config, client.tools());
+    }
+    const allow = tools.length ? new Set(tools) : null;
+    if (JSON.stringify([...(running.allow ?? [])]) !== JSON.stringify([...(allow ?? [])])) {
+      running.allow = allow;
+      this.changed = true;
+    }
+    const lines = running.client
+      .tools()
+      .filter((t) => !allow || allow.has(String(t.name)))
+      .map((t) => {
+        const about = String(t.description ?? "").split("\n")[0];
+        return `  - ${exposed(piece.name, String(t.name))} (tool ${t.name}): ${about}`;
+      });
+    let out = `${piece.id} is running with ${lines.length} tools, now in your tool list under these names (or through piece_call):\n${lines.join("\n")}`;
+    if (piece.guide.trim()) out += `\n  How to use it: ${piece.guide.trim()}`;
+    return out;
+  }
+
+  private async pieceTools(id: string, only?: string[]): Promise<string> {
+    const running = this.running(this.registry.get(id).name);
+    const tools = (await running.client.freshTools()).filter(
+      (t) => !running.allow || running.allow.has(String(t.name)),
+    );
+    const list = only?.length ? tools.filter((t) => only.includes(String(t.name))) : tools;
+    return JSON.stringify(list, null, 2);
+  }
+
+  private closePiece(name: string): string {
+    const running = this.open.get(name);
+    if (!running) return `${name} wasn't running.`;
+    if (this.engine.uses(`mcp:${name}`)) {
+      return `${name} is still used by a pipeline run that isn't finished; it stays open. Cancel the run (pipeline_resume with cancel) to stop it.`;
+    }
+    running.client.close();
+    this.open.delete(name);
+    this.changed = true;
+    return `Stopped ${name}.`;
+  }
+
+  private running(name: string): Running {
+    const r = this.open.get(name);
+    if (!r)
+      throw new Error(`${name} isn't running. Assemble its blueprint or open it with piece_open.`);
+    return r;
+  }
+
+  closeAll() {
+    for (const r of this.open.values()) r.client.close();
+    this.open.clear();
+    this.sandbox.close();
+  }
+
+  // Pipelines --------------------------------------------------------------
+
+  /**
+   * Makes a pipeline ready to run for its blueprint: the blueprint is
+   * approved, its pieces run with the blueprint's own settings, and every
+   * call that may change things or reach outside is one the user was shown.
+   */
+  private async prepare(b: Blueprint, p: Pipeline) {
+    if (!["approved", "assembled", "done"].includes(b.status)) {
+      throw new PipelineError(
+        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing ran.`,
+      );
+    }
+    for (const id of new Set(p.steps.filter((s) => s.kind === "tool").map((s) => s.piece))) {
+      const entry = b.pieces.find((x) => x.piece === id);
+      if (!entry) throw new PipelineError(`${id} is no longer one of ${b.id}'s pieces.`);
+      await this.openPiece(this.registry.get(id), entry.tools, entry.env);
+    }
+    // With the pieces running, their tools are known as they are now.
+    const marked = markedSteps([p], (piece, name) => this.marks(piece, name));
+    const unseen = marked.filter((m) => !b.approvedCalls.includes(m.print));
+    if (unseen.length) {
+      b.status = "draft";
+      b.approvedAt = null;
+      b.approval = "";
+      b.approvedCalls = [];
+      this.blueprints.save(b);
+      throw new PipelineError(
+        `Nothing ran. ${unseen.map((m) => `${m.step.id} (${m.step.piece} ${m.step.tool})`).join(", ")} may change things or reach outside and wasn't among the calls the user approved, or it was changed since. ${b.id} is a draft again: show the user the pipeline and call blueprint_approve.`,
+      );
+    }
+    if (marked.length && b.approval !== "direct") {
+      throw new PipelineError(
+        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), or run a pipeline that only reads.`,
+      );
+    }
+    for (const s of p.steps) {
+      if (s.kind !== "tool") continue;
+      const allowed = b.pieces.find((x) => x.piece === s.piece)?.tools ?? [];
+      if (allowed.length && !allowed.includes(s.tool)) {
+        throw new PipelineError(`The blueprint doesn't allow ${s.piece}'s tool ${s.tool}.`);
+      }
+    }
+  }
+
+  /** Waits for a run to need the caller, telling the client of progress meanwhile, then reports. */
+  private async waitAndReport(
+    run: string,
+    wait: unknown,
+    fallback: number,
+    token: unknown,
+    max?: number,
+  ) {
+    const stop =
+      token === undefined || token === null
+        ? null
+        : this.engine.watch(run, (_done, total, note) =>
+            this.send({
+              jsonrpc: "2.0",
+              method: "notifications/progress",
+              params: { progressToken: token, progress: ++this.progressed, total, message: note },
+            }),
+          );
+    try {
+      await this.engine.wait(run, seconds(wait, fallback) * 1000);
+    } finally {
+      stop?.();
+    }
+    return this.engine.report(run, max);
+  }
+
+  private async pipelineRun(args: Json, token: unknown): Promise<string> {
+    const b = this.blueprints.get(String(args.id ?? ""));
+    const p = b.pipelines.find((x) => x.name === String(args.pipeline ?? ""));
+    if (!p) {
+      throw new PipelineError(
+        `No pipeline "${args.pipeline}" in ${b.id}: ${b.pipelines.map((x) => x.name).join(", ") || "it has none"}`,
+      );
+    }
+    await this.prepare(b, p);
+    const run = this.engine.start(b.id, p, args.inputs);
+    const step = b.steps.find((s) => s.pipeline === p.name);
+    const report = await this.waitAndReport(run.id, args.wait, 50, token);
+    return step
+      ? `${report}\n\n(This run does the blueprint step ${step.id}: record it with blueprint_step when the run is done.)`
+      : report;
+  }
+
+  private async pipelineResume(args: Json, token: unknown): Promise<string> {
+    const id = String(args.run ?? "");
+    const run = this.engine.get(id);
+    if (args.cancel === true) {
+      const stopped = this.engine.cancel(id);
+      return stopped.status === "cancelled"
+        ? `Cancelled ${id}. Calls that were in flight may still finish in their pieces.`
+        : `Run ${id} is ${stopped.status}; there was nothing to cancel.`;
+    }
+    const b = this.blueprints.get(run.blueprint);
+    const notes: string[] = [];
+    if (args.retry === true) {
+      const p = b.pipelines.find((x) => x.name === run.pipeline.name);
+      if (!p) throw new PipelineError(`${b.id} no longer has the pipeline ${run.pipeline.name}.`);
+      await this.prepare(b, p);
+      this.engine.retry(id, p);
+    } else {
+      const answers = (Array.isArray(args.answers) ? args.answers : []) as Answer[];
+      if (!answers.length) {
+        throw new PipelineError(
+          'Give "answers" for the waiting steps, or "retry": true, or "cancel": true.',
+        );
+      }
+      // The steps after an answer may call tools: their pieces must be running, and approved.
+      await this.prepare(b, run.pipeline);
+      notes.push(...this.engine.answer(id, answers));
+    }
+    const report = await this.waitAndReport(id, args.wait, 50, token);
+    return notes.length ? `${notes.join("\n")}\n\n${report}` : report;
+  }
+
+  private async pipelineGet(args: Json, token: unknown): Promise<string> {
+    let id = String(args.run ?? "");
+    if (!id) {
+      const open = this.engine.unfinished();
+      if (open.length > 1) {
+        throw new PipelineError(
+          `Several runs aren't finished: ${open.join(", ")}. Say which with "run".`,
+        );
+      }
+      id = open[0] ?? this.engine.latest() ?? "";
+      if (!id) return "This project has no pipeline run yet.";
+    }
+    const max = Math.min(20_000, Math.max(200, Number(args.max) || 4000));
+    if (!args.step) return this.waitAndReport(id, args.wait, 0, token, max);
+
+    const step = String(args.step);
+    const record = this.engine.get(id).steps.find((s) => s.id === step);
+    if (record?.state === "waiting") return this.engine.askText(id, step);
+    const output = this.engine.output(id, step);
+    let value: unknown = output.text;
+    if (typeof args.query === "string" && args.query.trim()) {
+      const outputs = await this.sandbox.run(args.query, output, {});
+      value = outputs.length === 1 ? outputs[0] : outputs;
+    }
+    const shown = typeof value === "string" ? value : JSON.stringify(value, null, 1);
+    if (shown.length <= max) return shown;
+    return `${shown.slice(0, max)}…\n\n(${shown.length.toLocaleString("en-US")} characters in all; the first ${max} are above. ${args.query ? "Narrow the query" : `The whole text is in ${output.file}`}.)`;
+  }
+}
+
+/** How a worker uses a document's working copy. */
+function documentUsage(c: Copy): string {
+  const how =
+    c.piece.kind === "subagent"
+      ? "the brief for a subagent: read it and give its text to the subagent you start for this"
+      : c.piece.kind === "rule" && c.piece.paths.length
+        ? `rules for ${c.piece.paths.join(", ")}: read and follow them when touching those files`
+        : "read it before starting and follow it";
+  return `${c.piece.id} (${c.entry.role}): ${c.path}, ${how}`;
+}
+
+/** A CLI or library piece: how to use it. */
+function guideText(p: Piece): string {
+  const what = p.kind === "cli" ? "a command line tool" : "a library";
+  const setup = p.install.length ? ` Set up with: ${p.install.join(" && ")}.` : "";
+  return `${what}, used with Bash or code (no MCP tools).${setup} ${p.guide.trim() || p.summary.en}`;
+}
+
+/** A piece in full, for Claude to judge and use. */
+export function pieceText(p: Piece, known: KnownTool[] | null = null): string {
+  const l = lang();
+  const out = [`${p.id} (${p.kind}) ${p.title[l]}`, p.summary[l] || p.summary.en];
+  if (p.detail) out.push(p.detail);
+  const row = (label: string, v: string[]) => v.length && out.push(`${label}: ${v.join(", ")}`);
+  row("Tags", p.tags);
+  row("Can", p.capabilities);
+  row("Takes", p.inputs);
+  row("Gives", p.outputs);
+  row("Applies to files", p.paths);
+  if (p.needs) out.push(`Needs: ${p.needs}`);
+  if (p.source) {
+    const at = p.source.commit ? `/blob/${p.source.commit}/${p.source.path}` : "";
+    out.push(`Source: https://github.com/${p.source.repo}${at}`);
+  }
+  if (p.license)
+    out.push(`License: ${p.license}${p.source?.copyright ? `, ${p.source.copyright}` : ""}`);
+  out.push(`Origin: ${p.origin}${p.trusted ? "" : " (not yet approved by the user)"}`);
+  const notes = cautions(p);
+  if (notes.length) out.push("The user should know:", ...notes.map((c) => `- ${c}`));
+  if (p.config) {
+    out.push(
+      p.config.transport === "stdio"
+        ? `Starts with: ${[p.config.command, ...p.config.args].join(" ")}`
+        : `Reached at: ${p.config.url}`,
+    );
+  }
+  if (p.install.length) out.push(`Set-up commands: ${p.install.join(" && ")}`);
+  if (known?.length) {
+    out.push(
+      "",
+      "Tools (as it listed them the last time it ran):",
+      ...known.map((t) => {
+        const marks = `${t.readOnly ? "" : " [may change things]"}${t.openWorld ? " [may reach outside]" : ""}`;
+        const about = t.description.split("\n")[0] ?? "";
+        return `- ${t.name}(${signature(t.inputSchema)})${marks}: ${about.length > 140 ? `${about.slice(0, 139)}…` : about}`;
+      }),
+    );
+  } else if (p.kind === "mcp") {
+    out.push(
+      "",
+      "Its tools aren't known yet: it hasn't run here. piece_open starts it and lists them.",
+    );
+  }
+  if (p.guide.trim()) out.push("", "How to use it:", p.guide.trim());
+  const files = Object.keys(p.files);
+  if (files.length)
+    out.push(`Reference files (written with the working copy): ${files.join(", ")}`);
+  if (p.body.trim()) out.push("", "Text:", p.body.trim());
+  return out.join("\n");
+}
+
+/** Runs the server on stdin/stdout until stdin closes. */
+export function run(): Promise<void> {
+  const send = (m: Json) => process.stdout.write(`${JSON.stringify(m)}\n`);
+  const server = new Server(send);
+  const lines = createInterface({ input: process.stdin });
+  lines.on("line", (l) => {
+    if (!l.trim()) return;
+    let message: unknown;
+    try {
+      message = JSON.parse(l);
+    } catch {
+      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
+      return;
+    }
+    for (const m of (Array.isArray(message) ? message : [message]) as Json[]) {
+      void server.handle(m).then((reply) => reply && send(reply));
+    }
+  });
+  return new Promise((resolve) =>
+    lines.on("close", () => {
+      server.closeAll();
+      resolve();
+    }),
+  );
+}

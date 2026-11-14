@@ -1,0 +1,855 @@
+[
+ {
+  "name": "sequential-thinking",
+  "kind": "mcp",
+  "repo": "modelcontextprotocol/servers",
+  "commit": "e1dc4b18dbb948921da37f3d4224a628730b43b0",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/modelcontextprotocol__servers",
+  "license": "Apache-2.0",
+  "licenseQuote": "The MCP project is undergoing a licensing transition from the MIT License to the Apache License, Version 2.0 (\"Apache-2.0\"). ... Contributions made by authors who originally licensed their work under the MIT License ... remain licensed under the MIT License. (file then holds the Apache-2.0 text; no single copyright line; docs are CC-BY-4.0 but not run)",
+  "lastCommit": "2026-11-11T01:50:30-05:00",
+  "popularity": "unknown (official reference server)",
+  "package": "npm:@modelcontextprotocol/server-sequential-thinking@2.1.1",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@modelcontextprotocol/server-sequential-thinking"
+  ],
+  "env": {
+   "DISABLE_THOUGHT_LOGGING": "true"
+  },
+  "install": [],
+  "summaryEn": "Lets the model work through a problem in revisable, branching thought steps.",
+  "summaryKo": "문제를 단계별로 나눠 생각하고, 필요하면 되돌리거나 갈라서 풀어요.",
+  "tags": [
+   "reasoning",
+   "planning",
+   "thinking"
+  ],
+  "capabilities": [
+   "record numbered thoughts",
+   "revise earlier thoughts",
+   "branch into alternatives",
+   "track how many thoughts remain"
+  ],
+  "inputs": [
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Single tool `sequentialthinking`. Call it repeatedly; each call gives one thought with thought, thoughtNumber, totalThoughts and nextThoughtNeeded, and may set isRevision or branchFromThought. Keep calling until nextThoughtNeeded is false.",
+  "guideKo": "도구는 `sequentialthinking` 하나예요. 생각 한 단계마다 thought, thoughtNumber, totalThoughts, nextThoughtNeeded를 넣어 계속 부르고, 고치거나 갈라야 하면 isRevision이나 branchFromThought를 써요. nextThoughtNeeded가 false가 되면 끝내요.",
+  "warningsEn": [
+   "Needs Node.js 24 or later (npm engines and README).",
+   "Thoughts are printed to stderr unless DISABLE_THOUGHT_LOGGING=true, which this entry sets."
+  ],
+  "warningsKo": [
+   "Node.js 24 이상이 필요해요.",
+   "생각 내용이 stderr 로그에 찍히는데, 이 항목은 DISABLE_THOUGHT_LOGGING=true로 꺼 둬요."
+  ],
+  "runEvidence": "README: \"command\": \"npx\", \"args\": [\"-y\", \"@modelcontextprotocol/server-sequential-thinking\"]; \"Node.js 24 or later, when the server runs through `npx` or from source.\" npm bin mcp-server-sequential-thinking (single bin, so npx resolves it); lib.ts reads DISABLE_THOUGHT_LOGGING.",
+  "concerns": "No telemetry code in src/sequentialthinking (grep for telemetry/posthog empty). npm license field is 'SEE LICENSE IN LICENSE' (mixed MIT/Apache-2.0 transition text, both accepted); repo-level docs are CC-BY-4.0 but only code is run.",
+  "recommend": true,
+  "reason": "Official reference server, tiny, no account, no telemetry.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Added env DISABLE_THOUGHT_LOGGING=true (lib.ts) so thoughts are not logged",
+   "Licence is a mixed MIT/Apache-2.0 transition text, noted in licenseQuote"
+  ],
+  "checked": "Read LICENSE, README, lib.ts, package.json, npm registry (bin, engines), git ls-remote matches"
+ },
+ {
+  "name": "duckdb",
+  "kind": "mcp",
+  "repo": "motherduckdb/mcp-server-motherduck",
+  "commit": "181ad176d09993b10d6aa6073810a30fe12623db",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/motherduckdb__mcp-server-motherduck",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2024 MotherDuck",
+  "lastCommit": "2026-11-11T17:58:25+00:00",
+  "popularity": "unknown",
+  "package": "pypi:mcp-server-motherduck@1.1.1",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "mcp-server-motherduck",
+   "--db-path",
+   ":memory:",
+   "--read-write"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Runs SQL on DuckDB, including CSV and Parquet files.",
+  "summaryKo": "DuckDB로 CSV, Parquet 데이터를 SQL로 분석해요.",
+  "tags": [
+   "database",
+   "sql",
+   "analytics",
+   "duckdb"
+  ],
+  "capabilities": [
+   "run DuckDB SQL",
+   "list databases, tables and columns",
+   "query CSV and Parquet files",
+   "optionally switch database"
+  ],
+  "inputs": [
+   "csv",
+   "text"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Tools: `execute_query` (DuckDB SQL), `list_databases`, `list_tables`, `list_columns`, plus `switch_database_connection` only with --allow-switch-databases. This entry uses an in-memory database with --read-write; for an existing file use --db-path /path/to.duckdb without --read-write (read-only). List tables and columns before querying.",
+  "guideKo": "도구는 `execute_query`(DuckDB SQL), `list_databases`, `list_tables`, `list_columns`이고, `switch_database_connection`은 --allow-switch-databases를 줄 때만 있어요. 이 항목은 메모리 DB에 --read-write로 시작해요. 기존 파일은 --read-write 없이 --db-path에 .duckdb 경로를 주면 읽기 전용이에요. 쿼리 전에 테이블과 컬럼부터 봐요.",
+  "warningsEn": [
+   "The in-memory database is empty and lost on exit; point --db-path at a .duckdb file (without --read-write) to query existing data read-only.",
+   "README warns that read-only mode still allows local file access and DuckDB settings changes; do not expose it to third parties.",
+   "md: paths use a MotherDuck cloud account and token; this entry does not."
+  ],
+  "warningsKo": [
+   "메모리 DB는 비어 있고 끝나면 사라져요. 기존 데이터는 --read-write 없이 --db-path에 .duckdb 파일을 줘서 읽기 전용으로 봐요.",
+   "읽기 전용이어도 로컬 파일 접근과 DuckDB 설정 변경은 가능하니 남에게 열어 주지 말아요.",
+   "md: 경로는 MotherDuck 클라우드 계정과 토큰이 필요하지만 이 항목은 쓰지 않아요."
+  ],
+  "runEvidence": "README: claude mcp add --scope user duckdb --transport stdio -- uvx mcp-server-motherduck --db-path :memory: --read-write --allow-switch-databases; read-only file example args [\"mcp-server-motherduck\",\"--db-path\",\"/absolute/path/to/your.duckdb\"]; pyproject [project.scripts] mcp-server-motherduck.",
+  "concerns": "No telemetry/posthog/sentry hits in src or pyproject (only uv.lock). Vendor is MotherDuck but the server works on local DuckDB without an account.",
+  "recommend": true,
+  "reason": "Official, MIT, works locally with no account.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Proposer claimed 'default is read-only'; README only shows read-only for a file path, and :memory: examples all use --read-write. Changed to :memory: --read-write and explained read-only usage",
+   "Summary said 'local DuckDB files'; with an in-memory default reworded",
+   "Added the README's local file access caveat"
+  ],
+  "checked": "Read LICENSE, README, pyproject scripts, grep telemetry, PyPI json (version, requires_python), git ls-remote matches"
+ },
+ {
+  "name": "svelte",
+  "kind": "mcp",
+  "repo": "sveltejs/ai-tools",
+  "commit": "d3e755be770277d8c75fe61109b103b801b12775",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/sveltejs__ai-tools",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2026 [Svelte Contributors](https://github.com/sveltejs/ai-tools/graphs/contributors)",
+  "lastCommit": "2026-11-06T16:31:32+01:00",
+  "popularity": "unknown",
+  "package": "npm:@sveltejs/mcp@0.1.30",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@sveltejs/mcp"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Official Svelte docs and a static checker for generated Svelte code.",
+  "summaryKo": "Svelte 공식 문서를 찾고, 만든 코드를 정적 분석으로 고쳐줘요.",
+  "tags": [
+   "svelte",
+   "docs",
+   "frontend",
+   "lint"
+  ],
+  "capabilities": [
+   "list doc sections",
+   "fetch full docs for sections",
+   "autofix Svelte code",
+   "create playground links"
+  ],
+  "inputs": [
+   "source-code",
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "url",
+   "matches"
+  ],
+  "guideEn": "Tools: `list-sections` to see available docs, `get-documentation` for the sections you pick, `svelte-autofixer` on generated code until no issues remain, `playground-link` for a playground URL. The same commands also run as a CLI: npx -y @sveltejs/mcp <command>.",
+  "guideKo": "도구는 `list-sections`(문서 목록), `get-documentation`(고른 섹션 문서), `svelte-autofixer`(만든 코드를 문제 없을 때까지 점검), `playground-link`(플레이그라운드 링크)예요. 같은 명령을 CLI로도 쓸 수 있어요(npx -y @sveltejs/mcp <명령>).",
+  "warningsEn": [
+   "Documentation is fetched over the network from svelte.dev."
+  ],
+  "warningsKo": [
+   "문서는 svelte.dev에서 네트워크로 가져와요."
+  ],
+  "runEvidence": "documentation/docs/30-mcp/70-cli.md: `npx -y @sveltejs/mcp` launches the local stdio MCP server; npm bin svelte-mcp (single bin).",
+  "concerns": "The `track` hook (usage events) exists only in the shared mcp-server package and is passed in by the hosted apps/mcp-remote; grep of packages/mcp-stdio/src finds no custom/track, so the npx stdio server sends no usage events. Not run.",
+  "recommend": true,
+  "reason": "Official Svelte project, MIT, active, no account.",
+  "verdict": "accept",
+  "problems": [
+   "Dropped the unverified 'playground code is only in the URL' claim and the hosted URL sentence from guide"
+  ],
+  "checked": "Read LICENSE, docs 70-cli.md, handlers/tools, grep track in mcp-stdio, npm registry (bin, license), git ls-remote matches"
+ },
+ {
+  "name": "mobile-mcp",
+  "kind": "mcp",
+  "repo": "mobile-next/mobile-mcp",
+  "commit": "ad3b42336d89717313af45176c48538bea6ec363",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/mobile-next__mobile-mcp",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (full text, no copyright line)",
+  "lastCommit": "2026-11-11T15:33:34+01:00",
+  "popularity": "unknown",
+  "package": "npm:@mobilenext/mobile-mcp@1.0.17",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@mobilenext/mobile-mcp@latest"
+  ],
+  "env": {
+   "MOBILEMCP_DISABLE_TELEMETRY": "1"
+  },
+  "install": [],
+  "summaryEn": "Drives iOS and Android simulators, emulators and real devices.",
+  "summaryKo": "iOS와 Android 시뮬레이터, 에뮬레이터, 실제 기기를 조작해요.",
+  "tags": [
+   "mobile",
+   "ios",
+   "android",
+   "testing"
+  ],
+  "capabilities": [
+   "list devices",
+   "take screenshots and read on-screen elements",
+   "tap, swipe and type",
+   "launch, install and terminate apps"
+  ],
+  "inputs": [
+   "app",
+   "text"
+  ],
+  "outputs": [
+   "image",
+   "json",
+   "text"
+  ],
+  "guideEn": "Start with `mobile_list_available_devices`, then `mobile_list_elements_on_screen` or `mobile_take_screenshot` to see the screen, then act with `mobile_click_on_screen_at_coordinates`, `mobile_swipe_on_screen`, `mobile_type_keys`, `mobile_press_button`. Use `mobile_launch_app` and `mobile_list_apps` for apps.",
+  "guideKo": "먼저 `mobile_list_available_devices`로 기기를 보고, `mobile_list_elements_on_screen`이나 `mobile_take_screenshot`으로 화면을 확인한 뒤 `mobile_click_on_screen_at_coordinates`, `mobile_swipe_on_screen`, `mobile_type_keys`, `mobile_press_button`으로 조작해요. 앱은 `mobile_launch_app`, `mobile_list_apps`로 다뤄요.",
+  "warningsEn": [
+   "A simulator, emulator or device must already be running (Xcode simulator, Android with adb); real iOS devices need extra tools.",
+   "It controls the device and can install or uninstall apps and clear app data.",
+   "Anonymous telemetry (PostHog, Scarf) is on by default; this entry sets MOBILEMCP_DISABLE_TELEMETRY=1."
+  ],
+  "warningsKo": [
+   "Xcode 시뮬레이터나 adb로 연결된 안드로이드 기기가 먼저 떠 있어야 해요. 실제 iOS 기기는 추가 도구가 필요해요.",
+   "기기를 직접 조작하고 앱 설치, 삭제, 데이터 삭제도 할 수 있어요.",
+   "익명 사용 통계(PostHog, Scarf)가 기본으로 켜져 있어서 이 항목은 MOBILEMCP_DISABLE_TELEMETRY=1로 꺼 둬요."
+  ],
+  "runEvidence": "README: `claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest`; src/server.ts returns early from posthog() and scarf() when MOBILEMCP_DISABLE_TELEMETRY is set; npm bin mcp-server-mobile.",
+  "concerns": "server.ts sends PostHog events and a Scarf pixel unless MOBILEMCP_DISABLE_TELEMETRY is set (switch confirmed in source; the get_more_tools tool, which sends context to the developers, is not registered when it is set). Optional cloud-device tools exist (mobile_login_to_cloud_provider).",
+  "recommend": true,
+  "reason": "Official, Apache-2.0, active; telemetry off switch is set in env.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Confirmed the telemetry off switch in src/server.ts lines 180, 231, 324",
+   "Dropped the unchecked 'go-ios, WebDriverAgent' names from the warning"
+  ],
+  "checked": "Read LICENSE, README run lines, src/server.ts telemetry and tool names, npm registry (bin, license), git ls-remote matches"
+ },
+ {
+  "name": "grafana",
+  "kind": "mcp",
+  "repo": "grafana/mcp-grafana",
+  "commit": "4f09d9f45d352c8e92870bdfe75bf76af416e35f",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/grafana__mcp-grafana",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (full text, no copyright line)",
+  "lastCommit": "2026-11-13T14:28:35-06:00",
+  "popularity": "unknown",
+  "package": "pypi:mcp-grafana@2.2.0",
+  "needs": "token",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "mcp-grafana"
+  ],
+  "env": {
+   "GRAFANA_URL": "http://localhost:3000",
+   "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_SERVICE_ACCOUNT_TOKEN}",
+   "GRAFANA_USAGE_STATS": "disabled"
+  },
+  "install": [],
+  "summaryEn": "Searches Grafana dashboards, and queries Prometheus, Loki and alerts.",
+  "summaryKo": "Grafana 대시보드를 찾고 Prometheus, Loki 로그, 알림을 조회해요.",
+  "tags": [
+   "observability",
+   "grafana",
+   "metrics",
+   "logs"
+  ],
+  "capabilities": [
+   "search and patch dashboards",
+   "query Prometheus (PromQL)",
+   "query Loki logs (LogQL)",
+   "read alerts and incidents"
+  ],
+  "inputs": [
+   "text",
+   "url"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Set GRAFANA_URL and a service account token. Find datasources and dashboards first, then use the Prometheus and Loki query tools; dashboard tools can return a summary or apply a patch instead of full JSON. Some categories (for example run panel query, agent observability, admin) are off by default and need `--enabled-tools`.",
+  "guideKo": "GRAFANA_URL과 서비스 계정 토큰을 먼저 정해요. 데이터소스와 대시보드를 찾은 뒤 Prometheus와 Loki 쿼리 도구로 조회해요. 대시보드 도구는 전체 JSON 대신 요약을 받거나 일부만 패치할 수 있어요. 일부 도구(패널 쿼리 실행, 에이전트 관측, 관리자 등)는 기본으로 꺼져 있어서 `--enabled-tools`로 켜야 해요.",
+  "warningsEn": [
+   "Needs a Grafana instance and a service account token (self-hosted or Grafana Cloud).",
+   "Dashboard patch and alert tools can change your Grafana; give the token only the roles you want (or add --disable-write).",
+   "Anonymous usage statistics go to Grafana Labs by default; this entry sets GRAFANA_USAGE_STATS=disabled."
+  ],
+  "warningsKo": [
+   "Grafana 서버와 서비스 계정 토큰이 필요해요(자체 호스팅 또는 Grafana Cloud).",
+   "대시보드 패치 같은 도구는 Grafana를 바꿀 수 있어서 토큰 권한을 필요한 만큼만 줘요(--disable-write도 가능해요).",
+   "익명 사용 통계가 기본으로 Grafana Labs에 가는데, 이 항목은 GRAFANA_USAGE_STATS=disabled로 꺼 둬요."
+  ],
+  "runEvidence": "README Quick Start: \"command\": \"uvx\", \"args\": [\"mcp-grafana\"], \"env\": {\"GRAFANA_URL\": \"http://localhost:3000\", \"GRAFANA_SERVICE_ACCOUNT_TOKEN\": \"<your service account token>\"}; PyPI mcp-grafana 2.2.0 Apache-2.0 homepage grafana/mcp-grafana.",
+  "concerns": "Proposer missed usage telemetry: usagestats/ reports anonymous events to stats.grafana.org by default (docs/sources/anonymous-usage-statistics.md: 'enabled by default'). Off switches in usagestats/mode.go: GRAFANA_USAGE_STATS (--usage-stats) set to a non-enabled value resolves to disabled, or DO_NOT_TRACK=1. Set in env. Did not run it; --disable-write flag mentioned in README text I saw only for the assistant tools.",
+  "recommend": true,
+  "reason": "Official Grafana Labs server, Apache-2.0, very active; telemetry has a documented off switch set in env.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Proposer said no usage telemetry; there is one, on by default (usagestats package). Added GRAFANA_USAGE_STATS=disabled to env and a warning",
+   "Removed the unverified tool name query_prometheus ordering claim by describing tools generically",
+   "Added admin to the default-off categories (README line 530)"
+  ],
+  "checked": "Read LICENSE, README quick start and flags, usagestats/mode.go and docs page, PyPI json, git ls-remote matches"
+ },
+ {
+  "name": "mobilebuild",
+  "kind": "mcp",
+  "repo": "getsentry/MobileBuildMCP",
+  "commit": "2998ac77ebbca59544e88a27f34bfb830db9d924",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/getsentry__XcodeBuildMCP",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 Cameron Cooke",
+  "lastCommit": "2026-10-22T17:38:16-03:00",
+  "popularity": "unknown",
+  "package": "npm:mobilebuildmcp@2.7.1",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "mobilebuildmcp@latest",
+   "mcp"
+  ],
+  "env": {
+   "MOBILEBUILDMCP_SENTRY_DISABLED": "true"
+  },
+  "install": [],
+  "summaryEn": "Builds, runs and debugs iOS and macOS apps with Xcode (formerly XcodeBuildMCP).",
+  "summaryKo": "Xcode로 iOS와 macOS 앱을 빌드하고 실행하고 디버깅해요. (예전 이름 XcodeBuildMCP)",
+  "tags": [
+   "ios",
+   "macos",
+   "xcode",
+   "build"
+  ],
+  "capabilities": [
+   "build and test Xcode projects",
+   "run on simulators and devices",
+   "capture screenshots and UI state",
+   "debug"
+  ],
+  "inputs": [
+   "source-code",
+   "app"
+  ],
+  "outputs": [
+   "text",
+   "image",
+   "json"
+  ],
+  "guideEn": "Run `mobilebuildmcp tools` (CLI) or list the MCP tools to see what exists. Typical flow: discover the project or workspace and schemes, build, run on a simulator, then inspect the screen. Device tools need code signing set up in Xcode.",
+  "guideKo": "`mobilebuildmcp tools`(CLI)나 MCP 도구 목록으로 어떤 도구가 있는지 먼저 봐요. 보통은 프로젝트와 스킴을 찾고, 빌드하고, 시뮬레이터에서 실행한 뒤 화면을 확인해요. 실제 기기는 Xcode 코드 서명이 먼저 필요해요.",
+  "warningsEn": [
+   "Runs on macOS with Xcode only; it runs xcodebuild and can launch apps on simulators or devices.",
+   "Now maintained under getsentry and renamed MobileBuildMCP (old npm name xcodebuildmcp); runtime error reports go to Sentry unless MOBILEBUILDMCP_SENTRY_DISABLED=true, which this entry sets."
+  ],
+  "warningsKo": [
+   "macOS와 Xcode에서만 돌아가고, xcodebuild를 실행하며 시뮬레이터나 기기에서 앱을 띄워요.",
+   "getsentry로 옮겨져 MobileBuildMCP로 이름이 바뀌었고(예전 npm 이름 xcodebuildmcp), 런타임 오류 보고가 Sentry로 가는데 이 항목은 MOBILEBUILDMCP_SENTRY_DISABLED=true로 꺼 둬요."
+  ],
+  "runEvidence": "README: \"Most clients can also run the MCP server on demand via `npx -y mobilebuildmcp@latest mcp` without a global install.\"; npm mobilebuildmcp@2.7.1 bin mobilebuildmcp; src/utils/sentry-config.ts reads MOBILEBUILDMCP_SENTRY_DISABLED === 'true'.",
+  "concerns": "README says Sentry is used for internal runtime error telemetry only and links a docs page I could not open; the off switch is confirmed in src/utils/sentry-config.ts. The tool names and 'tools' CLI subcommand were not individually verified (README links to tools.mdx in another repo). Version requirements (macOS 14.5, Xcode 16) not re-verified; README badge shows Xcode 16. The cloneDir name is the old getsentry/XcodeBuildMCP clone (same commit as git ls-remote of MobileBuildMCP).",
+  "recommend": true,
+  "reason": "Best-known Xcode server, MIT, active; off switch confirmed in source and set in env.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Dropped unverified 'macOS 14.5+' number from the warning (README badge only shows Xcode 16)",
+   "Pointed cloneDir at getsentry__XcodeBuildMCP, which is the clone whose remote matches",
+   "Off switch confirmed in source, not in README"
+  ],
+  "checked": "Read LICENSE, README, sentry-config.ts, npm registry for mobilebuildmcp and xcodebuildmcp, git ls-remote matches clone commit"
+ },
+ {
+  "name": "eslint",
+  "kind": "mcp",
+  "repo": "eslint/rewrite",
+  "commit": "c49ae2d9c3140b90d28cc365422c9376b5cf2794",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/eslint__rewrite",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (repo LICENSE, full text, no copyright line; packages/mcp/README: \"Apache 2.0\")",
+  "lastCommit": "2026-11-13T21:10:12+01:00",
+  "popularity": "unknown",
+  "package": "npm:@eslint/mcp@0.3.16",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@eslint/mcp@latest"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Official ESLint server that lints files in your project.",
+  "summaryKo": "ESLint 공식 서버로 프로젝트 파일을 린트해요.",
+  "tags": [
+   "eslint",
+   "lint",
+   "javascript",
+   "quality"
+  ],
+  "capabilities": [
+   "lint files with the project's ESLint config"
+  ],
+  "inputs": [
+   "source-code"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Single tool `lint-files`: pass file paths and it returns ESLint results using the project's config. Run it from the project folder. The same server also starts with `npx eslint --mcp`.",
+  "guideKo": "도구는 `lint-files` 하나예요. 파일 경로 목록을 주면 프로젝트 ESLint 설정으로 결과를 돌려줘요. 프로젝트 폴더에서 실행해요. `npx eslint --mcp`로도 같은 서버를 시작할 수 있어요.",
+  "warningsEn": [
+   "Runs ESLint, so your eslint.config and plugins are executed.",
+   "Run it from the project folder so the right ESLint config is found."
+  ],
+  "warningsKo": [
+   "ESLint를 실행하므로 설정 파일과 플러그인 코드가 실행돼요.",
+   "올바른 설정을 찾도록 프로젝트 폴더에서 실행해요."
+  ],
+  "runEvidence": "packages/mcp/README: `npx @eslint/mcp` and `npx eslint --mcp`; npm @eslint/mcp@0.3.16 Apache-2.0 bin mcp; src/mcp-server.js registers \"lint-files\".",
+  "concerns": "No telemetry hits in packages/mcp. Proposer's jiti/TypeScript-config advice and 'absolute paths' were not found in the package README and were removed.",
+  "recommend": true,
+  "reason": "Official ESLint project, Apache-2.0, tiny.",
+  "verdict": "accept",
+  "problems": [
+   "Removed unverified jiti / TypeScript config warning and 'absolute' path claim",
+   "Source lives in eslint/rewrite packages/mcp (npm repository directory confirms)"
+  ],
+  "checked": "Read LICENSE, packages/mcp README and src, grep telemetry, npm registry (bin, license, engines), git ls-remote matches"
+ },
+ {
+  "name": "shadcn",
+  "kind": "mcp",
+  "repo": "shadcn-ui/ui",
+  "commit": "e62c9435fff729a175f38983dee73b2cb4f6a069",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/shadcn-ui__ui",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2023 shadcn",
+  "lastCommit": "2026-11-13T14:57:41+04:00",
+  "popularity": "unknown",
+  "package": "npm:shadcn@4.23.0",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "shadcn@latest",
+   "mcp"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Browses and adds shadcn/ui components and other registries' items.",
+  "summaryKo": "shadcn/ui 컴포넌트와 다른 레지스트리 항목을 찾아 프로젝트에 추가해요.",
+  "tags": [
+   "shadcn",
+   "ui",
+   "components",
+   "react"
+  ],
+  "capabilities": [
+   "search components across registries",
+   "view component source",
+   "get add commands",
+   "audit checklist"
+  ],
+  "inputs": [
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "source-code"
+  ],
+  "guideEn": "Tools: `get_project_registries`, `search_items_in_registries`, `list_items_in_registries`, `view_items_in_registries`, `get_item_examples_from_registries`, `get_add_command_for_items`, `get_audit_checklist`. Search, view the item, then get the add command and run it in the project.",
+  "guideKo": "도구는 `get_project_registries`, `search_items_in_registries`, `list_items_in_registries`, `view_items_in_registries`, `get_item_examples_from_registries`, `get_add_command_for_items`, `get_audit_checklist`예요. 검색하고 항목을 본 뒤, 추가 명령을 받아 프로젝트에서 실행해요.",
+  "warningsEn": [
+   "Meant for a project that has a components.json; the add commands it returns change your project when you run them."
+  ],
+  "warningsKo": [
+   "components.json이 있는 프로젝트용이고, 돌려주는 추가 명령은 실행하면 프로젝트를 바꿔요."
+  ],
+  "runEvidence": "apps/v4/content/docs/(root)/mcp.mdx: `npx shadcn@latest mcp init --client claude`; src/mcp/index.ts registers the server 'shadcn' with the seven tools; npm shadcn@4.23.0 bin shadcn.",
+  "concerns": "No telemetry hits in packages/shadcn/src. The literal command `shadcn@latest mcp` (what init writes) was not seen as a config block in the docs I grepped; init output was not inspected. Tool names read from source, not run.",
+  "recommend": true,
+  "reason": "Official, MIT, popular UI library server.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Added -y to npx so it does not prompt",
+   "Removed unverified 'private registries may need tokens' claim",
+   "Exact args written by `mcp init` not confirmed; `shadcn mcp` subcommand follows from the init doc and the server code"
+  ],
+  "checked": "Read LICENSE.md, docs mcp.mdx, src/mcp/index.ts, grep telemetry, npm registry (bin, license), git ls-remote matches"
+ },
+ {
+  "name": "laravel-boost",
+  "kind": "mcp",
+  "repo": "laravel/boost",
+  "commit": "6004f09e71fe199880a671df6dc34a6e731ba1ea",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/laravel__boost",
+  "license": "MIT",
+  "licenseQuote": "The MIT License (MIT) / Copyright (c) Taylor Otwell",
+  "lastCommit": "2026-11-14T00:24:04+00:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "php",
+  "transport": "stdio",
+  "command": "php",
+  "args": [
+   "artisan",
+   "boost:mcp"
+  ],
+  "env": {},
+  "install": [
+   "composer require laravel/boost --dev",
+   "php artisan boost:install"
+  ],
+  "summaryEn": "Gives AI agents Laravel docs, the database, logs and Tinker for your app.",
+  "summaryKo": "Laravel 앱의 문서, 데이터베이스, 로그, Tinker를 AI가 쓰게 해줘요.",
+  "tags": [
+   "laravel",
+   "php",
+   "docs",
+   "database"
+  ],
+  "capabilities": [
+   "search Laravel docs",
+   "read database schema and query",
+   "read log entries and last error",
+   "run Tinker code"
+  ],
+  "inputs": [
+   "source-code",
+   "text"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Add it to the Laravel app as a dev dependency and run `php artisan boost:install`, which writes the MCP config; the server itself starts with `php artisan boost:mcp` from the project folder. Tool classes in src/Mcp/Tools: SearchDocs, DatabaseSchema, DatabaseQuery, DatabaseConnections, ReadLogEntries, LastError, BrowserLogs, Tinker, GetAbsoluteUrl.",
+  "guideKo": "Laravel 앱에 개발용 의존성으로 추가하고 `php artisan boost:install`을 실행하면 MCP 설정이 써져요. 서버는 프로젝트 폴더에서 `php artisan boost:mcp`로 시작해요. 도구는 SearchDocs, DatabaseSchema, DatabaseQuery, DatabaseConnections, ReadLogEntries, LastError, BrowserLogs, Tinker, GetAbsoluteUrl이에요.",
+  "warningsEn": [
+   "Needs PHP 8.2+ (composer.json) and a Laravel app managed with Composer.",
+   "Tinker runs PHP code inside your app and the database tools read your data; use it in development only.",
+   "The `composer require` line is not in the repo (the README only links to laravel.com/docs/boost); check those docs if it fails."
+  ],
+  "warningsKo": [
+   "PHP 8.2 이상(composer.json)과 Composer로 만든 Laravel 앱이 필요해요.",
+   "Tinker는 앱 안에서 PHP 코드를 실행하고 DB 도구는 데이터를 읽으니 개발 환경에서만 써요.",
+   "`composer require` 줄은 저장소에 적혀 있지 않아요(README는 laravel.com/docs/boost 링크뿐). 안 되면 그 문서를 봐요."
+  ],
+  "runEvidence": "src/Install/McpWriter.php writes args [php, artisan, boost:mcp]; src/Console/StartCommand.php: #[AsCommand('boost:mcp', ...)]; src/Console/InstallCommand.php signature boost:install; composer.json name laravel/boost, php ^8.2.",
+  "concerns": "No telemetry/analytics hits in src. Package is on Packagist (README badges), no npm/PyPI package. The composer require command is by convention (package name confirmed in composer.json), not quoted from a repo file.",
+  "recommend": true,
+  "reason": "Official Laravel project, MIT, very active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Install line 'composer require laravel/boost --dev' not stated in the repo; package name and boost:install confirmed in source",
+   "README is only a link to laravel.com docs, so the guide describes the install in source terms"
+  ],
+  "checked": "Read LICENSE.md, README, composer.json, McpWriter.php, StartCommand.php, InstallCommand.php, Tools folder, grep telemetry, git ls-remote matches"
+ },
+ {
+  "name": "mongodb",
+  "kind": "mcp",
+  "repo": "mongodb-js/mongodb-mcp-server",
+  "commit": "e607a7cec36a681a17fe3428cd2219e4c64b91bb",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/mongodb-js__mongodb-mcp-server",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (full text, no copyright line)",
+  "lastCommit": "2026-11-12T11:35:39+00:00",
+  "popularity": "unknown",
+  "package": "npm:mongodb-mcp-server@3.3.0",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "mongodb-mcp-server@latest",
+   "--readOnly"
+  ],
+  "env": {
+   "MDB_MCP_CONNECTION_STRING": "${MDB_MCP_CONNECTION_STRING}",
+   "MDB_MCP_TELEMETRY": "disabled",
+   "DO_NOT_TRACK": "1"
+  },
+  "install": [],
+  "summaryEn": "Queries and inspects MongoDB databases, read-only by default here.",
+  "summaryKo": "MongoDB 데이터베이스를 조회하고 살펴봐요. 여기서는 읽기 전용으로 시작해요.",
+  "tags": [
+   "mongodb",
+   "database",
+   "nosql"
+  ],
+  "capabilities": [
+   "list databases and collections",
+   "run find and aggregate queries",
+   "inspect schema and indexes",
+   "write data when not read-only"
+  ],
+  "inputs": [
+   "text",
+   "json"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Give a connection string in MDB_MCP_CONNECTION_STRING (or connect with the connect tool). Explore databases and collections first, then query. `--readOnly` is in this entry; remove it only if the model should create, update or delete.",
+  "guideKo": "MDB_MCP_CONNECTION_STRING에 연결 문자열을 넣어요(없으면 connect 도구로 연결). 데이터베이스와 컬렉션을 먼저 둘러본 뒤 조회해요. 이 항목엔 `--readOnly`가 들어 있고, 쓰기가 필요할 때만 빼요.",
+  "warningsEn": [
+   "Needs a MongoDB connection string (local or Atlas).",
+   "Without --readOnly the model can change or delete data.",
+   "Telemetry is on by default (README); this entry sets MDB_MCP_TELEMETRY=disabled and DO_NOT_TRACK=1."
+  ],
+  "warningsKo": [
+   "MongoDB 연결 문자열이 필요해요(로컬 또는 Atlas).",
+   "--readOnly를 빼면 데이터를 바꾸거나 지울 수 있어요.",
+   "사용 통계가 기본으로 켜져 있어서(README) 이 항목은 MDB_MCP_TELEMETRY=disabled와 DO_NOT_TRACK=1로 꺼 둬요."
+  ],
+  "runEvidence": "README: \"args\": [\"-y\", \"mongodb-mcp-server@latest\", \"--readOnly\"], \"env\": {\"MDB_MCP_CONNECTION_STRING\": \"mongodb://localhost:27017/myDatabase\"}; README Telemetry section: MDB_MCP_TELEMETRY=disabled or --telemetry disabled.",
+  "concerns": "README documents MDB_MCP_TELEMETRY=disabled / --telemetry disabled; DO_NOT_TRACK=1 was claimed by the proposer and I did not find it in the README lines I read, so it is a harmless extra, not relied on. Atlas tools need separate API credentials. The README says the connection string option is deprecated in favour of connectionStrings config but still works.",
+  "recommend": true,
+  "reason": "Official MongoDB server, Apache-2.0, documented telemetry off switch.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "DO_NOT_TRACK=1 not confirmed in README (MDB_MCP_TELEMETRY=disabled is); kept as a harmless extra",
+   "MDB_MCP_CONNECTION_STRING is marked deprecated in the README table but still documented and used in the examples",
+   "Removed 'free Atlas cluster' claim"
+  ],
+  "checked": "Read LICENSE, README (run args, env table, Telemetry section), npm registry (bin, license), git ls-remote matches"
+ },
+ {
+  "name": "redis",
+  "kind": "mcp",
+  "repo": "redis/mcp-redis",
+  "commit": "d66c5ea0172e0991a98c0f13c0f880246c93b2a5",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/redis__mcp-redis",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025, Redis, inc.",
+  "lastCommit": "2026-11-11T14:00:08+02:00",
+  "popularity": "unknown",
+  "package": "pypi:redis-mcp-server@0.5.1",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "redis-mcp-server@latest",
+   "redis-mcp-server",
+   "--url",
+   "redis://localhost:6379/0"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Reads and writes Redis keys, hashes, lists, sets, streams and pub/sub.",
+  "summaryKo": "Redis의 키, 해시, 리스트, 셋, 스트림, 펍/섭을 읽고 써요.",
+  "tags": [
+   "redis",
+   "database",
+   "cache"
+  ],
+  "capabilities": [
+   "get and set strings and hashes",
+   "work with lists, sets and sorted sets",
+   "read and write streams",
+   "publish and subscribe"
+  ],
+  "inputs": [
+   "text",
+   "json"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Point it at Redis with --url (or REDIS_HOST, REDIS_PORT, REDIS_PWD, REDIS_SSL). Tools are grouped by data type (string, hash, list, set, sorted set, stream, pub/sub); look at existing keys before reading or changing them.",
+  "guideKo": "--url(또는 REDIS_HOST, REDIS_PORT, REDIS_PWD, REDIS_SSL)로 Redis를 가리켜요. 도구는 문자열, 해시, 리스트, 셋, 정렬 셋, 스트림, 펍/섭 종류별로 나뉘어 있어요. 읽거나 바꾸기 전에 기존 키부터 봐요.",
+  "warningsEn": [
+   "Needs a reachable Redis server.",
+   "Tools can overwrite or delete keys."
+  ],
+  "warningsKo": [
+   "접속할 수 있는 Redis 서버가 필요해요.",
+   "키를 덮어쓰거나 지울 수 있어요."
+  ],
+  "runEvidence": "README: \"command\": \"uvx\", \"args\": [\"--from\", \"redis-mcp-server@latest\", \"redis-mcp-server\", \"--url\", ...]; pyproject [project.scripts] redis-mcp-server = \"src.main:cli\"; PyPI redis-mcp-server 0.5.1.",
+  "concerns": "No telemetry/posthog hits in src. REDIS_SSL env name taken from the proposer; REDIS_HOST/PORT/PWD seen in the README config. PyPI license metadata is empty, repo LICENSE is MIT.",
+  "recommend": true,
+  "reason": "Official Redis server, MIT, active, no account.",
+  "verdict": "accept",
+  "problems": [
+   "PyPI license field is empty; the repository LICENSE is MIT",
+   "Script entry point is src.main:cli (a generic 'src' package name), harmless under uvx"
+  ],
+  "checked": "Read LICENSE, README run lines, pyproject scripts, grep telemetry, PyPI json, git ls-remote matches"
+ },
+ {
+  "name": "mysql",
+  "kind": "mcp",
+  "repo": "designcomputer/mysql_mcp_server",
+  "commit": "943ce83816372a03e5872be5424ebfcf252aa5ac",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/designcomputer__mysql_mcp_server",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2024 Dana K. Williams",
+  "lastCommit": "2026-10-28T15:14:31-04:00",
+  "popularity": "unknown",
+  "package": "pypi:mysql-mcp-server@0.4.5",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "mysql-mcp-server",
+   "mysql_mcp_server"
+  ],
+  "env": {
+   "MYSQL_HOST": "localhost",
+   "MYSQL_PORT": "3306",
+   "MYSQL_USER": "${MYSQL_USER}",
+   "MYSQL_PASSWORD": "${MYSQL_PASSWORD}",
+   "MYSQL_DATABASE": "${MYSQL_DATABASE}"
+  },
+  "install": [],
+  "summaryEn": "Lists tables and runs SQL on a MySQL database.",
+  "summaryKo": "MySQL 데이터베이스의 테이블을 보고 SQL을 실행해요.",
+  "tags": [
+   "mysql",
+   "database",
+   "sql"
+  ],
+  "capabilities": [
+   "list tables",
+   "read table data",
+   "run SQL queries"
+  ],
+  "inputs": [
+   "text"
+  ],
+  "outputs": [
+   "csv",
+   "json",
+   "text"
+  ],
+  "guideEn": "Set MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD and optionally MYSQL_DATABASE (omit it for multi-database mode). List tables first, then query. Only single SQL statements are supported; SELECT, SHOW, DESCRIBE and DML are allowed.",
+  "guideKo": "MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD를 정하고 MYSQL_DATABASE는 선택이에요(빼면 여러 데이터베이스 모드). 테이블 목록을 먼저 보고 질의해요. SQL은 한 번에 한 문장만 되고, SELECT, SHOW, DESCRIBE와 DML(INSERT, UPDATE, DELETE)이 가능해요.",
+  "warningsEn": [
+   "Community project, not published by Oracle or MySQL.",
+   "It has no read-only mode: INSERT, UPDATE and DELETE run; use a database user with only the rights you want to give."
+  ],
+  "warningsKo": [
+   "Oracle이나 MySQL 공식이 아닌 커뮤니티 프로젝트예요.",
+   "읽기 전용 모드가 없어서 INSERT, UPDATE, DELETE도 실행돼요. 필요한 권한만 있는 DB 사용자를 써요."
+  ],
+  "runEvidence": "README: `claude mcp add --transport stdio designcomputer-mysql_mcp_server uvx mysql_mcp_server`, `pip install mysql-mcp-server`; pyproject [project.scripts] mysql_mcp_server = \"mysql_mcp_server:main\"; the PyPI package is named mysql-mcp-server, so plain `uvx mysql_mcp_server` may resolve a different package name.",
+  "concerns": "No telemetry hits in src. Package name (mysql-mcp-server) differs from the script name (mysql_mcp_server): README's bare `uvx mysql_mcp_server` looks up a package of that name, so the entry uses `uvx --from mysql-mcp-server mysql_mcp_server`, which follows from PyPI and pyproject but was not run. PyPI license field empty; repo LICENSE is MIT.",
+  "recommend": true,
+  "reason": "Direct MySQL server with a clean MIT license and no account; command corrected to be unambiguous.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "README start command `uvx mysql_mcp_server` names the script, not the PyPI package mysql-mcp-server; changed to uvx --from mysql-mcp-server mysql_mcp_server",
+   "Proposer said it only runs what the model sends; README confirms DML is supported and there is no read-only mode, added to warnings"
+  ],
+  "checked": "Read LICENSE, README, pyproject scripts, grep telemetry, PyPI json (name, version, requires_python 3.11), git ls-remote matches"
+ },
+ {
+  "name": "apollo-graphql",
+  "kind": "mcp",
+  "repo": "apollographql/apollo-mcp-server",
+  "commit": "e6f2ec18606c834707c6e32c9c7c497373b9e102",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/apollographql__apollo-mcp-server",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 Apollo Graph, Inc.",
+  "lastCommit": "2026-11-13T09:43:15-05:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "cargo",
+  "transport": "stdio",
+  "command": "apollo-mcp-server",
+  "args": [
+   "{project}/apollo-mcp.yaml"
+  ],
+  "env": {},
+  "install": [
+   "cargo install --locked apollo-mcp-server"
+  ],
+  "summaryEn": "Turns a GraphQL API into MCP tools from a config file.",
+  "summaryKo": "GraphQL API를 설정 파일 하나로 MCP 도구로 만들어줘요.",
+  "tags": [
+   "graphql",
+   "api",
+   "apollo"
+  ],
+  "capabilities": [
+   "expose saved GraphQL operations as tools",
+   "introspect a schema",
+   "validate operations",
+   "connect to a local or remote graph"
+  ],
+  "inputs": [
+   "json",
+   "url"
+  ],
+  "outputs": [
+   "json"
+  ],
+  "guideEn": "Write a YAML config (endpoint, schema, operations) and start `apollo-mcp-server <config>`. Operations you define become tools, or the model can read the schema through introspection tools. Without a config file, APOLLO_GRAPH_REF and APOLLO_KEY are required.",
+  "guideKo": "엔드포인트, 스키마, 오퍼레이션을 담은 YAML 설정을 만들고 `apollo-mcp-server <설정>`으로 시작해요. 정의한 오퍼레이션이 도구가 되거나, 모델이 introspection 도구로 스키마를 읽을 수 있어요. 설정 파일이 없으면 APOLLO_GRAPH_REF와 APOLLO_KEY가 필요해요.",
+  "warningsEn": [
+   "Needs Rust (cargo) to install; the build can take a while.",
+   "You must write the config file; the path in the entry is only a placeholder.",
+   "Operations can send mutations to your GraphQL API."
+  ],
+  "warningsKo": [
+   "설치에 Rust(cargo)가 필요하고 오래 걸릴 수 있어요.",
+   "설정 파일을 직접 만들어야 하고, 항목의 경로는 예시예요.",
+   "오퍼레이션이 GraphQL API에 변경(mutation)을 보낼 수 있어요."
+  ],
+  "runEvidence": "README line 30: `cargo install --locked apollo-mcp-server`; docs/source/run.mdx line 103: `./apollo-mcp-server [OPTIONS] <PATH/TO/CONFIG/FILE>`; README line 98: APOLLO_GRAPH_REF and APOLLO_KEY required without a config file; Cargo.toml [[bin]] name apollo-mcp-server.",
+  "concerns": "Crate version 2.1.0 comes from the workspace Cargo.toml; crates.io not checked (API blocked). No posthog/usage-statistics hits. The proposer's claim that telemetry is OpenTelemetry the user configures was not re-traced in the Rust source. Default transport is stdio (docs/source/auth.mdx), so the entry works with a config path.",
+  "recommend": true,
+  "reason": "Official Apollo server, MIT, active; stdio is the default transport.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Crate version not checked on crates.io",
+   "stdio default confirmed in docs/source/auth.mdx; a config file must still be written by the user"
+  ],
+  "checked": "Read LICENSE, README (install, credentials), docs run.mdx, Cargo.toml bin name, grep telemetry, git ls-remote matches"
+ }
+]

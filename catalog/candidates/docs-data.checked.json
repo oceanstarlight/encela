@@ -1,0 +1,701 @@
+[
+ {
+  "name": "antv-chart",
+  "kind": "mcp",
+  "repo": "antvis/mcp-server-chart",
+  "commit": "e2a8fb7c185e17c75c067817ff1a2acfddf49aa1",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/antvis__mcp-server-chart",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 AntV Visualization Team",
+  "lastCommit": "2026-08-27T09:50:14+08:00",
+  "popularity": "unknown (not verifiable here)",
+  "package": "npm:@antv/mcp-server-chart@0.9.10",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@antv/mcp-server-chart"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Makes 25+ kinds of charts (bar, line, pie, map, mind map, flow) from data you give it.",
+  "summaryKo": "데이터로 막대·선·원 같은 차트를 25가지 넘게 그려줘요.",
+  "tags": [
+   "chart",
+   "visualization",
+   "antv",
+   "data"
+  ],
+  "capabilities": [
+   "generate bar, line, pie, area and column charts",
+   "generate maps, mind maps, flow and fishbone diagrams",
+   "return a chart image URL",
+   "turn off single chart tools with DISABLED_TOOLS"
+  ],
+  "inputs": [
+   "json",
+   "csv"
+  ],
+  "outputs": [
+   "image",
+   "url"
+  ],
+  "guideEn": "Pick the generate_* tool that matches the chart (for example generate_bar_chart or generate_column_chart) and pass the data and title; it returns a chart image URL. Use the DISABLED_TOOLS environment variable (comma-separated tool names) to hide tools your client cannot handle. Set VIS_REQUEST_SERVER to use your own chart service (GPT-Vis-SSR) instead of the default one.",
+  "guideKo": "그리려는 차트에 맞는 generate_* 도구(예: generate_bar_chart)를 골라 데이터와 제목을 넘기면 차트 이미지 주소를 돌려줘요. 클라이언트에서 안 되는 도구는 DISABLED_TOOLS(쉼표로 구분)로 끌 수 있어요. 기본 서버 대신 직접 만든 차트 서버를 쓰려면 VIS_REQUEST_SERVER를 설정해요.",
+  "warningsEn": [
+   "By default the chart data is sent to a third-party render service (https://antv-studio.alipay.com/api/gpt-vis); do not chart private data unless VIS_REQUEST_SERVER points to your own deployment",
+   "Output is a link to an image hosted by that service, not a local file"
+  ],
+  "warningsKo": [
+   "기본 설정에서는 차트 데이터가 외부 렌더링 서버(antv-studio.alipay.com)로 전송돼요. 비공개 데이터는 VIS_REQUEST_SERVER로 직접 만든 서버를 지정한 뒤에 써요",
+   "결과는 로컬 파일이 아니라 그 서버에 올라간 이미지 링크예요"
+  ],
+  "runEvidence": "README: npx -y @antv/mcp-server-chart; env table VIS_REQUEST_SERVER default https://antv-studio.alipay.com/api/gpt-vis (also src/utils/env.ts); DISABLED_TOOLS; npm latest 0.9.10 MIT with bin mcp-server-chart",
+  "concerns": "No telemetry hits in the clone. The default renderer is a remote service by design; the README documents the private-deployment switch.",
+  "recommend": false,
+  "reason": "MIT and npx verified, but by default your data leaves the machine to a third-party service, so not a default recommendation.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Star count could not be verified; popularity set to unknown",
+   "Set recommend false because default behaviour sends data to a remote service"
+  ],
+  "checked": "Opened LICENSE, README env table and tool list, src/utils/env.ts, npm registry (version, MIT, bin), git ls-remote matched."
+ },
+ {
+  "name": "duckduckgo-search",
+  "kind": "mcp",
+  "repo": "nickclyde/duckduckgo-mcp-server",
+  "commit": "8182af3f2295017ca90527a924f48147fbf18d5b",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/nickclyde__duckduckgo-mcp-server",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 Nick Clyde",
+  "lastCommit": "2026-09-04T11:27:57-07:00",
+  "popularity": "unknown",
+  "package": "pypi:duckduckgo-mcp-server@0.7.0",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "duckduckgo-mcp-server"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Searches the web with DuckDuckGo (no API key) and fetches page text.",
+  "summaryKo": "API 키 없이 DuckDuckGo로 웹을 검색하고 페이지 본문을 가져와요.",
+  "tags": [
+   "search",
+   "web",
+   "duckduckgo"
+  ],
+  "capabilities": [
+   "web search with no key",
+   "fetch and parse page content",
+   "paginated reads of long pages",
+   "built-in rate limiting"
+  ],
+  "inputs": [
+   "text",
+   "url"
+  ],
+  "outputs": [
+   "text",
+   "matches"
+  ],
+  "guideEn": "Call search with query (and optional max_results, region) to get result titles, links and snippets, then call fetch_content on a chosen result URL to read the page text. Long URLs come back as short ref:// tokens that fetch_content accepts directly. Fetch requests are rate limited (DDG_FETCH_RPM, default 20 per minute).",
+  "guideKo": "search에 query(선택: max_results, region)를 주면 제목·링크·요약이 나와요. 마음에 드는 결과의 주소를 fetch_content에 넘기면 페이지 본문을 읽어요. 긴 주소는 ref:// 짧은 표시로 오고 fetch_content가 그대로 받아요. 가져오기는 분당 횟수가 제한돼요(DDG_FETCH_RPM, 기본 20).",
+  "warningsEn": [
+   "Reads DuckDuckGo web pages rather than an official API, so it can break or be rate limited (the README notes DuckDuckGo may answer with empty pages)",
+   "Queries go to DuckDuckGo and fetched pages are requested directly from their sites"
+  ],
+  "warningsKo": [
+   "공식 API가 아니라 DuckDuckGo 웹 페이지를 읽는 방식이라 막히거나 깨질 수 있어요(README에도 빈 응답이 올 수 있다고 적혀 있어요)",
+   "검색어는 DuckDuckGo로, 본문 요청은 해당 사이트로 직접 나가요"
+  ],
+  "runEvidence": "README: claude mcp add ddg-search uvx duckduckgo-mcp-server; [project.scripts] duckduckgo-mcp-server = duckduckgo_mcp_server.server:main; PyPI 0.7.0",
+  "concerns": "No telemetry hits. Scraping a search engine is fragile.",
+  "recommend": true,
+  "reason": "MIT, updated in September 2026, no key, uvx start verified.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Added README-documented fragility to warnings"
+  ],
+  "checked": "Opened LICENSE, README, pyproject scripts, server.py (max_results, region), PyPI."
+ },
+ {
+  "name": "arxiv",
+  "kind": "mcp",
+  "repo": "blazickjp/arxiv-mcp-server",
+  "commit": "572e301bb3198962c025d5ed5e14becb86868daa",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/blazickjp__arxiv-mcp-server",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License Version 2.0, January 2004 (LICENSE; no copyright line at top)",
+  "lastCommit": "2026-10-08T13:07:43+00:00",
+  "popularity": "unknown (not verifiable here)",
+  "package": "pypi:arxiv-mcp-server@0.8.2",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "arxiv-mcp-server"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Searches arXiv, downloads papers and reads them as Markdown.",
+  "summaryKo": "arXiv 논문을 검색하고 받아서 마크다운으로 읽어요.",
+  "tags": [
+   "arxiv",
+   "papers",
+   "research",
+   "search"
+  ],
+  "capabilities": [
+   "search papers by query, category and date",
+   "get an abstract by arXiv ID",
+   "download a paper as Markdown",
+   "read a paper or one section in bounded chunks"
+  ],
+  "inputs": [
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Call search_papers first (query, category, date, sort; default 5 compact results), then get_abstract by arXiv ID, then download_paper to store it locally as Markdown. Read it with read_paper (12,000 characters by default, use start/max_chars to page) or read_paper_section; list_papers shows what is stored. Do not install it with npm: the npm package of the same name is unrelated.",
+  "guideKo": "먼저 search_papers(검색어·분야·날짜·정렬, 기본 5건)로 찾고, get_abstract로 arXiv ID의 초록을 본 뒤, download_paper로 마크다운으로 저장해요. read_paper(기본 12,000자씩, start/max_chars로 이어 읽기)나 read_paper_section으로 읽고, list_papers로 저장된 목록을 봐요. npm에 같은 이름의 다른 패키지가 있으니 npm으로는 설치하지 않아요.",
+  "warningsEn": [
+   "Downloaded papers are stored on disk locally",
+   "semantic_search and reindex need the optional [pro] extra",
+   "An unrelated npm package has the same name; use uvx only"
+  ],
+  "warningsKo": [
+   "받은 논문은 내 컴퓨터에 저장돼요",
+   "semantic_search와 reindex는 선택 설치([pro])가 필요해요",
+   "npm에 이름이 같은 다른 패키지가 있으니 uvx로만 써요"
+  ],
+  "runEvidence": "README: supported package on PyPI arxiv-mcp-server==0.8.2, do not use npx; [project.scripts] arxiv-mcp-server = arxiv_mcp_server:main",
+  "concerns": "No telemetry hits. Optional free Semantic Scholar key only for citation_graph.",
+  "recommend": true,
+  "reason": "Apache-2.0, updated last month, PyPI version matches README, no key needed.",
+  "verdict": "accept",
+  "problems": [
+   "licenseQuote copyright line was not in the file head; the first line is Apache License text and the proposer's 'Copyright 2024 Joseph Blazick' was not seen at the top"
+  ],
+  "checked": "Opened LICENSE head, README tool table and install note, pyproject scripts, PyPI."
+ },
+ {
+  "name": "obsidian",
+  "kind": "mcp",
+  "repo": "cyanheads/obsidian-mcp-server",
+  "commit": "2cc31859678d0354a4d6840b093aad7820d81820",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/cyanheads__obsidian-mcp-server",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License (LICENSE first line)",
+  "lastCommit": "2026-11-11T00:50:19-08:00",
+  "popularity": "unknown (not verifiable here)",
+  "package": "npm:obsidian-mcp-server@3.9.0",
+  "needs": "token",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "obsidian-mcp-server"
+  ],
+  "env": {
+   "OBSIDIAN_API_KEY": "${OBSIDIAN_API_KEY}",
+   "OTEL_ENABLED": "false"
+  },
+  "install": [
+   "In Obsidian, install and enable the Local REST API plugin (v4.0.0 or later) and copy its API key"
+  ],
+  "summaryEn": "Reads, searches and edits notes in an Obsidian vault through the Local REST API plugin.",
+  "summaryKo": "옵시디언 보관함의 노트를 읽고 찾고 고쳐요.",
+  "tags": [
+   "obsidian",
+   "notes",
+   "markdown",
+   "vault"
+  ],
+  "capabilities": [
+   "read notes and list folders",
+   "search notes by text or tags",
+   "write, append and patch notes by heading",
+   "manage frontmatter and tags"
+  ],
+  "inputs": [
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Start with obsidian_list_notes and obsidian_search_notes to find notes, read one with obsidian_get_note, then change it with obsidian_write_note, obsidian_append_to_note or obsidian_patch_note (target a heading, block or frontmatter field). Use obsidian_manage_tags and obsidian_manage_frontmatter for metadata. Obsidian must be open with the Local REST API plugin on; the server defaults to http://127.0.0.1:27123 (enable the plugin's non-encrypted HTTP server) or set OBSIDIAN_BASE_URL=https://127.0.0.1:27124 for the HTTPS port.",
+  "guideKo": "obsidian_list_notes와 obsidian_search_notes로 노트를 찾고 obsidian_get_note로 읽은 뒤, obsidian_write_note·obsidian_append_to_note·obsidian_patch_note(제목·블록·프론트매터 지정)로 고쳐요. 태그와 프론트매터는 obsidian_manage_tags, obsidian_manage_frontmatter로 다뤄요. 옵시디언이 켜져 있고 Local REST API 플러그인이 켜져 있어야 해요. 기본 주소는 http://127.0.0.1:27123(플러그인의 비암호화 HTTP 서버를 켜요)이고, HTTPS 포트는 OBSIDIAN_BASE_URL=https://127.0.0.1:27124로 지정해요.",
+  "warningsEn": [
+   "Obsidian must be running with the Local REST API plugin enabled",
+   "Needs OBSIDIAN_API_KEY from that plugin",
+   "It can overwrite and permanently delete notes (obsidian_delete_note deletes without confirmation by default); limit with OBSIDIAN_READ_PATHS, OBSIDIAN_DENY_PATHS or OBSIDIAN_READ_ONLY"
+  ],
+  "warningsKo": [
+   "옵시디언이 켜져 있고 Local REST API 플러그인이 활성화돼 있어야 해요",
+   "플러그인에서 받은 OBSIDIAN_API_KEY가 필요해요",
+   "노트를 덮어쓰거나 완전히 지울 수 있어요(삭제는 기본으로 확인 없이 실행돼요). OBSIDIAN_READ_PATHS, OBSIDIAN_DENY_PATHS, OBSIDIAN_READ_ONLY로 범위를 줄일 수 있어요"
+  ],
+  "runEvidence": "README: claude mcp add obsidian-mcp-server -e OBSIDIAN_API_KEY=your-api-key -- npx -y obsidian-mcp-server; env table OBSIDIAN_API_KEY required, OTEL_ENABLED default false; npm 3.9.0 Apache-2.0 bin obsidian-mcp-server",
+  "concerns": "Only telemetry is optional OpenTelemetry, default false and set explicitly in env.",
+  "recommend": true,
+  "reason": "Apache-2.0, updated 3 days ago, npx start and key requirement verified.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Added default-delete behaviour and port details from the README",
+   "Copyright line not confirmed in LICENSE head"
+  ],
+  "checked": "Opened LICENSE head, README tool list, prerequisites and env table, npm registry."
+ },
+ {
+  "name": "youtube-transcript",
+  "kind": "mcp",
+  "repo": "jkawamoto/mcp-youtube-transcript",
+  "commit": "1afa2d2f9cbb7a2b42a0ea03a89550ac48be8da7",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/jkawamoto__mcp-youtube-transcript",
+  "license": "MIT",
+  "licenseQuote": "The MIT License (MIT) / Copyright (c) 2025 Junpei Kawamoto",
+  "lastCommit": "2026-11-14T00:06:45-06:00",
+  "popularity": "unknown (not verifiable here)",
+  "package": "none",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "git+https://github.com/jkawamoto/mcp-youtube-transcript",
+   "mcp-youtube-transcript"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Gets the transcript, timed captions and info of a YouTube video from its URL.",
+  "summaryKo": "유튜브 영상 주소로 자막(대본)과 영상 정보를 가져와요.",
+  "tags": [
+   "youtube",
+   "transcript",
+   "video",
+   "captions"
+  ],
+  "capabilities": [
+   "get plain-text transcript",
+   "get timed transcript segments",
+   "list available caption languages",
+   "get video title and channel info"
+  ],
+  "inputs": [
+   "url"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Call get_available_languages to see which captions exist, then get_transcript (url, optional lang, default en) for plain text or get_timed_transcript for segments with start times. For long videos pass next_cursor to read the next chunk. get_video_info returns title and channel.",
+  "guideKo": "get_available_languages로 자막 언어를 확인한 뒤, get_transcript(url, 선택 lang, 기본 en)로 글만, get_timed_transcript로 시간 포함 자막을 받아요. 긴 영상은 next_cursor로 다음 부분을 이어 읽어요. get_video_info는 제목과 채널을 알려줘요.",
+  "warningsEn": [
+   "Needs internet access to YouTube; heavy use from one IP can be blocked (the README documents proxy options, some needing a paid third-party proxy account)",
+   "The start command installs from the GitHub repository, so git must be installed; the PyPI package of this name is an older version (0.3.5 vs 0.8.4 in the repository)"
+  ],
+  "warningsKo": [
+   "유튜브에 접속할 수 있어야 해요. 한 IP에서 많이 쓰면 막힐 수 있어요(README에 프록시 설정이 있고 일부는 유료 외부 프록시 계정이 필요해요)",
+   "시작 명령이 GitHub 저장소에서 설치하므로 git이 있어야 해요. PyPI의 같은 이름 패키지는 저장소보다 오래된 버전(0.3.5)이에요"
+  ],
+  "runEvidence": "README: \"command\": \"uvx\", \"args\": [\"--from\", \"git+https://github.com/jkawamoto/mcp-youtube-transcript\", \"mcp-youtube-transcript\"]; tools table with get_transcript, get_timed_transcript, get_available_languages, get_video_info",
+  "concerns": "No telemetry hits. pyproject version 0.8.4 but PyPI latest 0.3.5.",
+  "recommend": true,
+  "reason": "MIT, updated today, no key, command copied from README.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Package field changed from pypi:0.3.5 to none because PyPI is stale versus the repository (0.8.4) and the command uses the git URL",
+   "Added git requirement warning"
+  ],
+  "checked": "Opened LICENSE, README install and tool sections, pyproject, PyPI."
+ },
+ {
+  "name": "excel",
+  "kind": "mcp",
+  "repo": "haris-musa/excel-mcp-server",
+  "commit": "8d3a51a0a5f99624c43cffacc622bab49e1e32da",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/haris-musa__excel-mcp-server",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025-2026 Haris Musa",
+  "lastCommit": "2026-11-10T11:05:35+05:00",
+  "popularity": "unknown",
+  "package": "pypi:excel-mcp-server@2.3.0",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "excel-mcp-server",
+   "stdio",
+   "--allow-dir",
+   "{project}"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Creates, reads and edits Excel workbooks (data, formulas, formatting, charts, pivot tables) without Excel installed.",
+  "summaryKo": "엑셀 없이 통합 문서를 만들고 읽고 고쳐요(수식·서식·차트·피벗).",
+  "tags": [
+   "excel",
+   "spreadsheet",
+   "xlsx",
+   "csv"
+  ],
+  "capabilities": [
+   "read and write cell ranges",
+   "formulas, formatting and conditional formats",
+   "charts and pivot tables",
+   "import and export CSV"
+  ],
+  "inputs": [
+   "xlsx",
+   "csv"
+  ],
+  "outputs": [
+   "xlsx",
+   "csv",
+   "json"
+  ],
+  "guideEn": "Start with list_workbooks or create_workbook, then read with describe_workbook and read_range and change with write_range, format_range or create_chart. Use import_csv and export_csv to move data in and out. Workbooks open only inside the folder given with --allow-dir; add --read-only to allow reading only, or --tools data,charts to offer fewer tools.",
+  "guideKo": "list_workbooks나 create_workbook으로 시작하고, describe_workbook·read_range로 읽고 write_range·format_range·create_chart로 고쳐요. 데이터는 import_csv, export_csv로 주고받아요. 통합 문서는 --allow-dir로 준 폴더 안에서만 열려요. 읽기 전용은 --read-only, 도구를 줄이려면 --tools data,charts를 붙여요.",
+  "warningsEn": [
+   "It can modify and overwrite workbook files inside the allowed folder (use --read-only to prevent that)",
+   "Writing VBA macros needs the explicit --allow-vba-write flag, which is off by default"
+  ],
+  "warningsKo": [
+   "허용한 폴더 안의 통합 문서를 고치거나 덮어쓸 수 있어요(막으려면 --read-only)",
+   "VBA 매크로 쓰기는 --allow-vba-write를 줘야만 되고 기본은 꺼져 있어요"
+  ],
+  "runEvidence": "README: claude mcp add excel --scope user -- uvx excel-mcp-server stdio --allow-dir /path/to/workbooks; options table --allow-dir, --read-only, --allow-vba-write, --tools; [project.scripts] excel-mcp-server = excel_mcp.cli:main",
+  "concerns": "Telemetry grep matched only AGENTS.md (no telemetry code).",
+  "recommend": true,
+  "reason": "MIT, updated 4 days ago, command and folder limit verified.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "Opened LICENSE, README install/options/tools, pyproject scripts, PyPI."
+ },
+ {
+  "name": "word-docs",
+  "kind": "mcp",
+  "repo": "GongRzhe/Office-Word-MCP-Server",
+  "commit": "a3bbbb6d6167e68cf855d73ef7dc6cd8cfbfedba",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/GongRzhe__Office-Word-MCP-Server",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 GongRzhe",
+  "lastCommit": "2025-12-31T21:22:44+08:00",
+  "popularity": "unknown",
+  "package": "pypi:office-word-mcp-server@1.1.11",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "office-word-mcp-server",
+   "word_mcp_server"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Creates and edits Word (.docx) files: headings, paragraphs, tables, find and replace.",
+  "summaryKo": "워드(.docx) 문서를 만들고 제목·문단·표를 넣고 바꿔요.",
+  "tags": [
+   "word",
+   "docx",
+   "document",
+   "office"
+  ],
+  "capabilities": [
+   "create a document",
+   "add headings, paragraphs and tables",
+   "search and replace text",
+   "convert to PDF"
+  ],
+  "inputs": [
+   "docx",
+   "text"
+  ],
+  "outputs": [
+   "docx",
+   "pdf"
+  ],
+  "guideEn": "Call create_document with a filename, then add_heading, add_paragraph and add_table to build it; use get_document_text to read an existing file and search_and_replace to edit it. convert_to_pdf exports a PDF.",
+  "guideKo": "create_document로 파일을 만들고 add_heading, add_paragraph, add_table로 채워요. 기존 파일은 get_document_text로 읽고 search_and_replace로 고쳐요. convert_to_pdf는 PDF로 내보내요.",
+  "warningsEn": [
+   "It creates and overwrites .docx files on disk",
+   "convert_to_pdf needs LibreOffice (Linux/macOS) or Microsoft Word (the repo's tests say so)",
+   "Last commit was 2025-12-31 (under 12 months old, but slowing)"
+  ],
+  "warningsKo": [
+   "디스크의 .docx 파일을 만들거나 덮어써요",
+   "convert_to_pdf는 LibreOffice(Linux/macOS)나 마이크로소프트 워드가 필요해요(저장소 테스트에 적혀 있어요)",
+   "마지막 커밋이 2025-12-31이에요(12개월 안이지만 뜸해지는 중)"
+  ],
+  "runEvidence": "README: \"command\": \"uvx\", \"args\": [\"--from\", \"office-word-mcp-server\", \"word_mcp_server\"]; tool signatures create_document, add_heading, add_paragraph, add_table, get_document_text, search_and_replace, convert_to_pdf; [project.scripts] word_mcp_server",
+  "concerns": "No telemetry hits. Commits slowing.",
+  "recommend": true,
+  "reason": "MIT, start command matches README, PyPI and pyproject.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed unverified 'pass full file paths'; replaced the 'not confirmed' PDF warning with the LibreOffice/Word requirement seen in tests/test_convert_to_pdf.py"
+  ],
+  "checked": "Opened LICENSE, README, pyproject scripts, tests/test_convert_to_pdf.py, PyPI."
+ },
+ {
+  "name": "powerpoint",
+  "kind": "mcp",
+  "repo": "GongRzhe/Office-PowerPoint-MCP-Server",
+  "commit": "3631ba2ec0c24504476f78bf74d329c9be11caaa",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/GongRzhe__Office-PowerPoint-MCP-Server",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 GongRzhe",
+  "lastCommit": "2025-12-31T21:23:22+08:00",
+  "popularity": "unknown",
+  "package": "pypi:office-powerpoint-mcp-server@2.0.7",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "office-powerpoint-mcp-server",
+   "ppt_mcp_server"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Creates and edits PowerPoint (.pptx) slides, text, images and charts.",
+  "summaryKo": "파워포인트(.pptx) 슬라이드를 만들고 글·이미지·차트를 넣어요.",
+  "tags": [
+   "powerpoint",
+   "pptx",
+   "slides",
+   "office"
+  ],
+  "capabilities": [
+   "create or open a presentation",
+   "add slides with text, images and charts",
+   "use layout templates",
+   "save the file"
+  ],
+  "inputs": [
+   "pptx",
+   "text",
+   "image"
+  ],
+  "outputs": [
+   "pptx"
+  ],
+  "guideEn": "Call create_presentation (or open_presentation for an existing file), add content with add_slide and the content tools, then save_presentation. Custom template folders can be set with the PPT_TEMPLATE_PATH environment variable.",
+  "guideKo": "create_presentation(기존 파일은 open_presentation)으로 시작해 add_slide와 내용 도구로 채운 뒤 save_presentation으로 저장해요. 템플릿 폴더는 PPT_TEMPLATE_PATH 환경 변수로 지정해요.",
+  "warningsEn": [
+   "It creates and overwrites .pptx files on disk",
+   "Last commit was 2025-12-31 (under 12 months old, but slowing)"
+  ],
+  "warningsKo": [
+   "디스크의 .pptx 파일을 만들거나 덮어써요",
+   "마지막 커밋이 2025-12-31이에요(12개월 안이지만 뜸해지는 중)"
+  ],
+  "runEvidence": "README: uvx config \"--from\", \"office-powerpoint-mcp-server\", \"ppt_mcp_server\"; tools list; PPT_TEMPLATE_PATH section; [project.scripts] ppt_mcp_server = ppt_mcp_server:main",
+  "concerns": "Telemetry grep found no hits in this clone.",
+  "recommend": true,
+  "reason": "MIT, command verified, pairs with the Word server.",
+  "verdict": "accept-with-warnings",
+  "problems": [],
+  "checked": "Opened LICENSE, README (uvx, tools, PPT_TEMPLATE_PATH), pyproject scripts, PyPI."
+ },
+ {
+  "name": "pandoc",
+  "kind": "mcp",
+  "repo": "vivekVells/mcp-pandoc",
+  "commit": "7df0519cd7d976d7c3be978852f6178da5a37035",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/vivekVells__mcp-pandoc",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) [year] [fullname] (placeholder, MIT text intact)",
+  "lastCommit": "2026-08-15T16:17:58-05:00",
+  "popularity": "unknown",
+  "package": "pypi:mcp-pandoc@0.11.1",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "mcp-pandoc"
+  ],
+  "env": {},
+  "install": [
+   "Install pandoc itself (macOS: brew install pandoc; Linux: your package manager; Windows: installer from https://pandoc.org/installing.html)"
+  ],
+  "summaryEn": "Converts documents between formats (Markdown, HTML, docx, pdf, epub, odt, pptx) with pandoc.",
+  "summaryKo": "pandoc으로 마크다운·HTML·docx·PDF 같은 문서 형식을 서로 바꿔요.",
+  "tags": [
+   "pandoc",
+   "convert",
+   "documents",
+   "markdown"
+  ],
+  "capabilities": [
+   "convert text or files between formats",
+   "write docx, odt, epub, pptx and pdf files",
+   "apply a reference document for styling"
+  ],
+  "inputs": [
+   "text",
+   "docx",
+   "markdown",
+   "html"
+  ],
+  "outputs": [
+   "docx",
+   "pdf",
+   "html",
+   "markdown"
+  ],
+  "guideEn": "Call the convert-contents tool with the content or an input file, the target format, and an output_file path (required for pdf, docx, rst, latex, epub, odt and pptx). Use reference_doc to style docx, odt or pptx output. The pandoc program must be installed; PDF output also needs TeX Live.",
+  "guideKo": "convert-contents 도구에 내용이나 입력 파일, 목표 형식, output_file 경로(pdf·docx·rst·latex·epub·odt·pptx에는 필수)를 줘요. docx·odt·pptx 서식은 reference_doc으로 맞춰요. pandoc 프로그램이 깔려 있어야 하고 PDF는 TeX Live도 필요해요.",
+  "warningsEn": [
+   "The pandoc program must be installed first",
+   "PDF output needs TeX Live and the README says PDF support is still in development",
+   "It writes output files to disk"
+  ],
+  "warningsKo": [
+   "먼저 pandoc 프로그램을 설치해야 해요",
+   "PDF 변환은 TeX Live가 필요하고 README에서도 아직 개발 중이라고 해요",
+   "결과 파일을 디스크에 써요"
+  ],
+  "runEvidence": "README: \"command\": \"uvx\", \"args\": [\"mcp-pandoc\"]; Required: uv; brew install pandoc; [project.scripts] mcp-pandoc = mcp_pandoc:main; PyPI 0.11.1",
+  "concerns": "Telemetry grep: only a docs audit file, no telemetry. LICENSE keeps '[year] [fullname]' placeholder; PyPI has no license field.",
+  "recommend": true,
+  "reason": "MIT text, updated 3 months ago, uvx start verified.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "LICENSE copyright line is an unfilled placeholder; MIT grant text is intact",
+   "PDF prerequisite named as TeX Live (README) instead of generic LaTeX"
+  ],
+  "checked": "Opened LICENSE, README (tool, requirements, PDF note), pyproject scripts, PyPI."
+ },
+ {
+  "name": "searxng",
+  "kind": "mcp",
+  "repo": "ihor-sokoliuk/mcp-searxng",
+  "commit": "dbf2c33a4333ab863abc60ee9235fd6170ec8511",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/ihor-sokoliuk__mcp-searxng",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2024 IS",
+  "lastCommit": "2026-11-11T15:45:20-06:00",
+  "popularity": "unknown",
+  "package": "npm:mcp-searxng@2.10.1",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "mcp-searxng"
+  ],
+  "env": {
+   "SEARXNG_URL": "${SEARXNG_URL}"
+  },
+  "install": [],
+  "summaryEn": "Searches the web through a SearXNG instance and reads pages as Markdown.",
+  "summaryKo": "SearXNG 검색 서버로 웹을 검색하고 페이지를 마크다운으로 읽어요.",
+  "tags": [
+   "search",
+   "searxng",
+   "web",
+   "privacy"
+  ],
+  "capabilities": [
+   "web search through SearXNG",
+   "search suggestions",
+   "inspect instance engines and categories",
+   "read a URL as text or Markdown"
+  ],
+  "inputs": [
+   "text",
+   "url"
+  ],
+  "outputs": [
+   "text",
+   "matches"
+  ],
+  "guideEn": "Call searxng_web_search to find sources, refine with searxng_search_suggestions, then web_url_read to read a chosen page. searxng_instance_info lists the engines and categories of your instance. SEARXNG_URL must point to a SearXNG base URL.",
+  "guideKo": "searxng_web_search로 찾고 searxng_search_suggestions로 검색어를 다듬은 뒤 web_url_read로 고른 페이지를 읽어요. searxng_instance_info는 내 서버의 검색엔진과 분류를 보여줘요. SEARXNG_URL에는 SearXNG 서버 주소를 넣어요.",
+  "warningsEn": [
+   "Needs a SearXNG instance you run or can use; set SEARXNG_URL (a public instance may log your queries)",
+   "Needs Node.js 22 or later"
+  ],
+  "warningsKo": [
+   "쓸 수 있는 SearXNG 서버가 필요해요. SEARXNG_URL을 지정해요(공개 서버는 검색어를 기록할 수 있어요)",
+   "Node.js 22 이상이 필요해요"
+  ],
+  "runEvidence": "README: \"command\": \"npx\", \"args\": [\"-y\", \"mcp-searxng\"], \"env\": { \"SEARXNG_URL\": ... }; tools table; Node.js 22 or later; npm 2.10.1 MIT bin mcp-searxng",
+  "concerns": "docs/http-server.md says no Prometheus or OpenTelemetry exporter; other hits are security text.",
+  "recommend": true,
+  "reason": "MIT, updated 3 days ago, npx start verified; useful for people who run SearXNG.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Added Node 22 requirement from the README"
+  ],
+  "checked": "Opened LICENSE, README (config, tools, requirements), docs/http-server.md, npm registry."
+ },
+ {
+  "name": "wikipedia",
+  "kind": "mcp",
+  "repo": "Rudra-ravi/wikipedia-mcp",
+  "commit": "88579193daa42cd9c6d95492448a3b2785d4fbf9",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/Rudra-ravi__wikipedia-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 Your Name (placeholder, MIT text intact)",
+  "lastCommit": "2026-05-01T09:09:06+05:30",
+  "popularity": "unknown",
+  "package": "pypi:wikipedia-mcp@2.0.1",
+  "needs": "pipx",
+  "transport": "stdio",
+  "command": "wikipedia-mcp",
+  "args": [],
+  "env": {},
+  "install": [
+   "pipx install wikipedia-mcp (or: uv tool install wikipedia-mcp)"
+  ],
+  "summaryEn": "Searches Wikipedia and gets articles, summaries, sections and related topics in many languages.",
+  "summaryKo": "위키백과를 검색하고 문서·요약·섹션·관련 주제를 가져와요.",
+  "tags": [
+   "wikipedia",
+   "search",
+   "reference",
+   "knowledge"
+  ],
+  "capabilities": [
+   "search articles",
+   "get full article text and summaries",
+   "get sections, links and related topics",
+   "choose language or country"
+  ],
+  "inputs": [
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Call search_wikipedia with a query, then get_article or get_summary with the exact title; get_sections and get_related_topics help explore. Add --language (for example ja) or --country to the args for another Wikipedia. Each tool also has a wikipedia_ prefixed alias.",
+  "guideKo": "search_wikipedia로 찾고 정확한 제목으로 get_article이나 get_summary를 불러요. get_sections, get_related_topics로 더 둘러봐요. 다른 언어는 args에 --language ja나 --country를 붙여요. 모든 도구에 wikipedia_ 접두사 별칭도 있어요.",
+  "warningsEn": [
+   "Needs a one-time install with pipx (README) or uv tool; the README does not document a uvx command",
+   "Optional WIKIPEDIA_ACCESS_TOKEN only raises rate limits; not required"
+  ],
+  "warningsKo": [
+   "pipx로 한 번 설치해야 해요(uv tool도 가능). README에 uvx 명령은 없어요",
+   "WIKIPEDIA_ACCESS_TOKEN은 요청 한도를 늘리는 선택 사항이에요"
+  ],
+  "runEvidence": "README: pipx install wikipedia-mcp; config \"command\": \"wikipedia-mcp\" with \"args\": [\"--country\", \"US\"]; tool sections search_wikipedia, get_article, get_summary, get_sections, get_related_topics; [project.scripts] wikipedia-mcp",
+  "concerns": "No telemetry hits. LICENSE has placeholder holder name 'Your Name'.",
+  "recommend": true,
+  "reason": "MIT text, updated this year, free with no key.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "uv tool install is my addition (standard uv feature), README documents pipx"
+  ],
+  "checked": "Opened LICENSE, README install/tools/config, pyproject scripts, PyPI."
+ }
+]

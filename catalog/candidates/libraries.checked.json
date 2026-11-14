@@ -1,0 +1,1285 @@
+[
+ {
+  "name": "phaser",
+  "repo": "photonstorm/phaser",
+  "commit": "02d8931b626d9764c133cbb3fbf99966c03c757c",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/photonstorm__phaser",
+  "license": "MIT",
+  "licenseQuote": "The MIT License (MIT) / Copyright (c) 2026 Richard Davey, Phaser Studio Inc.",
+  "lastCommit": "2026-08-21T18:04:38+12:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:phaser@4.2.1",
+  "needs": "node",
+  "install": [
+   "npm install phaser"
+  ],
+  "docs": "https://docs.phaser.io",
+  "summaryEn": "A 2D HTML5 game framework with WebGL and Canvas rendering, scenes, sprites, physics and input.",
+  "summaryKo": "WebGL과 Canvas로 그리는 2D 웹 게임 프레임워크로, 장면, 스프라이트, 물리, 입력을 한 번에 제공해요.",
+  "tags": [
+   "game",
+   "2d",
+   "webgl"
+  ],
+  "capabilities": [
+   "2D browser games",
+   "scene and sprite management",
+   "arcade and matter physics",
+   "input and audio",
+   "tilemaps and animation"
+  ],
+  "inputs": [
+   "image assets",
+   "spritesheets",
+   "tilemaps",
+   "audio"
+  ],
+  "outputs": [
+   "web game bundle"
+  ],
+  "guideEn": "Pick Phaser for a full-featured 2D browser game when you want scenes, an asset loader, physics and input in one framework; use PixiJS instead if you only need a renderer. Start from a Phaser.Game config, Scene classes (preload, create, update), the loader and game objects. Phaser 4 replaced the v3 pipeline system with a node-based WebGL renderer, so v3 custom pipelines and shaders do not carry over; the README points to changelog/v4/4.0/MIGRATION-GUIDE.md and a v3-to-v4 migration skill in skills/v3-to-v4-migration before using old v3 snippets.",
+  "guideKo": "씬, 에셋 로더, 물리, 입력이 모두 들어 있는 2D 웹 게임이 필요하면 Phaser를 고르고, 렌더러만 필요하면 PixiJS를 써요. Phaser.Game 설정, Scene 클래스(preload, create, update), 로더와 게임 오브젝트부터 시작해요. Phaser 4는 v3의 파이프라인 시스템을 노드 기반 WebGL 렌더러로 바꿨기 때문에 v3의 커스텀 파이프라인과 셰이더는 그대로 쓸 수 없어요. 예전 v3 예제를 쓰기 전에 README가 안내하는 changelog/v4/4.0/MIGRATION-GUIDE.md와 skills/v3-to-v4-migration을 확인해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active, current major 4.x. Last commit Aug 2026 is within 12 months.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "LICENSE.md, README (v4 renderer and migration sections), git log, npm latest 4.2.1 (MIT)"
+ },
+ {
+  "name": "pixi.js",
+  "repo": "pixijs/pixijs",
+  "commit": "1e707686d00a2a8cd6432b047e56034fc7e7a909",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/pixijs__pixijs",
+  "license": "MIT",
+  "licenseQuote": "The MIT License / Copyright (c) 2013-2023 Mathew Groves, Chad Engler",
+  "lastCommit": "2026-11-11T13:16:40+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:pixi.js@8.23.0",
+  "needs": "node",
+  "install": [
+   "npm install pixi.js"
+  ],
+  "docs": "https://pixijs.com/8.x/guides",
+  "summaryEn": "A fast 2D renderer (WebGL and WebGPU) for sprites, text, graphics and filters.",
+  "summaryKo": "스프라이트, 텍스트, 그래픽, 필터를 빠르게 그리는 2D 렌더러(WebGL, WebGPU)예요.",
+  "tags": [
+   "2d",
+   "rendering",
+   "webgl"
+  ],
+  "capabilities": [
+   "sprite and text rendering",
+   "interactive 2D scenes",
+   "filters and shaders",
+   "game or app rendering layer"
+  ],
+  "inputs": [
+   "images",
+   "spritesheets",
+   "fonts"
+  ],
+  "outputs": [
+   "canvas rendering"
+  ],
+  "guideEn": "Pick PixiJS when you need a fast 2D rendering layer and will bring your own game logic, UI or physics; pick Phaser for a batteries-included game framework. Start from Application, Container, Sprite, Assets.load and the ticker. The README shows the application initialised asynchronously with await app.init({...}) before it is used, so do not pass options to the constructor as in older versions.",
+  "guideKo": "게임 로직, UI, 물리를 직접 붙일 빠른 2D 렌더링 층이 필요하면 PixiJS를, 모든 것이 들어 있는 게임 프레임워크가 필요하면 Phaser를 골라요. Application, Container, Sprite, Assets.load, ticker부터 시작해요. README는 쓰기 전에 await app.init({...})로 비동기 초기화를 하는 방식을 보여 주니, 옛 버전처럼 생성자에 옵션을 넘기지 않아요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "LICENSE copyright line reads 2013-2023 but the repository is actively maintained (commit Nov 2026).",
+  "recommend": true,
+  "reason": "MIT, very active, v8.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "LICENSE, README (await app.init), git log, npm latest 8.23.0 (MIT)"
+ },
+ {
+  "name": "three",
+  "repo": "mrdoob/three.js",
+  "commit": "253fa7ad003181df28015efdb541c2916895a816",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/mrdoob__three.js",
+  "license": "MIT",
+  "licenseQuote": "The MIT License / Copyright © 2010-2026 three.js authors",
+  "lastCommit": "2026-11-13T19:21:56-03:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:three@0.187.0",
+  "needs": "node",
+  "install": [
+   "npm install three"
+  ],
+  "docs": "https://threejs.org/docs/",
+  "summaryEn": "The standard 3D library for the web: scenes, cameras, meshes, materials, lights, loaders.",
+  "summaryKo": "웹 3D의 표준 라이브러리로, 장면, 카메라, 메시, 재질, 조명, 로더를 제공해요.",
+  "tags": [
+   "3d",
+   "webgl",
+   "webgpu"
+  ],
+  "capabilities": [
+   "3D scenes in the browser",
+   "glTF model loading",
+   "materials and lighting",
+   "WebGL and WebGPU rendering"
+  ],
+  "inputs": [
+   "glTF/GLB models",
+   "textures"
+  ],
+  "outputs": [
+   "canvas rendering"
+  ],
+  "guideEn": "Pick three.js for custom 3D in the browser (visualisations, viewers, games) when you want a lower-level scene graph rather than an engine editor. Start from Scene, PerspectiveCamera, a renderer, Mesh with Geometry and Material, and GLTFLoader. The README says the current builds include WebGL and WebGPU renderers, and it versions by release number (0.x) with a Migration Guide on the wiki, so check that guide for the installed version rather than trusting older snippets.",
+  "guideKo": "브라우저에서 직접 만드는 3D(시각화, 뷰어, 게임)가 필요하면 three.js를 고르고, 엔진 에디터보다 낮은 수준의 씬 그래프를 원할 때 맞아요. Scene, PerspectiveCamera, renderer, Geometry와 Material을 가진 Mesh, GLTFLoader부터 시작해요. README에 따르면 현재 빌드는 WebGL과 WebGPU 렌더러를 포함하고, 버전이 0.x 릴리스 번호라서 오래된 예제 대신 위키의 마이그레이션 가이드로 설치한 버전과의 차이를 확인해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, very active.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "LICENSE, README (migration link, renderers), git log, npm latest 0.187.0 (MIT)"
+ },
+ {
+  "name": "kaplay",
+  "repo": "kaplayjs/kaplay",
+  "commit": "89361504b74d2485f0e689923b597a1befe9f3fd",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/kaplayjs__kaplay",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 KAPLAY Team",
+  "lastCommit": "2026-11-13T09:08:38-03:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:kaplay@3001.0.19",
+  "needs": "node",
+  "install": [
+   "npm install kaplay"
+  ],
+  "docs": "https://kaplayjs.com",
+  "summaryEn": "A small, beginner-friendly 2D game library with a component-based API (successor to Kaboom).",
+  "summaryKo": "컴포넌트 방식 API를 가진 작고 쉬운 2D 게임 라이브러리로, Kaboom의 후속이에요.",
+  "tags": [
+   "game",
+   "2d",
+   "prototyping"
+  ],
+  "capabilities": [
+   "quick 2D game prototypes",
+   "component-based game objects",
+   "built-in collision and sprites",
+   "game jams"
+  ],
+  "inputs": [
+   "sprites",
+   "sounds"
+  ],
+  "outputs": [
+   "web game"
+  ],
+  "guideEn": "Pick KAPLAY for quick 2D prototypes and small games with minimal setup; choose Phaser for larger projects. Start by calling kaplay({...}), then add game objects with components such as sprite, pos, area and body. By default (global option true) kaplay() imports all functions into global scope; pass global: false to get a context handle instead. The \"kaplay/global\" import only provides global TypeScript types, not the functions themselves.",
+  "guideKo": "설정이 거의 없는 빠른 2D 프로토타입과 작은 게임에는 KAPLAY를, 더 큰 프로젝트에는 Phaser를 골라요. kaplay({...})를 호출하고 sprite, pos, area, body 같은 컴포넌트로 오브젝트를 만들어요. 기본값(global 옵션이 true)에서는 kaplay()가 모든 함수를 전역으로 가져오고, global: false를 주면 컨텍스트 핸들을 써요. \"kaplay/global\"을 가져오는 것은 전역 TypeScript 타입만 불러올 뿐 함수를 만들어 주지는 않아요.",
+  "warningsEn": [
+   "Successor-to-Kaboom statement is not confirmed by the repository README."
+  ],
+  "warningsKo": [
+   "Kaboom의 후속이라는 설명은 저장소 README에서 확인하지 못했어요."
+  ],
+  "concerns": "Kaboom succession not confirmed in README text.",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Original guide said use \"kaplay/global\" to put functions in global scope; README says it loads global TypeScript types only (global functions come from kaplay() with global default true). Corrected.",
+   "Claim that it continues Kaboom and that the kaboom package should not be installed is not in the README; removed from the guide (the summary keeps 'successor to Kaboom' as the original proposer stated; not verified in the clone)."
+  ],
+  "checked": "LICENSE, README (kaplay global types section), src/types.ts global option default true, package.json exports, npm latest 3001.0.19 (MIT)"
+ },
+ {
+  "name": "@dimforge/rapier2d-compat",
+  "repo": "dimforge/rapier",
+  "commit": "475caa3ff4646fd9a796b67d14116256f4962bc7",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/dimforge__rapier",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License Version 2.0, January 2004 (root LICENSE and bindings/typescript/LICENSE); Cargo.toml: license = \"Apache-2.0\"",
+  "lastCommit": "2026-10-10T14:08:56+02:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:@dimforge/rapier2d-compat@0.21.0",
+  "needs": "node",
+  "install": [
+   "npm install @dimforge/rapier2d-compat"
+  ],
+  "docs": "https://rapier.rs/docs/user_guides/javascript/getting_started_js",
+  "summaryEn": "A fast Rust physics engine (2D and 3D) compiled to WebAssembly for JavaScript.",
+  "summaryKo": "러스트로 만든 빠른 물리 엔진(2D, 3D)을 WebAssembly로 컴파일해 자바스크립트에서 쓰게 해요.",
+  "tags": [
+   "physics",
+   "wasm",
+   "game"
+  ],
+  "capabilities": [
+   "rigid body physics",
+   "colliders and joints",
+   "raycasts and queries",
+   "soft bodies (0.21)"
+  ],
+  "inputs": [
+   "rigid bodies",
+   "colliders"
+  ],
+  "outputs": [
+   "body positions and contacts"
+  ],
+  "guideEn": "Pick Rapier for rigid-body physics in a browser or Node game; matter.js is a pure-JS alternative for 2D only. Create a World, add RigidBody and Collider descriptions, then call world.step() each frame and read the positions back. The bindings README lists several npm flavours: rapier2d and rapier3d (wasm file separate), -simd (needs simd128 browser support), -deterministic (guaranteed cross-platform determinism; the plain build is only deterministic on the same machine), and -compat versions that embed the wasm as base64 for bundler support. The init source says init() must be called and awaited before any library method. The 0.21.0 changelog lists breaking changes: World, PhysicsPipeline.step and the set removal methods now take a SoftBodySet argument.",
+  "guideKo": "브라우저나 Node 게임에서 강체 물리가 필요하면 Rapier를 고르고, 2D만 필요한 순수 JS 대안은 matter.js예요. World를 만들고 RigidBody와 Collider를 추가한 뒤 프레임마다 world.step()을 호출해 위치를 읽어요. 바인딩 README에 따르면 npm 패키지는 여러 종류예요. rapier2d와 rapier3d(wasm 파일 별도), simd128 지원이 필요한 -simd, 플랫폼 간 결정성을 보장하는 -deterministic(기본 빌드는 같은 기기에서만 결정적), 번들러 호환을 위해 wasm을 base64로 내장한 -compat이 있어요. 소스의 init 주석은 라이브러리 메서드를 쓰기 전에 init()을 호출하고 기다려야 한다고 해요. 0.21.0 변경 기록에는 World, PhysicsPipeline.step, 제거 메서드가 SoftBodySet 인자를 받는 호환 깨짐 변경이 있어요.",
+  "warningsEn": [
+   "The repository dimforge/rapier.js is merged into dimforge/rapier (bindings/typescript); the catalog points to the new repository."
+  ],
+  "warningsKo": [
+   "dimforge/rapier.js는 dimforge/rapier(bindings/typescript)로 합쳐졌어요. 카탈로그는 새 저장소를 가리켜요."
+  ],
+  "concerns": "Package choice (2d/3d, compat/simd/deterministic) depends on the project; the 3D package is @dimforge/rapier3d-compat.",
+  "recommend": true,
+  "reason": "Apache-2.0, actively maintained in dimforge/rapier (Oct 2026).",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Repository was wrong: dimforge/rapier.js README says it was merged into dimforge/rapier (typescript directory); npm repository field is dimforge/rapier. Repo, commit, cloneDir, lastCommit and license source replaced.",
+   "Original guide claimed 'deterministic stepping' for the plain package; README says only the -deterministic build guarantees cross-platform determinism. Corrected.",
+   "init requirement confirmed in rapier-compat/src2d/init.ts."
+  ],
+  "checked": "dimforge/rapier.js README (merged notice), clone of dimforge/rapier: root LICENSE, bindings/typescript README and CHANGELOG 0.21.0, rapier-compat init.ts, npm registry (latest 0.21.0, repository dimforge/rapier)"
+ },
+ {
+  "name": "konva",
+  "repo": "konvajs/konva",
+  "commit": "ffd089ce0558ec89ca0f983d70b07990367b587e",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/konvajs__konva",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Original work Copyright (C) 2011 - 2013 by Eric Rowell (KineticJS)",
+  "lastCommit": "2026-11-09T09:31:10-05:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:konva@10.9.1",
+  "needs": "node",
+  "install": [
+   "npm install konva"
+  ],
+  "docs": "https://konvajs.org/docs/",
+  "summaryEn": "A 2D canvas library with a scene graph for interactive shapes, drag and drop, transforms and events.",
+  "summaryKo": "도형, 드래그 앤 드롭, 변형, 이벤트를 다루는 씬 그래프 기반 2D 캔버스 라이브러리예요.",
+  "tags": [
+   "canvas",
+   "2d",
+   "editor"
+  ],
+  "capabilities": [
+   "interactive canvas shapes",
+   "drag and drop",
+   "hit detection and events",
+   "export canvas to image"
+  ],
+  "inputs": [
+   "shapes",
+   "images"
+  ],
+  "outputs": [
+   "canvas",
+   "PNG/JSON"
+  ],
+  "guideEn": "Pick Konva for interactive 2D canvas editors with draggable shapes; use Fabric.js if you want an object model with SVG and JSON serialisation, or PixiJS for game-style rendering. The README builds a Stage, adds a Layer to it, then adds shapes to the layer, and mentions Stage, Layer, FastLayer, Group and Shape. Check the docs at konvajs.org for events, transforms and export before copying older KineticJS-era snippets.",
+  "guideKo": "드래그할 수 있는 도형이 있는 인터랙티브 2D 캔버스 에디터에는 Konva를 고르고, SVG와 JSON 직렬화가 있는 객체 모델이 필요하면 Fabric.js, 게임식 렌더링은 PixiJS를 써요. README는 Stage를 만들고 Layer를 붙인 뒤 레이어에 도형을 추가하며, Stage, Layer, FastLayer, Group, Shape를 언급해요. 이벤트, 변형, 내보내기는 konvajs.org 문서를 확인하고 KineticJS 시절 예제는 그대로 쓰지 않아요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "Capabilities such as export and hit detection come from the project description, not read in detail.",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed the 'keep the number of Layers small' pitfall and the Transformer claim: not found in the README."
+  ],
+  "checked": "LICENSE, README (Stage/Layer example, FastLayer), git log, npm latest 10.9.1 (MIT)"
+ },
+ {
+  "name": "fabric",
+  "repo": "fabricjs/fabric.js",
+  "commit": "ab604137e04dd7d3d566462a6b27f5863e37c60b",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/fabricjs__fabric.js",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2008-2015 Printio (Juriy Zaytsev, Maxim Chernyak)",
+  "lastCommit": "2026-11-10T20:24:34+01:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:fabric@7.4.0",
+  "needs": "node",
+  "install": [
+   "npm install fabric"
+  ],
+  "docs": "https://fabricjs.com/docs/",
+  "summaryEn": "A canvas library with an object model, SVG import and export, and JSON serialisation.",
+  "summaryKo": "객체 모델, SVG 가져오기와 내보내기, JSON 직렬화를 갖춘 캔버스 라이브러리예요.",
+  "tags": [
+   "canvas",
+   "editor",
+   "svg"
+  ],
+  "capabilities": [
+   "drawing and image editors",
+   "SVG import and export",
+   "object selection and transforms",
+   "canvas to JSON"
+  ],
+  "inputs": [
+   "SVG",
+   "images",
+   "JSON"
+  ],
+  "outputs": [
+   "canvas",
+   "SVG/JSON/PNG"
+  ],
+  "guideEn": "Pick Fabric.js for image or design editors that need selectable objects, SVG and JSON. The README says the fabric package is now a legacy compatibility facade that stays supported and re-exports @fabricjs/browser; new browser apps should prefer @fabricjs/browser and Node apps @fabricjs/node, and fabric and every @fabricjs/* package must be kept on matching versions. Existing imports like import { Canvas } from 'fabric' keep working. The CHANGELOG records a breaking change to the static fromURL method of the image class, so callback-style snippets from old tutorials do not apply.",
+  "guideKo": "선택 가능한 객체, SVG, JSON이 필요한 이미지나 디자인 에디터에는 Fabric.js를 골라요. README에 따르면 fabric 패키지는 이제 호환용 레거시 파사드로 계속 지원되고 @fabricjs/browser를 다시 내보내요. 새 브라우저 앱은 @fabricjs/browser, Node 앱은 @fabricjs/node를 권하고, fabric과 모든 @fabricjs/* 패키지는 같은 버전으로 맞춰야 해요. import { Canvas } from 'fabric' 같은 기존 import는 계속 동작해요. CHANGELOG에는 이미지 클래스의 정적 fromURL 메서드가 호환이 깨지게 바뀐 기록이 있어서 옛 튜토리얼의 콜백 방식 예제는 맞지 않아요.",
+  "warningsEn": [
+   "README prefers @fabricjs/browser (npm 7.5.0-beta.1 exists) for new apps; fabric stays supported."
+  ],
+  "warningsKo": [
+   "README는 새 앱에 @fabricjs/browser를 권해요(npm에 7.5.0-beta.1이 있어요). fabric도 계속 지원돼요."
+  ],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Original guide treated 'fabric' as the modern package and said v5-or-earlier global namespace was out of date; README now describes fabric as a legacy facade and prefers @fabricjs/browser. Guide rewritten. Install command left as npm install fabric (latest 7.4.0, MIT) since README still documents it; @fabricjs/browser latest on npm is a beta (7.5.0-beta.1)."
+  ],
+  "checked": "LICENSE, README installation and packages sections, CHANGELOG (fromURL breaking change, 7.4.0), npm latest fabric 7.4.0 and @fabricjs/browser 7.5.0-beta.1 (MIT)"
+ },
+ {
+  "name": "motion",
+  "repo": "motiondivision/motion",
+  "commit": "f95ab9418d9524b906c8681994b95d15cb03d5fc",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/motiondivision__motion",
+  "license": "MIT",
+  "licenseQuote": "The MIT License (MIT) / Copyright (c) 2024 [Motion](https://motion.dev) B.V.",
+  "lastCommit": "2026-11-13T15:40:04+01:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:motion@14.14.0",
+  "needs": "node",
+  "install": [
+   "npm install motion"
+  ],
+  "docs": "https://motion.dev/docs",
+  "summaryEn": "An open source animation library for JavaScript, React and Vue (formerly Framer Motion).",
+  "summaryKo": "자바스크립트, React, Vue용 오픈소스 애니메이션 라이브러리로, 예전 이름은 Framer Motion이에요.",
+  "tags": [
+   "animation",
+   "ui",
+   "react"
+  ],
+  "capabilities": [
+   "declarative React animation",
+   "gestures, springs and layout transitions",
+   "scroll-linked effects",
+   "vanilla JS animate()"
+  ],
+  "inputs": [
+   "React components",
+   "DOM elements"
+  ],
+  "outputs": [
+   "animations"
+  ],
+  "guideEn": "Pick Motion for UI animation in React (the motion component) or plain JavaScript (animate()). The README says Framer Motion is now Motion: install motion and import from \"motion/react\" instead of framer-motion; JavaScript uses import { animate } from \"motion\", and Vue has its own package motion-v. The README states Motion is MIT licensed, while Motion+ is a separate paid product, which is not needed for the library.",
+  "guideKo": "React의 UI 애니메이션(motion 컴포넌트)이나 순수 JS의 animate()에는 Motion을 골라요. README에 따르면 Framer Motion은 이제 Motion이라서 motion을 설치하고 framer-motion이 아니라 \"motion/react\"에서 가져와요. 자바스크립트는 import { animate } from \"motion\"을 쓰고 Vue는 별도 패키지 motion-v예요. README는 Motion이 MIT라고 밝히고, Motion+는 별도 유료 상품이며 라이브러리에는 필요하지 않아요.",
+  "warningsEn": [
+   "Motion+ is a separate paid product; only the MIT library is recommended."
+  ],
+  "warningsKo": [
+   "Motion+는 별도 유료 상품이에요. 추천 대상은 MIT 라이브러리뿐이에요."
+  ],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed AnimatePresence from the guide (not in the README); paid add-on claim confirmed (Motion+ section) and Vue package noted."
+  ],
+  "checked": "LICENSE.md, README (install, Framer Motion note, Motion+, license section), npm latest 14.14.0 (MIT)"
+ },
+ {
+  "name": "d3",
+  "repo": "d3/d3",
+  "commit": "db118c93a429e82b83f091dbaa18fd0a82c06130",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/d3__d3",
+  "license": "ISC",
+  "licenseQuote": "Copyright 2010-2026 Mike Bostock / Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted",
+  "lastCommit": "2026-11-03T11:42:40-08:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:d3@7.9.2",
+  "needs": "node",
+  "install": [
+   "npm install d3"
+  ],
+  "docs": "https://d3js.org",
+  "summaryEn": "Low-level building blocks for custom data visualisation: scales, shapes, axes, layouts, geo, force.",
+  "summaryKo": "스케일, 도형, 축, 레이아웃, 지도, 힘 그래프 같은 맞춤 데이터 시각화용 저수준 구성 요소예요.",
+  "tags": [
+   "charts",
+   "svg",
+   "data-viz"
+  ],
+  "capabilities": [
+   "custom charts in SVG or canvas",
+   "scales and axes",
+   "force and hierarchy layouts",
+   "maps and geo projections"
+  ],
+  "inputs": [
+   "arrays",
+   "CSV/JSON"
+  ],
+  "outputs": [
+   "SVG",
+   "canvas"
+  ],
+  "guideEn": "Pick D3 when you need a bespoke visualisation; for standard charts use Recharts, Chart.js or ECharts instead. The README describes it as a low-level approach built on web standards, and package.json sets type module (ESM). Use its pieces (scales, shapes, axes) to compute geometry and let your framework render the DOM if you prefer. Since D3 4.0 the API is a flat namespace per the 4.0 notes in CHANGES.md: d3.scale.linear became d3.scaleLinear and d3.svg.axis became d3.axisTop/Right/Bottom/Left, so v3-era snippets fail.",
+  "guideKo": "맞춤형 시각화에는 D3를, 일반적인 차트에는 Recharts, Chart.js, ECharts를 골라요. README는 웹 표준 위의 저수준 접근이라고 소개하고, package.json은 type이 module(ESM)이에요. 스케일, 도형, 축 같은 조각으로 기하를 계산하고 DOM은 프레임워크가 그리게 해도 돼요. CHANGES.md의 4.0 항목에 따르면 D3 4.0부터 평평한 네임스페이스가 되어 d3.scale.linear는 d3.scaleLinear로, d3.svg.axis는 d3.axisTop, Right, Bottom, Left로 바뀌었으니 v3 시절 코드는 동작하지 않아요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "Recharts, Chart.js alternatives are not in the clone; they are named only as options.",
+  "recommend": true,
+  "reason": "ISC, maintained.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "The d3.scale.linear and d3.svg.axis removal happened in 4.0, not 7; guide corrected to cite CHANGES.md."
+  ],
+  "checked": "LICENSE (ISC text), README, package.json type module, CHANGES.md 4.0 section, npm latest 7.9.2 (ISC)"
+ },
+ {
+  "name": "echarts",
+  "repo": "apache/echarts",
+  "commit": "34f4d927eafe251f26f63afd3aeefa30f2feba30",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/apache__echarts",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License Version 2.0, January 2004",
+  "lastCommit": "2026-10-04T18:59:16+08:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:echarts@6.1.0",
+  "needs": "node",
+  "install": [
+   "npm install echarts"
+  ],
+  "docs": "https://echarts.apache.org/en/index.html",
+  "summaryEn": "A declarative charting library with many chart types, large-data support and a rich option object.",
+  "summaryKo": "선언형 옵션으로 많은 종류의 차트와 대용량 데이터를 그리는 차트 라이브러리예요.",
+  "tags": [
+   "charts",
+   "data-viz"
+  ],
+  "capabilities": [
+   "line, bar, pie, scatter, heatmap, map charts",
+   "large datasets",
+   "interactive dashboards",
+   "canvas or SVG rendering"
+  ],
+  "inputs": [
+   "JSON data"
+  ],
+  "outputs": [
+   "canvas",
+   "SVG"
+  ],
+  "guideEn": "Pick ECharts for rich dashboards and big datasets where one option object describes the chart; use D3 for fully custom graphics. Start with echarts.init(dom) and myChart.setOption(option), as shown in the package README. For smaller bundles import from echarts/core and register only the charts (echarts/charts), components (echarts/components) and renderers (echarts/renderers) you use, as the package README describes.",
+  "guideKo": "옵션 객체 하나로 차트를 정의하는 풍부한 대시보드와 큰 데이터에는 ECharts를, 완전히 맞춤인 그래픽에는 D3를 골라요. package README처럼 echarts.init(dom)과 myChart.setOption(option)으로 시작해요. 번들을 줄이려면 echarts/core에서 가져오고 쓰는 차트(echarts/charts), 컴포넌트(echarts/components), 렌더러(echarts/renderers)만 등록해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "licenses/LICENSE-d3 holds the bundled d3 license (ISC-style). NOTICE file is the Apache one.",
+  "recommend": true,
+  "reason": "Apache-2.0, Apache top-level project, last commit Oct 2026.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "LICENSE (Apache-2.0), NOTICE and licenses dir listing, package.README.md (core import, init, setOption), npm latest 6.1.0 (Apache-2.0)"
+ },
+ {
+  "name": "hono",
+  "repo": "honojs/hono",
+  "commit": "f6fbaf0299c48eea9e656e03e2ffe7ac755e8823",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/honojs__hono",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2021 - present, Yusuke Wada and Hono contributors",
+  "lastCommit": "2026-11-11T17:50:02+09:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:hono@4.13.18",
+  "needs": "node",
+  "install": [
+   "npm install hono"
+  ],
+  "docs": "https://hono.dev/docs",
+  "summaryEn": "A small, fast web framework on Web Standards that runs on Cloudflare Workers, Deno, Bun, Node and more.",
+  "summaryKo": "Web 표준 기반의 작고 빠른 웹 프레임워크로 Cloudflare Workers, Deno, Bun, Node 등에서 돌아가요.",
+  "tags": [
+   "backend",
+   "web",
+   "typescript"
+  ],
+  "capabilities": [
+   "HTTP APIs and routing",
+   "middleware",
+   "runtime-portable servers",
+   "typed RPC client"
+  ],
+  "inputs": [
+   "HTTP requests"
+  ],
+  "outputs": [
+   "HTTP responses"
+  ],
+  "guideEn": "Pick Hono for lightweight TypeScript APIs that must run on edge runtimes or several JS runtimes; Fastify or Express suit Node-only services. The README example is new Hono(), app.get('/', (c) => c.text('Hono!')) and export default app, and it lists built-in and third-party middleware and a hono/tiny preset. The Node tests in the repository use the separate @hono/node-server package to serve the app, so on Node add that adapter. The README links docs/MIGRATION.md for breaking changes between versions.",
+  "guideKo": "엣지나 여러 JS 런타임에서 돌아야 하는 가벼운 TypeScript API에는 Hono를, Node 전용 서비스에는 Fastify나 Express를 골라요. README 예제는 new Hono(), app.get('/', (c) => c.text('Hono!')), export default app이고, 내장과 서드파티 미들웨어와 hono/tiny 프리셋을 소개해요. 저장소의 Node 테스트는 별도 패키지 @hono/node-server로 앱을 띄우니 Node에서는 그 어댑터를 추가해요. 버전 간 호환 변경은 README가 안내하는 docs/MIGRATION.md에 있어요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Original claim that Hono 'only exports a fetch handler' was not in the README; rewritten from what runtime-tests and package.json show (@hono/node-server)."
+  ],
+  "checked": "LICENSE, README (example, features), package.json (@hono/node-server devDependency), runtime-tests/node, docs/MIGRATION.md exists, npm latest 4.13.18 (MIT)"
+ },
+ {
+  "name": "drizzle-orm",
+  "repo": "drizzle-team/drizzle-orm",
+  "commit": "3bcb6a27ec1f4f1602aeeb0af2f5aec61010d72d",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/drizzle-team__drizzle-orm",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License Version 2.0, January 2004",
+  "lastCommit": "2026-11-13T16:07:33+02:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:drizzle-orm@0.45.4",
+  "needs": "node",
+  "install": [
+   "npm install drizzle-orm",
+   "npm install -D drizzle-kit"
+  ],
+  "docs": "https://orm.drizzle.team/docs/overview",
+  "summaryEn": "A TypeScript ORM and SQL query builder with schema-as-code and migrations through drizzle-kit.",
+  "summaryKo": "스키마를 코드로 쓰는 TypeScript ORM이자 SQL 쿼리 빌더로, 마이그레이션은 drizzle-kit이 맡아요.",
+  "tags": [
+   "database",
+   "orm",
+   "typescript"
+  ],
+  "capabilities": [
+   "type-safe SQL queries",
+   "schema definition in TypeScript",
+   "migrations via drizzle-kit",
+   "PostgreSQL, MySQL, SQLite"
+  ],
+  "inputs": [
+   "schema files"
+  ],
+  "outputs": [
+   "typed query results",
+   "SQL migrations"
+  ],
+  "guideEn": "Pick Drizzle for a thin, SQL-close, type-safe ORM in TypeScript with zero runtime dependencies; Prisma is the heavier alternative with its own schema language. The README says it supports PostgreSQL, MySQL and SQLite (including serverless drivers) and that Drizzle Kit generates SQL migration files. The source has per-dialect modules (drizzle-orm/pg-core, mysql-core, sqlite-core) and per-driver modules, so copy imports from the docs for your dialect and driver. npm latest is 0.45.4 while 1.0.0-rc and beta releases exist under other dist-tags, so snippets for 1.0 may differ from what npm install gives you.",
+  "guideKo": "SQL에 가깝고 런타임 의존성이 없는 얇은 타입 안전 TypeScript ORM에는 Drizzle을, 자체 스키마 언어를 쓰는 더 무거운 대안은 Prisma예요. README에 따르면 PostgreSQL, MySQL, SQLite(서버리스 드라이버 포함)를 지원하고 Drizzle Kit이 SQL 마이그레이션 파일을 만들어요. 소스에는 방언별 모듈(drizzle-orm/pg-core, mysql-core, sqlite-core)과 드라이버별 모듈이 있으니 쓰는 방언과 드라이버에 맞는 import를 문서에서 가져와요. npm latest는 0.45.4이고 1.0 rc와 beta는 다른 dist-tag에 있어서 1.0 예제는 npm install로 받은 버전과 다를 수 있어요.",
+  "warningsEn": [
+   "npm latest is 0.x; a 1.0 release candidate exists under the rc dist-tag."
+  ],
+  "warningsKo": [
+   "npm latest는 0.x이고 1.0 릴리스 후보는 rc dist-tag에 있어요."
+  ],
+  "concerns": "",
+  "recommend": true,
+  "reason": "Apache-2.0, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Original guide said 'a different package per dialect import path', which is wrong (one package with dialect subpaths); rewritten. Added the dist-tag fact from the npm registry. drizzle-kit latest 0.31.11 (MIT) confirmed for the second install command."
+  ],
+  "checked": "LICENSE, README, drizzle-orm/src listing, drizzle-kit README, npm dist-tags (latest 0.45.4; rc 1.0.0-rc.5), drizzle-kit latest 0.31.11 MIT"
+ },
+ {
+  "name": "zod",
+  "repo": "colinhacks/zod",
+  "commit": "fef16cba0cf6668eb25ecc32fdfe2ce0a46f6f80",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/colinhacks__zod",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2025 Colin McDonnell",
+  "lastCommit": "2026-11-13T12:30:00-08:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:zod@4.6.7",
+  "needs": "node",
+  "install": [
+   "npm install zod"
+  ],
+  "docs": "https://zod.dev",
+  "summaryEn": "TypeScript-first schema validation with static type inference.",
+  "summaryKo": "정적 타입 추론이 되는 TypeScript 우선 스키마 검증 라이브러리예요.",
+  "tags": [
+   "validation",
+   "typescript",
+   "schema"
+  ],
+  "capabilities": [
+   "runtime validation",
+   "type inference",
+   "parsing untrusted input"
+  ],
+  "inputs": [
+   "unknown data"
+  ],
+  "outputs": [
+   "typed data",
+   "validation errors"
+  ],
+  "guideEn": "Pick Zod to validate API input, config and LLM or tool output in TypeScript; the parsed result is typed. Start from import * as z from \"zod\", z.object and schema.parse, as in the README. The package root exports Zod 4 since zod@4.0.0; the docs' versioning page says Zod 3 is now under \"zod/v3\" and that \"zod/v4\" keeps working, and zod.dev has a migration guide from Zod 3 to Zod 4.",
+  "guideKo": "API 입력, 설정, LLM이나 툴 출력을 TypeScript에서 검증할 때 Zod를 골라요. 파싱 결과는 타입이 붙어요. README처럼 import * as z from \"zod\", z.object, schema.parse로 시작해요. zod@4.0.0부터 패키지 루트가 Zod 4를 내보내고, 문서의 버전 페이지에 따르면 Zod 3은 \"zod/v3\"에 있고 \"zod/v4\"도 계속 동작하며, zod.dev에 Zod 3에서 4로 가는 마이그레이션 가이드가 있어요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active, v4.",
+  "verdict": "accept",
+  "problems": [
+   "Removed JSON Schema conversion capability (not verified in the clone); guide now cites the versioning and migration pages found in packages/docs."
+  ],
+  "checked": "LICENSE, README, packages/docs/content/v4/versioning.mdx and changelog.mdx, npm latest 4.6.7 (MIT)"
+ },
+ {
+  "name": "vitest",
+  "repo": "vitest-dev/vitest",
+  "commit": "cab34bb0ee23f00676ea895560c8b16399ce40b7",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/vitest-dev__vitest",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2021-Present VoidZero Inc. and Vitest contributors",
+  "lastCommit": "2026-11-13T14:34:30+01:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:vitest@5.1.0",
+  "needs": "node",
+  "install": [
+   "npm install -D vitest"
+  ],
+  "docs": "https://vitest.dev",
+  "summaryEn": "A fast Vite-powered unit test runner with a Jest-compatible API.",
+  "summaryKo": "Vite 기반의 빠른 단위 테스트 러너로, Jest와 호환되는 API를 가져요.",
+  "tags": [
+   "testing",
+   "vite",
+   "typescript"
+  ],
+  "capabilities": [
+   "unit and component tests",
+   "mocking",
+   "coverage",
+   "watch mode"
+  ],
+  "inputs": [
+   "test files"
+  ],
+  "outputs": [
+   "test results",
+   "coverage"
+  ],
+  "guideEn": "Pick Vitest for unit tests in Vite or modern TypeScript projects. Write tests with describe, it and expect imported from 'vitest', and run vitest run in CI because plain vitest starts watch mode in a terminal. The README states Vitest requires Vite >=6.4.0 and Node >=22.12.0, so older Node setups need an older Vitest.",
+  "guideKo": "Vite나 최신 TypeScript 프로젝트의 단위 테스트에는 Vitest를 골라요. 'vitest'에서 describe, it, expect를 가져와 테스트를 쓰고, CI에서는 vitest run을 써요(터미널에서 그냥 vitest는 watch 모드예요). README에 따르면 Vite 6.4.0 이상과 Node 22.12.0 이상이 필요해서 오래된 Node에는 이전 Vitest를 써야 해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "Browser mode capability dropped from the list (unverified).",
+  "recommend": true,
+  "reason": "MIT, active, v5.",
+  "verdict": "accept",
+  "problems": [
+   "Jest-compatible API, describe/it/expect and watch-mode wording rest on general knowledge, not README text; version requirement confirmed at README line 63."
+  ],
+  "checked": "LICENSE, README line 63 requirement, packages/vitest/package.json (engines node ^22.12.0 || ^24 || >=26; vite ^6.4.0 || ^7 || ^8 peer), npm latest 5.1.0 (MIT)"
+ },
+ {
+  "name": "@playwright/test",
+  "repo": "microsoft/playwright",
+  "commit": "0ca0119fa29711a831c87f044cc3e3042ba79819",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/microsoft__playwright",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License Version 2.0, January 2004",
+  "lastCommit": "2026-11-13T15:30:07-08:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:@playwright/test@1.65.1",
+  "needs": "node",
+  "install": [
+   "npm init playwright@latest"
+  ],
+  "docs": "https://playwright.dev/docs/intro",
+  "summaryEn": "End-to-end browser testing and automation for Chromium, Firefox and WebKit.",
+  "summaryKo": "Chromium, Firefox, WebKit을 대상으로 하는 엔드투엔드 브라우저 테스트와 자동화 도구예요.",
+  "tags": [
+   "testing",
+   "e2e",
+   "browser"
+  ],
+  "capabilities": [
+   "end-to-end tests",
+   "cross-browser automation",
+   "web-first assertions",
+   "trace viewer and screenshots"
+  ],
+  "inputs": [
+   "web app URL"
+  ],
+  "outputs": [
+   "test reports",
+   "traces"
+  ],
+  "guideEn": "Pick Playwright Test for end-to-end tests of web apps; use Vitest for unit tests. The README shows tests written with test and expect from @playwright/test, locating elements with page.getByRole, and says it auto-waits and its web-first assertions retry, so avoid artificial timeouts. Install with npm init playwright@latest, and the README also shows npx playwright install to download browsers.",
+  "guideKo": "웹 앱의 엔드투엔드 테스트에는 Playwright Test를, 단위 테스트에는 Vitest를 골라요. README는 @playwright/test의 test와 expect로 테스트를 쓰고 page.getByRole로 요소를 찾으며, 자동 대기와 재시도하는 web-first assertion을 쓰니 고정 대기 시간은 피하라고 해요. npm init playwright@latest로 설치하고, README는 브라우저를 내려받는 npx playwright install도 보여 줘요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "Apache-2.0, very active.",
+  "verdict": "accept",
+  "problems": [
+   "Dropped the pytest comparison and 'network mocking' capability (not in the README). install command npm init playwright@latest is the README's; the package itself is @playwright/test."
+  ],
+  "checked": "LICENSE, README (install table, auto-wait, getByRole, npx playwright install), npm latest @playwright/test 1.65.1 (Apache-2.0)"
+ },
+ {
+  "name": "@modelcontextprotocol/server",
+  "repo": "modelcontextprotocol/typescript-sdk",
+  "commit": "919bb8ea88b6e10e72c2f8b6218fad4cfdc40b2c",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/modelcontextprotocol__typescript-sdk",
+  "license": "Apache-2.0",
+  "licenseQuote": "The MCP project is undergoing a licensing transition from the MIT License to the Apache License, Version 2.0 (\"Apache-2.0\"). / Apache License Version 2.0, January 2004",
+  "lastCommit": "2026-11-10T13:40:12+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:@modelcontextprotocol/server@2.4.0",
+  "needs": "node",
+  "install": [
+   "npm install @modelcontextprotocol/server"
+  ],
+  "docs": "https://ts.sdk.modelcontextprotocol.io/v2/",
+  "summaryEn": "The official TypeScript SDK (v2) for building MCP servers; a separate client package exists.",
+  "summaryKo": "MCP 서버를 만드는 공식 TypeScript SDK(v2)이고, 클라이언트는 별도 패키지로 나뉘어 있어요.",
+  "tags": [
+   "mcp",
+   "agents",
+   "typescript"
+  ],
+  "capabilities": [
+   "MCP servers with tools, resources, prompts",
+   "stdio and Streamable HTTP serving",
+   "MCP clients (separate package)",
+   "Node, Bun and Deno"
+  ],
+  "inputs": [
+   "tool definitions"
+  ],
+  "outputs": [
+   "MCP server"
+  ],
+  "guideEn": "Pick this to build an MCP server in TypeScript. The README says main is v2, the stable line implementing the 2026-07-28 MCP spec: install @modelcontextprotocol/server (and @modelcontextprotocol/client for clients). The README example creates new McpServer({ name, version }), registers a tool with server.registerTool and a zod inputSchema (imported from zod/v4), and connects a StdioServerTransport imported from @modelcontextprotocol/server/stdio. The older single package @modelcontextprotocol/sdk is v1.x, kept on the v1.x branch with bug and security fixes for at least six months after the v2 release; code importing it is v1, and the migration guide covers upgrading. Optional middleware packages exist for Node, Express, Fastify and Hono.",
+  "guideKo": "TypeScript로 MCP 서버를 만들 때 골라요. README에 따르면 main은 v2로 2026-07-28 MCP 사양을 구현하는 안정 버전이에요. @modelcontextprotocol/server(클라이언트는 @modelcontextprotocol/client)를 설치해요. README 예제는 new McpServer({ name, version })을 만들고 server.registerTool과 zod/v4의 inputSchema로 도구를 등록한 뒤 @modelcontextprotocol/server/stdio의 StdioServerTransport로 연결해요. 예전 단일 패키지 @modelcontextprotocol/sdk는 v1.x로 v1.x 브랜치에서 v2 출시 후 최소 6개월간 버그와 보안 수정을 받고, 그 패키지를 가져오는 코드는 v1이며 업그레이드는 마이그레이션 가이드에 있어요. Node, Express, Fastify, Hono용 선택 미들웨어 패키지도 있어요.",
+  "warningsEn": [
+   "Many tutorials still use the v1 package @modelcontextprotocol/sdk."
+  ],
+  "warningsKo": [
+   "많은 튜토리얼이 아직 v1 패키지 @modelcontextprotocol/sdk를 써요."
+  ],
+  "concerns": "LICENSE mixes MIT (contributions not yet relicensed) and Apache-2.0; both are on the allowed list. Root package.json version differs from published 2.4.0 (server package.json says 2.4.0).",
+  "recommend": true,
+  "reason": "Official SDK, permissive, active, v2 is the current line.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Dropped the 'TypeScript 6 needs types: [node]' claim (not found in README or get-started docs). Corrected 'bug fixes only' to bug and security fixes for at least six months. Removed OAuth capability (not read)."
+  ],
+  "checked": "LICENSE, README (v2 notice, install, example, middleware list), packages/server/package.json 2.4.0, npm latest 2.4.0 (Apache-2.0)"
+ },
+ {
+  "name": "fastmcp",
+  "repo": "jlowin/fastmcp",
+  "commit": "a8745d61e650467756bb28b4157822dbfbdfa34f",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/jlowin__fastmcp",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License Version 2.0, January 2004",
+  "lastCommit": "2026-11-13T19:40:33-06:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "pypi:fastmcp@4.2.0",
+  "needs": "python",
+  "install": [
+   "pip install fastmcp"
+  ],
+  "docs": "https://gofastmcp.com",
+  "summaryEn": "A Pythonic framework for building MCP servers and clients with decorators.",
+  "summaryKo": "데코레이터로 MCP 서버와 클라이언트를 만드는 파이썬식 프레임워크예요.",
+  "tags": [
+   "mcp",
+   "python",
+   "agents"
+  ],
+  "capabilities": [
+   "MCP servers via decorators",
+   "MCP clients",
+   "tools, resources and prompts",
+   "HTTP and stdio transports"
+  ],
+  "inputs": [
+   "Python functions"
+  ],
+  "outputs": [
+   "MCP server"
+  ],
+  "guideEn": "Pick FastMCP to build MCP servers in Python quickly: create mcp = FastMCP(\"Name\"), decorate functions with @mcp.tool and call mcp.run(), as in the README. The README recommends adding it with uv (uv add fastmcp) and says FastMCP 1.0 was incorporated into the official MCP Python SDK in 2024 while the standalone project is the actively maintained one. It links upgrade guides from MCP SDK v1 and v2, so snippets from the SDK's built-in module differ from this package. A TypeScript counterpart is a separate project.",
+  "guideKo": "파이썬으로 MCP 서버를 빠르게 만들 때 FastMCP를 골라요. README처럼 mcp = FastMCP(\"Name\")을 만들고 함수에 @mcp.tool을 붙인 뒤 mcp.run()을 호출해요. README는 uv add fastmcp로 추가하길 권하고, FastMCP 1.0은 2024년에 공식 MCP Python SDK에 편입됐으며 독립 프로젝트가 활발히 유지되는 쪽이라고 해요. MCP SDK v1과 v2에서 올라오는 업그레이드 가이드를 연결하니, SDK에 내장된 모듈의 예제는 이 패키지와 달라요. TypeScript 짝꿍은 별도 프로젝트예요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "README mentions the PrefectHQ organisation for the TypeScript counterpart; the Python repository itself was cloned from jlowin/fastmcp.",
+  "recommend": true,
+  "reason": "Apache-2.0, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Dropped 'type hints and docstrings become the tool schema' and 'major version 4 vs 2.x snippets' claims (not shown in README); PyPI confirms 4.2.0 with Apache-2.0 license expression. Clone remote is jlowin/fastmcp (README links PrefectHQ)."
+  ],
+  "checked": "LICENSE, README (install, example, SDK history, upgrade links), pyproject listing, PyPI json (4.2.0, Apache-2.0)"
+ },
+ {
+  "name": "ai",
+  "repo": "vercel/ai",
+  "commit": "0e8e0543aeda7d4dd4ce6eade0d5b7d5a43644c1",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/vercel__ai",
+  "license": "Apache-2.0",
+  "licenseQuote": "Copyright 2023 Vercel, Inc. / Licensed under the Apache License, Version 2.0",
+  "lastCommit": "2026-11-13T22:28:29+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:ai@7.0.173",
+  "needs": "node",
+  "install": [
+   "npm install ai"
+  ],
+  "docs": "https://ai-sdk.dev/docs",
+  "summaryEn": "The AI SDK: a TypeScript toolkit for LLM text, structured output, tool calling, agents and streaming UI across providers.",
+  "summaryKo": "여러 제공자를 가로지르는 LLM 텍스트, 구조화 출력, 툴 호출, 에이전트, 스트리밍 UI용 TypeScript 도구 모음이에요.",
+  "tags": [
+   "llm",
+   "agents",
+   "typescript"
+  ],
+  "capabilities": [
+   "generateText and streamText",
+   "structured output with schemas",
+   "tool calling and agents",
+   "multi-provider models"
+  ],
+  "inputs": [
+   "prompts",
+   "tool definitions",
+   "zod schemas"
+  ],
+  "outputs": [
+   "text",
+   "structured objects",
+   "streams"
+  ],
+  "guideEn": "Pick the AI SDK for provider-agnostic LLM calls and agents in TypeScript and React apps; it needs Node.js 22+. Install ai plus provider packages such as @ai-sdk/anthropic, then use generateText, tools with zod schemas, and ToolLoopAgent for agent loops, as the package README shows. For structured results the README uses generateText with output: Output.object(...); snippets using older APIs or earlier majors may be outdated, so follow the current docs. UI hooks live in separate packages such as @ai-sdk/react.",
+  "guideKo": "TypeScript와 React 앱에서 제공자에 얽매이지 않는 LLM 호출과 에이전트에는 AI SDK를 골라요. Node.js 22 이상이 필요해요. ai와 @ai-sdk/anthropic 같은 제공자 패키지를 설치하고, 패키지 README처럼 generateText, zod 스키마 툴, 에이전트 루프용 ToolLoopAgent를 써요. 구조화 결과에는 README가 generateText와 output: Output.object(...)를 쓰고, 옛 API나 이전 메이저의 예제는 낡았을 수 있으니 최신 문서를 따라요. UI 훅은 @ai-sdk/react 같은 별도 패키지에 있어요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "Apache-2.0, very active.",
+  "verdict": "accept",
+  "problems": [
+   "Dropped 'generateObject and v4/v5 snippets can be outdated' (README does not mention generateObject); added Node 22+ from the README."
+  ],
+  "checked": "LICENSE, packages/ai/README.md (install, generateText, Output, ToolLoopAgent, zod), npm latest 7.0.173 (Apache-2.0)"
+ },
+ {
+  "name": "@langchain/langgraph",
+  "repo": "langchain-ai/langgraphjs",
+  "commit": "fa426b293b6ecccbf62b4f262475777b4bf86673",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/langchain-ai__langgraphjs",
+  "license": "MIT",
+  "licenseQuote": "The MIT License / Copyright (c) 2024 LangChain",
+  "lastCommit": "2026-11-13T17:24:28-08:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:@langchain/langgraph@1.7.4",
+  "needs": "node",
+  "install": [
+   "npm install @langchain/langgraph @langchain/core"
+  ],
+  "docs": "https://docs.langchain.com/oss/javascript/langgraph/overview",
+  "summaryEn": "A low-level orchestration framework for controllable, stateful LLM agents with long-term memory and human-in-the-loop.",
+  "summaryKo": "제어 가능한 상태 기반 LLM 에이전트를 위한 저수준 오케스트레이션 프레임워크로, 장기 기억과 사람 개입을 지원해요.",
+  "tags": [
+   "agents",
+   "langchain",
+   "workflow"
+  ],
+  "capabilities": [
+   "stateful agent graphs",
+   "checkpointing and persistence",
+   "human-in-the-loop",
+   "multi-agent workflows"
+  ],
+  "inputs": [
+   "state schema",
+   "nodes"
+  ],
+  "outputs": [
+   "agent runs"
+  ],
+  "guideEn": "Pick LangGraph when an agent needs explicit control flow, persistence and human review rather than a simple tool loop (the AI SDK is lighter for that). The README describes a low-level orchestration framework and installs it together with @langchain/core. The core package exports a StateGraph class (libs/langgraph-core/src/graph/state.ts), the graph model to start from: define state, nodes and edges, compile, and add a checkpointer for persistence; separate checkpoint packages exist for Postgres, SQLite, MongoDB and Redis. The README links docs.langchain.com for interrupts and API reference, so follow those pages for the installed 1.x version.",
+  "guideKo": "단순 툴 루프가 아니라 명시적인 제어 흐름, 영속성, 사람 검토가 필요한 에이전트에는 LangGraph를 골라요(단순한 경우는 AI SDK가 더 가벼워요). README는 저수준 오케스트레이션 프레임워크라고 소개하고 @langchain/core와 함께 설치해요. 코어 패키지는 StateGraph 클래스를 내보내므로(libs/langgraph-core/src/graph/state.ts) 상태, 노드, 엣지를 정의하고 컴파일한 뒤 체크포인터를 붙이는 모델에서 시작해요. Postgres, SQLite, MongoDB, Redis용 체크포인트 패키지가 따로 있어요. 인터럽트와 API 참조는 README가 연결하는 docs.langchain.com을 보고 설치한 1.x 버전에 맞춰요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept",
+  "problems": [
+   "Docs URL changed to the one the README links (docs.langchain.com). The 1.x-vs-0.x claim was not backed by README text and was dropped; StateGraph confirmed in source."
+  ],
+  "checked": "LICENSE, README, libs/langgraph-core/src/graph/state.ts, libs listing, package.json 1.7.4, npm latest 1.7.4 (MIT)"
+ },
+ {
+  "name": "polars",
+  "repo": "pola-rs/polars",
+  "commit": "5c36cdd75a30a8ab12a9f70e251c0f267235b2a7",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/pola-rs__polars",
+  "license": "MIT",
+  "licenseQuote": "Copyright (c) 2025 Ritchie Vink / Permission is hereby granted, free of charge, to any person obtaining a copy of this software",
+  "lastCommit": "2026-11-13T22:53:10+01:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "pypi:polars@2.1.0",
+  "needs": "python",
+  "install": [
+   "pip install polars"
+  ],
+  "docs": "https://docs.pola.rs",
+  "summaryEn": "A fast DataFrame library with an expression API and lazy query optimisation, written in Rust.",
+  "summaryKo": "러스트로 만든 빠른 DataFrame 라이브러리로, 표현식 API와 지연 쿼리 최적화를 제공해요.",
+  "tags": [
+   "data",
+   "dataframe",
+   "python"
+  ],
+  "capabilities": [
+   "DataFrame transforms",
+   "lazy queries on big files",
+   "SQL on DataFrames",
+   "Parquet scanning"
+  ],
+  "inputs": [
+   "CSV",
+   "Parquet",
+   "JSON"
+  ],
+  "outputs": [
+   "DataFrames",
+   "files"
+  ],
+  "guideEn": "Pick Polars for fast, parallel tabular processing; use pandas when another library requires it. The README builds queries from expressions: pl.scan_parquet(...) returns a LazyFrame that is optimised, then filter, group_by, agg with pl.col(...) expressions, and .collect() runs it. It also supports pl.sql(...) on DataFrames and LazyFrames in scope. The PyPI package is at version 2.1.0, so check docs.pola.rs for the installed version rather than older snippets.",
+  "guideKo": "빠르고 병렬로 표 데이터를 처리할 때 Polars를 고르고, 다른 라이브러리가 pandas를 요구하면 pandas를 써요. README는 표현식으로 쿼리를 만들어요. pl.scan_parquet(...)가 최적화되는 LazyFrame을 만들고, pl.col(...) 표현식으로 filter, group_by, agg를 쓰고, .collect()로 실행해요. 범위 안의 DataFrame과 LazyFrame에 pl.sql(...)도 쓸 수 있어요. PyPI 패키지는 2.1.0이니 옛 예제 대신 설치한 버전의 docs.pola.rs를 확인해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, very active.",
+  "verdict": "accept",
+  "problems": [
+   "Dropped the pandas-row-indexing and in-place-mutation claim (not in README); guide now follows the README example. Version 2.1.0 confirmed in py-polars/pyproject.toml and PyPI."
+  ],
+  "checked": "LICENSE, README (lazy query and SQL examples, pip install polars), py-polars/pyproject.toml, PyPI json (2.1.0, MIT license text)"
+ },
+ {
+  "name": "duckdb",
+  "repo": "duckdb/duckdb-python",
+  "commit": "b418cbcbfc416787a873aa5c873e360f52c491c2",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/duckdb__duckdb-python",
+  "license": "MIT",
+  "licenseQuote": "Copyright 2018-2026 Stichting DuckDB Foundation / Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction",
+  "lastCommit": "2026-11-13T19:38:39+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "pypi:duckdb@2.0.0",
+  "needs": "python",
+  "install": [
+   "pip install duckdb"
+  ],
+  "docs": "https://duckdb.org/docs/current/",
+  "summaryEn": "An in-process analytical SQL database that queries CSV, Parquet and JSON files directly.",
+  "summaryKo": "CSV, Parquet, JSON 파일을 직접 조회하는 프로세스 내장형 분석용 SQL 데이터베이스예요.",
+  "tags": [
+   "data",
+   "sql",
+   "analytics"
+  ],
+  "capabilities": [
+   "SQL over files",
+   "analytics without a server",
+   "Parquet and CSV reading",
+   "attach other databases"
+  ],
+  "inputs": [
+   "CSV",
+   "Parquet",
+   "JSON"
+  ],
+  "outputs": [
+   "query results"
+  ],
+  "guideEn": "Pick DuckDB for analytical SQL on local files without running a database server; use SQLite or Postgres for transactional app storage. The engine README says it is an analytical database that runs in-process, reads CSV, Parquet and JSON, and can query files directly with SQL such as SELECT * FROM 'myfile.parquet'; it can also attach other databases and has an extension system. The Python package comes from the separate duckdb/duckdb-python repository (pip install duckdb); see the Python client docs on duckdb.org for the API.",
+  "guideKo": "데이터베이스 서버 없이 로컬 파일에 분석용 SQL을 돌릴 때 DuckDB를 고르고, 트랜잭션 중심 앱 저장소에는 SQLite나 Postgres를 써요. 엔진 README에 따르면 프로세스 안에서 도는 분석용 데이터베이스로, CSV, Parquet, JSON을 읽고 SELECT * FROM 'myfile.parquet' 같은 SQL로 파일을 바로 조회하며, 다른 데이터베이스를 연결하고 확장 기능도 지원해요. 파이썬 패키지는 별도 저장소 duckdb/duckdb-python에서 나오며(pip install duckdb), API는 duckdb.org의 Python 클라이언트 문서를 봐요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "Engine repository (duckdb/duckdb) is separately MIT; PyPI metadata lists the MIT classifier.",
+  "recommend": true,
+  "reason": "MIT, very active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Repository switched from the engine repo (duckdb/duckdb, also MIT, commit b678afa97b529d5856731e115e31542a72d2d978) to duckdb/duckdb-python because the PyPI package is built there; its LICENSE read as MIT. Dropped the duckdb.sql(...) call, pandas/Polars interop and column-oriented claims (not in the READMEs)."
+  ],
+  "checked": "duckdb-python LICENSE and README, duckdb engine LICENSE and README, PyPI json (2.0.0, MIT classifier)"
+ },
+ {
+  "name": "tone",
+  "repo": "Tonejs/Tone.js",
+  "commit": "7888c1a976179da043a91e38e19e449cf5571621",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/Tonejs__Tone.js",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2014-2025 Yotam Mann",
+  "lastCommit": "2026-11-13T04:20:52+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:tone@15.1.22",
+  "needs": "node",
+  "install": [
+   "npm install tone"
+  ],
+  "docs": "https://tonejs.github.io",
+  "summaryEn": "A Web Audio framework for interactive music: synths, effects, a global transport and scheduling.",
+  "summaryKo": "신시사이저, 이펙트, 전역 트랜스포트와 스케줄링을 제공하는 인터랙티브 음악용 Web Audio 프레임워크예요.",
+  "tags": [
+   "audio",
+   "music",
+   "web-audio"
+  ],
+  "capabilities": [
+   "synths and samplers",
+   "effects chains",
+   "transport and scheduling",
+   "generative music"
+  ],
+  "inputs": [
+   "notes",
+   "samples"
+  ],
+  "outputs": [
+   "audio"
+  ],
+  "guideEn": "Pick Tone.js for synthesis, sequencing and music in the browser; use Howler for simple sound-effect playback in games. Start with import * as Tone from \"tone\", create a Synth, connect it with toDestination(), and schedule with Tone.getTransport(). The README stresses that browsers will not play any audio until a user clicks something, so call Tone.start() (it returns a promise) from a click or keydown listener first.",
+  "guideKo": "브라우저의 음 합성, 시퀀싱, 음악에는 Tone.js를 고르고, 게임의 단순 효과음 재생에는 Howler를 써요. import * as Tone from \"tone\"로 시작해 Synth를 만들고 toDestination()으로 연결하고 Tone.getTransport()로 스케줄해요. README가 강조하듯 사용자가 클릭하기 전에는 브라우저가 소리를 내지 않으므로 먼저 click이나 keydown 리스너에서 Tone.start()(프로미스를 돌려줘요)를 호출해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept",
+  "problems": [
+   "Howler comparison is not in the README (kept as an opinion about alternatives)."
+  ],
+  "checked": "LICENSE.md, README (import, toDestination, Tone.start, getTransport), npm latest 15.1.22 (MIT)"
+ },
+ {
+  "name": "@astrojs/starlight",
+  "repo": "withastro/starlight",
+  "commit": "62821331b95d55e9346ca34ebacc676d7be1f26b",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/withastro__starlight",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2023 [Astro contributors]",
+  "lastCommit": "2026-11-13T21:42:25+01:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "npm:@astrojs/starlight@0.43.1",
+  "needs": "node",
+  "install": [
+   "npm create astro@latest -- --template starlight"
+  ],
+  "docs": "https://starlight.astro.build",
+  "summaryEn": "A documentation site framework on Astro with search, navigation, i18n and dark mode built in.",
+  "summaryKo": "Astro 기반 문서 사이트 프레임워크로 검색, 내비게이션, 다국어, 다크 모드가 기본이에요.",
+  "tags": [
+   "docs",
+   "astro",
+   "static-site"
+  ],
+  "capabilities": [
+   "documentation sites",
+   "Markdown and MDX content",
+   "built-in search",
+   "i18n"
+  ],
+  "inputs": [
+   "Markdown/MDX"
+  ],
+  "outputs": [
+   "static site"
+  ],
+  "guideEn": "Pick Starlight for a fast, low-config docs site written in Markdown or MDX; Docusaurus or VitePress are alternatives if the team already uses React or Vue. The docs' getting-started page creates a project with npm create astro@latest -- --template starlight and says to add pages as Markdown files in src/content/docs/. The package is still 0.x (0.43.1), so check starlight.astro.build for the installed Astro and Starlight pair before following older config snippets.",
+  "guideKo": "Markdown이나 MDX로 쓰는 빠르고 설정이 적은 문서 사이트에는 Starlight를 고르고, 팀이 React나 Vue를 이미 쓰면 Docusaurus나 VitePress가 대안이에요. 시작 문서는 npm create astro@latest -- --template starlight로 프로젝트를 만들고 src/content/docs/ 폴더에 Markdown 파일로 페이지를 추가하라고 안내해요. 패키지는 아직 0.x(0.43.1)이니 오래된 설정 예제 대신 설치한 Astro와 Starlight 조합의 starlight.astro.build 문서를 확인해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "",
+  "recommend": true,
+  "reason": "MIT, active.",
+  "verdict": "accept",
+  "problems": [
+   "Sidebar/starlight() integration details not checked; removed from the guide. Content directory and create command confirmed in docs/src/content/docs/getting-started.mdx."
+  ],
+  "checked": "LICENSE, README, docs getting-started.mdx, packages/starlight/CHANGELOG.md (0.43.1), npm latest 0.43.1 (MIT)"
+ },
+ {
+  "name": "pefile",
+  "repo": "erocarrera/pefile",
+  "commit": "43ca73f3feaccb5f84836055c540021bcfcfe808",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/erocarrera__pefile",
+  "license": "MIT",
+  "licenseQuote": "The MIT License (MIT) / Copyright (c) 2004-2024 Ero Carrera",
+  "lastCommit": "2026-11-13T09:32:50+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "pypi:pefile@2024.8.26",
+  "needs": "python",
+  "install": [
+   "pip install pefile"
+  ],
+  "docs": "https://github.com/erocarrera/pefile",
+  "summaryEn": "A pure-Python parser for Windows PE files: headers, sections, imports, exports, resources.",
+  "summaryKo": "헤더, 섹션, 임포트, 익스포트, 리소스를 읽는 윈도우 PE 파일용 순수 파이썬 파서예요.",
+  "tags": [
+   "reverse-engineering",
+   "pe",
+   "python"
+  ],
+  "capabilities": [
+   "parse PE headers and sections",
+   "list imports and exports",
+   "read resources and version info",
+   "malware triage"
+  ],
+  "inputs": [
+   "PE files (exe, dll)"
+  ],
+  "outputs": [
+   "parsed structures"
+  ],
+  "guideEn": "Pick pefile for static inspection of Windows executables in Python (headers, sections, imports, exports, resources); use LIEF when you also need to modify or build binaries. Open a file with pefile.PE(path) and walk pe.sections and the import directory. The README warns that the repository holds a large compressed test corpus whose history makes a full clone much larger than the library, so install with pip instead of cloning. Latest release 2024.8.26 is over a year old, though commits continue.",
+  "guideKo": "파이썬에서 윈도우 실행 파일을 정적으로 살펴볼 때(헤더, 섹션, 임포트, 익스포트, 리소스) pefile을 고르고, 바이너리를 수정하거나 만들어야 하면 LIEF를 써요. pefile.PE(path)로 열고 pe.sections와 임포트 디렉터리를 순회해요. README가 경고하듯 저장소에는 큰 압축 테스트 코퍼스와 그 기록이 있어 전체 클론이 라이브러리보다 훨씬 크니 클론하지 말고 pip로 설치해요. 최신 릴리스 2024.8.26은 1년이 넘었지만 커밋은 계속돼요.",
+  "warningsEn": [
+   "Latest PyPI release (2024.8.26) is over a year old; the repository still receives commits (Nov 2026)."
+  ],
+  "warningsKo": [
+   "PyPI 최신 릴리스(2024.8.26)는 1년이 넘었지만 저장소에는 계속 커밋이 올라와요(2026년 11월)."
+  ],
+  "concerns": "Release older than 12 months; maintained per commits.",
+  "recommend": true,
+  "reason": "MIT, still maintained, widely used.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "LIEF comparison and DIRECTORY_ENTRY_IMPORT attribute name are not in the README (the latter is common pefile usage, left as pointer 'import directory')."
+  ],
+  "checked": "LICENSE, README (install, clone-size warning, features), pyproject, git log (Nov 2026 commit), PyPI json (2024.8.26, MIT)"
+ },
+ {
+  "name": "capstone",
+  "repo": "capstone-engine/capstone",
+  "commit": "823242a51299ce5a8bac79c0914278419fe4f7a6",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/capstone-engine__capstone",
+  "license": "BSD-3-Clause",
+  "licenseQuote": "This is the software license for Capstone disassembly framework. / Copyright (c) 2013, COSEINC. All rights reserved. Redistribution and use in source and binary forms",
+  "lastCommit": "2026-11-10T22:08:03+00:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "pypi:capstone@5.0.9",
+  "needs": "python",
+  "install": [
+   "pip install capstone"
+  ],
+  "docs": "https://www.capstone-engine.org",
+  "summaryEn": "A multi-architecture disassembly framework with Python and other bindings.",
+  "summaryKo": "여러 아키텍처를 지원하는 디스어셈블리 프레임워크로, 파이썬 등의 바인딩을 제공해요.",
+  "tags": [
+   "reverse-engineering",
+   "disassembler",
+   "python"
+  ],
+  "capabilities": [
+   "disassemble x86, ARM, MIPS and more",
+   "instruction details and semantics",
+   "binary analysis tooling",
+   "Python binding"
+  ],
+  "inputs": [
+   "machine code bytes"
+  ],
+  "outputs": [
+   "instructions"
+  ],
+  "guideEn": "Pick Capstone to turn raw machine-code bytes into instructions in scripts and analysis tools. The README lists many architectures (ARM, AArch64, Mips, PPC, RISC-V, x86 and more), details and semantics (implicit registers read and written) for each decoded instruction, and a pure-C core with Python and other bindings; pip install capstone installs the Python binding. In Python the repository tests create md = Cs(arch, mode) and iterate md.disasm(code, address). Use another tool to locate the code bytes in a binary first.",
+  "guideKo": "스크립트와 분석 도구에서 원시 기계어 바이트를 명령어로 바꿀 때 Capstone을 골라요. README는 ARM, AArch64, Mips, PPC, RISC-V, x86 등 많은 아키텍처, 디코딩한 명령어마다의 상세 정보와 의미(읽고 쓰는 암묵적 레지스터), 순수 C 코어와 파이썬 등의 바인딩을 소개하고, pip install capstone으로 파이썬 바인딩을 설치해요. 저장소의 파이썬 테스트는 md = Cs(arch, mode)를 만들고 md.disasm(code, address)를 순회해요. 바이너리 안의 코드 바이트는 먼저 다른 도구로 찾아요.",
+  "warningsEn": [
+   "Parts derived from LLVM carry a separate license (LICENSE_LLVM.TXT) that was not reviewed in full."
+  ],
+  "warningsKo": [
+   "LLVM에서 온 부분은 별도 라이선스(LICENSE_LLVM.TXT)가 있고 끝까지 검토하지 못했어요."
+  ],
+  "concerns": "LICENSES folder also contains LICENSE_LLVM.TXT for LLVM-derived parts (not read in full); main license is BSD-3-Clause.",
+  "recommend": true,
+  "reason": "BSD-3-Clause, active.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed the Unicorn and Keystone remark and the pefile/LIEF pairing (not in README)."
+  ],
+  "checked": "LICENSES/LICENSE.TXT and LICENSE_BSD_3_CLAUSE.txt heads, README, bindings/python README and tests, PyPI json (5.0.9, BSD classifier)"
+ },
+ {
+  "name": "angr",
+  "repo": "angr/angr",
+  "commit": "81084450315a130502c3b478a06a223d9f9058de",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/angr__angr",
+  "license": "BSD-2-Clause",
+  "licenseQuote": "Copyright (c) 2015, The Regents of the University of California / Redistribution and use in source and binary forms, with or without modification, are permitted (BSD-style, two conditions)",
+  "lastCommit": "2026-11-13T14:47:17-07:00",
+  "popularity": "unknown (npm and GitHub statistics were not reachable here)",
+  "package": "pypi:angr@10.0.7",
+  "needs": "python",
+  "install": [
+   "pip install angr"
+  ],
+  "docs": "https://docs.angr.io",
+  "summaryEn": "A binary analysis platform with symbolic execution, CFG recovery and decompilation for many architectures.",
+  "summaryKo": "여러 아키텍처에서 심볼릭 실행, CFG 복원, 디컴파일을 제공하는 바이너리 분석 플랫폼이에요.",
+  "tags": [
+   "reverse-engineering",
+   "symbolic-execution",
+   "python"
+  ],
+  "capabilities": [
+   "symbolic execution",
+   "control-flow graph recovery",
+   "solving CTF challenges",
+   "decompilation"
+  ],
+  "inputs": [
+   "binaries"
+  ],
+  "outputs": [
+   "CFG",
+   "symbolic states",
+   "solutions"
+  ],
+  "guideEn": "Pick angr for automated binary analysis such as symbolic execution and control-flow recovery; use Capstone for plain disassembly. The README says the most common operation is loading a binary with angr.Project(path) and its example passes auto_load_libs=False. It recommends installing in a virtualenv (mkvirtualenv angr, then python -m pip install angr). Symbolic execution can be slow on large programs, so check docs.angr.io for exploration strategies.",
+  "guideKo": "심볼릭 실행이나 제어 흐름 복원 같은 자동 바이너리 분석에는 angr를, 단순 디스어셈블에는 Capstone을 골라요. README에 따르면 가장 흔한 작업은 angr.Project(path)로 바이너리를 불러오는 것이고, 예제는 auto_load_libs=False를 넘겨요. 가상환경을 만들어 python -m pip install angr로 설치하길 권해요. 큰 프로그램에서는 심볼릭 실행이 느릴 수 있으니 탐색 전략은 docs.angr.io를 확인해요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "concerns": "License file has no SPDX label; text matches BSD-2-Clause and PyPI metadata agrees.",
+  "recommend": true,
+  "reason": "BSD-2-Clause, very active.",
+  "verdict": "accept",
+  "problems": [
+   "Removed find/avoid explore details and 'path explosion' (not in the README); license file is BSD-style with two clauses and no label, PyPI license expression says BSD-2-Clause."
+  ],
+  "checked": "LICENSE (full text, two conditions), README (Project, example, virtualenv), PyPI json (10.0.7, BSD-2-Clause)"
+ }
+]
