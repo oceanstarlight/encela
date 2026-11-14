@@ -263,7 +263,7 @@ Four critics (author ergonomics, engine semantics, security, fit with Claude Cod
 
 - Two marks: a tool **changes things** unless its server says `readOnlyHint: true`; it **reaches outside** unless its server says `openWorldHint: false`. A tool Encela has never seen has both.
 - The approval text shows, for every marked step, the tool, its arguments as written, and what `each` iterates over.
-- At approval the blueprint records a fingerprint of every marked step (piece, tool, arguments, `each`). Saving an approved blueprint with a marked step whose fingerprint isn't recorded sends it back to draft. Other pipeline edits keep the approval. The check is repeated when a run starts, with the tools as they are then.
+- At approval the blueprint records a fingerprint of every marked step (piece, tool, arguments, `each`; widened after the review, see "Decisions after the review"). Saving an approved blueprint with a marked step whose fingerprint isn't recorded sends it back to draft. Other pipeline edits keep the approval. The check is repeated when a run starts, with the tools as they are then.
 - The blueprint records how it was approved. When the user answered Encela's own question it is `direct`. When Claude passed the answer on (a client that can't show the question), it is `relayed`, and Encela then won't run a pipeline that has a marked step: Claude calls those tools one at a time, where Claude Code shows each call to the user.
 - A client can say it shows questions and still close one at once: Claude Code without a terminal (`claude -p`, 2.1.325) answers every elicitation with `cancel`. A question closed that way doesn't decide anything, and the next `blueprint_approve` for the same blueprint takes the answer Claude passes, as `relayed`. An explicit `decline` is not taken as that. A blueprint approved as `relayed` can be approved again by the user directly (`blueprint_approve` asks once more), which lets its marked pipelines run.
 - `pipeline_run` and `pipeline_resume` are declared as tools that may change things and reach outside.
@@ -288,4 +288,49 @@ The engine and server tests were written against this document before any of it 
 
 A run of the built server with a real piece (repomix: pack, grep, a jq transform, a claude step, resume) worked as designed. A headless Claude Code run with the plugin found the closed approval question described under Approval; with that fixed, the model found the piece, wrote a pipeline from the skill alone, got it approved, ran it and answered its claude step.
 
-Not done: an adversarial review by other agents, and runs on Windows beyond what CI covers.
+Not done then: an adversarial review by other agents (it followed, see below), and runs on Windows beyond what CI covers.
+
+## Decisions after the review
+
+Five reviewers each attacked one side of the engine (the approval gate, failures, containment, the expression language against jq 1.7, the texts given to Claude). A finding counted only with a script that showed it, and a second agent re-ran each one. 37 findings came back; 33 were confirmed, and the 4 judged "as designed" were real enough to change the design. Where this section disagrees with anything above, this section holds.
+
+### The project folder is not trusted
+
+- A cloned repository can ship its own `.encela/`. A blueprint file that says `approved` and `direct`, with its fingerprints filled in, used to run marked calls with no question to the user; a shipped run folder could be resumed. An approval and a run now count only with a seal: an HMAC over the facts that matter, made with a key in the user's Encela folder (`~/.encela/key`, never in the project). For a blueprint the facts are the project's real path, the id, how and when it was approved, the pieces with their tools and environment, and the approved calls. For a run: the project, the run id, its blueprint and when it started.
+- A blueprint without a valid seal is read as a draft. A run folder without one is not a run: it isn't listed, read or resumed. Moving the project folder, or approving on another computer, means approving again.
+- Nothing in `.encela` is followed if it is a link: not the folder, not `blueprints`, `build`, `runs`, a run folder or a file in it. Files of a run are written by removing what is at the name first, and read only if they are plain files. Paths in `run.json` are rebuilt, never taken from the file; step ids are checked against the pattern again.
+- A working copy that is already in the build folder is kept only if this computer's Encela wrote it (a sealed list in the build folder says which). Anything else there is replaced by the piece and the reply says so: the user approved the piece, not a file that came with the project.
+
+### What an approval of a marked call covers
+
+- The fingerprint is now: the pipeline's name, the step's id, the call as written (piece, tool, arguments, `each`, `when`, `retry`), every step that feeds it, as written, followed all the way back (what its arguments, its `each` and its `when` read), and the inputs read on the way with their defaults.
+- The approval text shows a marked call with its arguments, and every step that feeds it whole: a transform with its program, a call with its arguments, each with the note "feeds <step>".
+- So one approval covers one call (a copy under another id is another call), and editing a transform that feeds a write needs the user again. Edits that no marked call reads still keep the approval.
+- A blueprint piece's extra environment is shown at approval ("Started with: …"). Names that make a program load other code (`NODE_OPTIONS`, `LD_PRELOAD`, `PATH`, `PYTHONPATH`, `npm_config_*` and the like) are refused in a blueprint.
+- An answer to the approval question is an answer about the blueprint the user was shown. If the blueprint was saved again while the question was open, the answer is not applied.
+- When a save sends an approved blueprint back to draft, its unfinished runs are stopped. After the new approval, `pipeline_resume {retry: true}` goes on from what was done.
+- Answering a run that was started from an earlier version of a pipeline is refused when that version has marked calls the current approval doesn't cover; the blueprint's approval is left alone.
+- The second question (a relayed approval made direct) takes all three answers: approve, changes (back to draft), cancel.
+- What a piece said about its tools is kept per environment it ran with: a tool that only reads under one blueprint's settings is unknown under another's.
+
+### Failures
+
+- Once a call has returned, nothing makes it again: a result that is too large, or a disk error while keeping it, fails the step. The limits are checked before a call where they can be.
+- The limits (20 MB per call, 200 MB per run) count text and the bytes of images, audio and other blobs, and are checked before anything of a result is written.
+- A cancelled run starts no call that was waiting its turn. Steps that were in flight are recorded as failed with a note that their call may still have had its effect; the report names them as it does for an interrupted run. A cancelled run can be continued with `retry`.
+- Going on with a run starts its limits over: calls from zero, size from what was kept.
+- Who owns a run: a process id alone doesn't say a server is alive (ids are used again). Each engine keeps a small file fresh while it has runs (`runs/.alive-<engine>`, every 5 seconds); a run names its engine, and another server takes the run over when that file is missing or older than 30 seconds.
+- A `run.json` that can't be read is not a run; a step output that can't be read makes that step read as failed ("its output was lost"). Neither stops the server.
+- An HTTP piece: an answer that breaks off after the request went out, an answer without a reply to the call, and a 502, 503 or 504 from a gateway are lost calls (unknown fate), not refusals.
+- How far an `each` step got is saved as it goes, and the report of an interrupted or cancelled run says so. A retry still runs every item of such a step again: that decision stands.
+- The inline inputs of a claude step stand between tags that carry a random word made for that report, so a tool's text can't close its own block.
+
+### The expression language
+
+- The outputs of one evaluation are limited by their full size, counted every time a value occurs, and nested depth; the server's thread never receives more than that.
+- A source longer than 100,000 characters is refused before parsing; analysing a long chain of `.[]` is linear.
+- Builtins charge the step budget in proportion to the sizes they work on.
+- `?//` (destructuring alternatives) and `strptime` are part of the subset. `localtime` and `strflocaltime` stay out: they read the time zone.
+- `path()` refuses what jq 1.7 refuses.
+
+Not done: runs on Windows beyond what CI covers, and an interactive session answering Encela's own approval dialog.

@@ -244,6 +244,8 @@ interface Live {
   listeners: Set<(done: number, total: number, note: string) => void>;
   /** Another live server owns this run: it can be read here, not changed. */
   foreign: boolean;
+  /** When run.json was last written. */
+  saved: number;
 }
 
 export interface EngineOptions {
@@ -482,6 +484,7 @@ export class Engine {
       waiters: new Set(),
       listeners: new Set(),
       foreign: false,
+      saved: 0,
     };
     this.live.set(run.id, l);
     return l;
@@ -785,6 +788,8 @@ export class Engine {
         items[index] = out;
         this.saveOutput(l, name, out);
         rec.itemsDone++;
+        // How far it got is kept, so a report after a restart can say.
+        if (Date.now() - l.saved > 1000) this.save(l);
         if (out.isError) {
           rec.itemsFailed++;
           failed.push(index);
@@ -1191,6 +1196,7 @@ export class Engine {
 
   private save(l: Live) {
     if (l.foreign) return;
+    l.saved = Date.now();
     l.run.updatedAt = new Date().toISOString();
     try {
       writeJson(join(l.dir, "run.json"), l.run);
