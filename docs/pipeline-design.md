@@ -18,7 +18,7 @@ Decisions already made with the user:
 
 Claude Code as an MCP client (docs at code.claude.com/docs/en/mcp):
 
-- A tool call has no practical wall-clock limit by default (about 28 hours), but there is an **idle limit**: a call that sends neither a result nor a progress notification for the idle window (5 minutes by default) is aborted. In an interactive session a call still running after **2 minutes is moved to a background task**.
+- A tool call has no practical wall-clock limit by default (about 28 hours), but there is an **idle limit**: a call that sends neither a result nor a progress notification for the idle window (30 minutes for a stdio server such as Encela, 5 minutes for HTTP servers) is aborted. In an interactive session a call still running after **2 minutes is moved to a background task**.
 - Tool results: a warning above 10,000 tokens; above 25,000 tokens (or 50,000 characters of text) the result is **saved to a file and replaced by a message naming the path**. Error results longer than about 11,000 characters are cut to the first and last 5,000.
 - Supported: elicitation (form and URL, since 2.1.287; not served in `claude -p`), `tools/list_changed`, roots, progress. Not documented: sampling, what the model sees of `structuredContent`.
 - Subagents without a `tools` field inherit the session's MCP tools. A plugin server's tools are named `mcp__plugin_<plugin>_<server>__<tool>`. Whether a subagent sees tools added later through `list_changed` is not documented (Encela has `piece_call` for that case).
@@ -63,7 +63,7 @@ Prior art: Step Functions (payload limit, pass references to stored data; Map wi
     { "id": "pack", "piece": "mcp:repomix", "tool": "pack_codebase",
       "args": { "directory": "{{ $inputs.dir }}", "compress": true } },
     { "id": "outline", "claude": "List the modules of this repository and what each depends on.",
-      "input": { "packed": "{{ $steps.pack.file }}" },
+      "input": { "packed": "{{ $steps.pack.json.outputFilePath }}" },
       "expect": "json", "schema": { "type": "object", "required": ["modules"] } },
     { "id": "chart", "transform": "\"flowchart TD\\n\" + ($steps.outline.json.modules | map(\"  \\(.name)\") | join(\"\\n\"))" },
     { "id": "render", "piece": "mcp:mcp-mermaid", "tool": "generate_mermaid_diagram",
@@ -207,3 +207,76 @@ Loops and branches beyond `each` and `when`; a pipeline calling another pipeline
 8. The report: is it small and clear enough, and does it tell Claude exactly what to do next?
 9. Restart, retry and idempotency.
 10. What is missing for reuse (the same pipeline in a later blueprint)?
+
+## Decisions after the critique
+
+Four critics (author ergonomics, engine semantics, security, fit with Claude Code) reviewed the draft above and a sceptic checked each finding. Where this section and the draft disagree, this section wins; the draft is kept for the reasoning.
+
+### References and outputs
+
+- A tool step's `json` is the joined text parsed as JSON when it parses to an object or an array; otherwise `structuredContent`; otherwise null. `structured` is `structuredContent` exactly as returned. (Filesystem and markitdown wrap their text in one field, `{content: "..."}`: preferring `structuredContent` hid the data.) For a result with `isError`, `json` is null and `error` holds the text.
+- `file` holds the step's own text. A tool that returns a handle or a path (repomix: `json.outputId`, `json.outputFilePath`) is followed through that value. The draft's example was wrong: it must read `{{ $steps.pack.json.outputFilePath }}`.
+- An expression must give exactly one value: more than one is an error (wrap it in `[ ]`), and none is an error too (add `// default`), except in `when`, where none means false.
+- Whole-expression fields are bare jq: `each`, `when`, `transform`, and a transform's `from` (was `input`). One pair of `{{ }}` around `each`, `when` or `from` is accepted and means the same. `{{ }}` templates appear only in strings inside `args`, a claude step's `input` values, and `output`.
+- A reference ends at the first `}}` at which the text before it is a valid expression. A literal `{{` is written `{{ "{{" }}`. Templates are parsed once, from the blueprint; values put into them are never parsed again. `piece`, `tool`, `each`, `when` and `transform` come from the blueprint only.
+- An argument name that isn't in the tool's `properties` is an error unless the schema sets `additionalProperties` (no probed server does, and their validators drop unknown names silently).
+- Inputs: `{ description, type?, default? }` with type string, number, integer, boolean, array or object. An input without a default must be given. `pipeline_run` checks the type and turns a numeric or boolean string into the type asked for.
+- A transform fails its step with jq's `error("...")`: the way to stop on a "soft" failure a tool reported as success.
+
+### Order
+
+- Steps run in the order listed; a step waits for every step listed before it.
+- `parallel: true` lets a step wait only for the steps its references read and the ones in `after`. `after` only ever adds waiting, as in blueprint steps, and names earlier steps only, so the listed order is always valid.
+- At most 8 tool calls of a run are in flight. An `each` step's `concurrency` defaults to 4 for a tool known to be read-only and to 1 otherwise.
+
+### each
+
+- `items` are in input order; each is the call's output plus `item` and `index`. `json` is the list of the items' `json`; `text` is the items' texts, each after a line `--- item <index> ---`.
+- `retry` and `onError` apply to each item. Under `stop`, the first item to fail for good stops new items, calls in flight finish, and the step fails naming the item. Under `continue` the step is done, `failed` lists the failed indexes, and a failed item has `isError`, `error`, `json: null`.
+- `each` must give a list. A retry of the run runs the whole step again.
+
+### when
+
+- A step that reads a skipped step is skipped too, unless its own `when` reads that step's `skipped`. A skipped output has the full shape.
+
+### Claude steps
+
+- No references in the `claude` text: values go in `input`. The instruction is what the user approved; everything else is data, shown in the report inside a block marked as data from tools, after Encela's own instructions.
+- A waiting step's ask is shown in full once (and again by `pipeline_get {run, step}`); later reports say only that it waits.
+- An answer is taken only for a waiting step; each answer is accepted or refused on its own, with the reason. Answers are still taken when the run has failed, so a retry doesn't redo Claude's work. An answer `file` must be inside the run's own folder (Claude writes it there with its own tools); the server reads no other file on Claude's behalf.
+
+### Failures, timeouts, restarts
+
+- A step's `timeout` counts per call from the moment the request is sent. A call that timed out or lost its connection may still have had its effect: it is retried automatically only for a tool known to be read-only or idempotent.
+- A run that was running when the server stopped is `interrupted`. Its report names the steps that were in flight and which of them may have changed things. Nothing runs again until the caller asks (`retry`). A run that was waiting for Claude is intact. Handles from a piece that has restarted are dead; a step that uses one fails in the ordinary way.
+- `pipeline_resume {run, retry: true}` reads the pipeline from the blueprint again and checks it again (approval included). Steps before the first changed or unfinished step keep their outputs; everything from there on runs again.
+- Run folders record the server process that owns them. Another live server (a second session in the same project) can read such a run but not change it.
+- Limits: 20 MB of text per call, 200 MB of output and 2000 tool calls per run, 1000 items per `each`; text is parsed as JSON only up to 5 MB. Only finished runs are removed (the newest 20 are kept).
+- Existing code fixed along the way: closing a piece rejects its pending calls at once (they used to hang for the full timeout); a piece whose process died is started again when next needed; finishing a blueprint doesn't stop pieces a run still uses.
+- A run uses a piece process started with the blueprint entry's own environment, and checks each call against the blueprint's allowlist for that piece.
+
+### Expressions run in a worker
+
+- Every jq evaluation of a run happens in a worker thread with a time limit (10 s), started from the same bundled file. JavaScript can't interrupt a regular expression, and one that backtracks without end on unlucky text would otherwise block the whole server. (V8's fallback to its linear engine was tried: it doesn't cover the `i` or `u` flags or lookaheads.) Compiling an expression to check it stays in the server's thread.
+
+### Approval
+
+- Two marks: a tool **changes things** unless its server says `readOnlyHint: true`; it **reaches outside** unless its server says `openWorldHint: false`. A tool Encela has never seen has both.
+- The approval text shows, for every marked step, the tool, its arguments as written, and what `each` iterates over.
+- At approval the blueprint records a fingerprint of every marked step (piece, tool, arguments, `each`). Saving an approved blueprint with a marked step whose fingerprint isn't recorded sends it back to draft. Other pipeline edits keep the approval. The check is repeated when a run starts, with the tools as they are then.
+- The blueprint records how it was approved. When the user answered Encela's own question it is `direct`. When Claude passed the answer on (a client that can't show the question), it is `relayed`, and Encela then won't run a pipeline that has a marked step: Claude calls those tools one at a time, where Claude Code shows each call to the user.
+- `pipeline_run` and `pipeline_resume` are declared as tools that may change things and reach outside.
+- The cached tool list of a piece is tied to the piece's configuration; a piece redefined under the same name starts unknown.
+
+### Tools and reports
+
+- `blueprint_save {blueprint: {id, pipelines: [...]}}` with nothing else replaces only those pipelines (by name) and reports only them. `blueprint_get {id, pipeline}` returns one pipeline as JSON; the blueprint's data line no longer carries pipelines.
+- Reports use absolute paths, give sizes in characters and lines, end with the one call to make next, and answer with a single line when nothing changed since the caller's last report.
+
+### Not in this version
+
+MCP tasks; `each` on claude steps; command line pieces as steps; loading outputs from disk on demand; saving base64 found inside `structuredContent` as files; shipping catalog pieces' tool lists with the package; reuse of a pipeline across blueprints (stage 5).
+
+### The jq subset
+
+`src/jq.ts` implements jq 1.7's language for these uses: paths, slices, iteration, `..`, `?`, `//`, pipes and commas, arithmetic and comparison with jq's ordering, `if`, `try`/`catch`, `reduce`, `foreach`, `label`/`break`, variables and destructuring, `def`, string interpolation and formats (`@json @csv @tsv @html @uri @sh @base64 @base64d`), assignment operators (`= |= += -= *= /= %= //=`), and the usual builtins (map, select, keys, to_entries, group_by, sort_by, unique, add, any, all, flatten, range, limit, first, last, paths, getpath, setpath, del, walk, test, match, capture, scan, sub, gsub, split, join, ltrimstr, tojson, fromjson, tostring, tonumber, dates, IN, INDEX, error, and so on). Regular expressions are JavaScript's. `$ENV` and `env` are empty; `input`, `import` and the like are refused. Recorded cases from the real jq are in `test/fixtures/jq-cases.json`.
