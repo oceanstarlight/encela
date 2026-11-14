@@ -265,6 +265,7 @@ Four critics (author ergonomics, engine semantics, security, fit with Claude Cod
 - The approval text shows, for every marked step, the tool, its arguments as written, and what `each` iterates over.
 - At approval the blueprint records a fingerprint of every marked step (piece, tool, arguments, `each`). Saving an approved blueprint with a marked step whose fingerprint isn't recorded sends it back to draft. Other pipeline edits keep the approval. The check is repeated when a run starts, with the tools as they are then.
 - The blueprint records how it was approved. When the user answered Encela's own question it is `direct`. When Claude passed the answer on (a client that can't show the question), it is `relayed`, and Encela then won't run a pipeline that has a marked step: Claude calls those tools one at a time, where Claude Code shows each call to the user.
+- A client can say it shows questions and still close one at once: Claude Code without a terminal (`claude -p`, 2.1.325) answers every elicitation with `cancel`. A question closed that way doesn't decide anything, and the next `blueprint_approve` for the same blueprint takes the answer Claude passes, as `relayed`. An explicit `decline` is not taken as that. A blueprint approved as `relayed` can be approved again by the user directly (`blueprint_approve` asks once more), which lets its marked pipelines run.
 - `pipeline_run` and `pipeline_resume` are declared as tools that may change things and reach outside.
 - The cached tool list of a piece is tied to the piece's configuration; a piece redefined under the same name starts unknown.
 
@@ -280,3 +281,11 @@ MCP tasks; `each` on claude steps; command line pieces as steps; loading outputs
 ### The jq subset
 
 `src/jq.ts` implements jq 1.7's language for these uses: paths, slices, iteration, `..`, `?`, `//`, pipes and commas, arithmetic and comparison with jq's ordering, `if`, `try`/`catch`, `reduce`, `foreach`, `label`/`break`, variables and destructuring, `def`, string interpolation and formats (`@json @csv @tsv @html @uri @sh @base64 @base64d`), assignment operators (`= |= += -= *= /= %= //=`), and the usual builtins (map, select, keys, to_entries, group_by, sort_by, unique, add, any, all, flatten, range, limit, first, last, paths, getpath, setpath, del, walk, test, match, capture, scan, sub, gsub, split, join, ltrimstr, tojson, fromjson, tostring, tonumber, dates, IN, INDEX, error, and so on). Regular expressions are JavaScript's. `$ENV` and `env` are empty; `input`, `import` and the like are refused. Recorded cases from the real jq are in `test/fixtures/jq-cases.json`.
+
+## What the first real runs showed
+
+The engine and server tests were written against this document before any of it ran. Run for the first time, they found one error in the engine: a claude step told the caller it was waiting while it still counted as active, so a run whose only remaining work was that step was reported as `running`. The run's state is now decided first (`settle`), then the caller is told.
+
+A run of the built server with a real piece (repomix: pack, grep, a jq transform, a claude step, resume) worked as designed. A headless Claude Code run with the plugin found the closed approval question described under Approval; with that fixed, the model found the piece, wrote a pipeline from the skill alone, got it approved, ran it and answered its claude step.
+
+Not done: an adversarial review by other agents, and runs on Windows beyond what CI covers.
