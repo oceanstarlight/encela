@@ -39,6 +39,13 @@ const fits = (type: string, wanted: string) =>
 export interface CheckOptions {
   /** Values for which this is true are not checked (a reference whose value isn't known yet). */
   unknown?: (v: unknown) => boolean;
+  /**
+   * At the top level, a name that isn't in `properties` is a problem unless
+   * the schema asks for extra ones with `additionalProperties`. Servers
+   * rarely forbid extra arguments and usually drop them without a word, so
+   * a misspelt argument would otherwise run with its default.
+   */
+  strict?: boolean;
 }
 
 /**
@@ -85,7 +92,14 @@ export function check(
     for (const [name, v] of Object.entries(value)) {
       if (Object.hasOwn(props, name)) {
         problems.push(...check(v, props[name], `${where}.${name}`, opts, depth + 1));
-      } else if (schema.additionalProperties === false && !isObject(schema.patternProperties)) {
+      } else if (
+        !isObject(schema.patternProperties) &&
+        (schema.additionalProperties === false ||
+          (opts.strict &&
+            depth === 0 &&
+            isObject(schema.properties) &&
+            schema.additionalProperties === undefined))
+      ) {
         const known = Object.keys(props);
         problems.push(
           `${where}: no argument named "${name}"${known.length ? ` (it takes ${known.join(", ")})` : ""}`,
