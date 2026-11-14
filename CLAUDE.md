@@ -52,3 +52,16 @@ Run all three before committing. To try it in Claude Code: `node dist/cli.js set
 3. [ ] Pipeline engine: blueprint `pipelines` run inside the server (tool, transform and Claude steps), results kept out of context
 4. [ ] GitHub finder: search, read a repository, draft a piece
 5. [ ] Recipes: save a blueprint that worked and reuse it
+
+## In progress (remove when done)
+
+Stage 3, pipeline engine. Specification: `docs/pipeline-design.md`. User decision: approving a blueprint approves its pipelines; the approval text lists every tool a pipeline calls and marks the ones that may change things; adding such a call later needs approval again.
+
+- [ ] `src/jq.ts`: own jq subset (no dependency, budgets, no prototype access), with recorded conformance cases from jq 1.7 in `test/fixtures/jq-cases.json`
+- [x] `src/pipeline.ts`, `src/engine.ts`: first draft, not yet compiled or tested
+- [ ] Apply the design critique (engine semantics, security, author ergonomics, fit with Claude Code), then tests
+- [ ] Server: `pipeline_run`, `pipeline_resume`, `pipeline_get`; tool cache on piece open; `get_piece` shows cached tools; blueprint `pipelines` + `approvedWrites`; render pipelines in the approval text
+- [ ] Plugin: a pipelines section in `plugin/skills/orchestrate/SKILL.md`, a `pipeliner` subagent
+- [ ] Review, a real end-to-end run with real MCP pieces, README
+
+Catalog expansion (free open source only): MCP servers (game engines and 3D, reverse engineering, dev tooling, documents and data), CLIs, libraries (`kind: library`, none yet), skills, subagents, rules. Every entry checked at its source repository (license file, pinned commit); new stdio MCP entries start-tested before they are added.
