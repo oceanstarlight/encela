@@ -762,13 +762,13 @@ function start(capabilities = {}) {
     params: { protocolVersion: "2025-06-18", capabilities },
   });
   /** Answers the approval question the server sent, as the user would. */
-  const decide = (decision) => {
+  const decide = (decision, action = "accept") => {
     const asked = sent.find((m) => m.method === "elicitation/create" && !m.answered);
     asked.answered = true;
     return server.handle({
       jsonrpc: "2.0",
       id: asked.id,
-      result: { action: "accept", content: { decision } },
+      result: { action, content: { decision } },
     });
   };
   return { server, sent, project, ready, decide };
@@ -952,6 +952,42 @@ test("marked calls run only after the user approved them directly, as they are",
     }),
   );
   assert.match(gone, /names the pipeline "say", which isn't in pipelines/);
+  server.closeAll();
+});
+
+test("an answer that came through Claude can be given again, directly", async () => {
+  const { server, sent, project, ready, decide } = start({ elicitation: {} });
+  await ready;
+  await server.call("blueprint_save", { blueprint: blueprint([writing]) });
+  const id = new Blueprints(project).list()[0].id;
+  // The question is closed unanswered (a run without a terminal), so Claude passes the answer on.
+  let pending = server.call("blueprint_approve", { id });
+  await decide("", "cancel");
+  assert.match(said(await pending), /closed without an answer/);
+  assert.match(
+    said(await server.call("blueprint_approve", { id, user_answer: "approve" })),
+    /Encela won't run those pipelines itself/,
+  );
+  assert.match(
+    said(await server.call("pipeline_run", { id, pipeline: "say" })),
+    /Nothing ran\..* call blueprint_approve again so the user can answer/,
+  );
+
+  // Asked again and closed again: nothing changes.
+  pending = server.call("blueprint_approve", { id });
+  await decide("", "cancel");
+  assert.match(said(await pending), /already approved, through you/);
+  assert.equal(new Blueprints(project).get(id).approval, "relayed");
+  // Answered by the user: the pipeline may run.
+  pending = server.call("blueprint_approve", { id });
+  await decide("approve");
+  assert.match(said(await pending), /now by the user directly/);
+  assert.match(
+    sent.findLast((m) => m.method === "elicitation/create").params.message,
+    /Let Encela run/,
+  );
+  assert.equal(new Blueprints(project).get(id).approval, "direct");
+  assert.match(said(await server.call("pipeline_run", { id, pipeline: "say" })), /Result:\nhello/);
   server.closeAll();
 });
 

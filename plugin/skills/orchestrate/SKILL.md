@@ -45,7 +45,7 @@ If the tool reports problems, fix them all and save again.
 Show the user the blueprint in their language: the goal, every piece with its role and any warning marked `!`, the steps, and the choices. Then call `blueprint_approve`.
 
 - If the tool asks the user itself, wait for its result.
-- If it says the user hasn't decided, ask with AskUserQuestion (approve, change something, cancel; include the choices and let them drop or swap pieces), then call `blueprint_approve` again with `user_answer` and their words in `note`.
+- If it says the user hasn't decided, or that its question was closed without an answer, ask with AskUserQuestion (approve, change something, cancel; include the choices and let them drop or swap pieces), then call `blueprint_approve` again with `user_answer` and their words in `note`.
 - On "revise": change the blueprint, `blueprint_save` it with its `id`, and ask again.
 - Never assemble or start building before the blueprint is approved, and never answer for the user.
 

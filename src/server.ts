@@ -279,6 +279,8 @@ export class Server {
   private starting = new Map<string, Promise<Client>>();
   private changed = false;
   private canAsk = false;
+  /** Blueprints (as they were) whose approval question the client closed without an answer. */
+  private unanswered = new Set<string>();
   private nextId = 1;
   private asked = new Map<number, (m: Json) => void>();
   private project: string;
@@ -582,42 +584,80 @@ export class Server {
       .join("\n");
   }
 
-  /** The user's decision on a blueprint: asked here when the client allows, else passed in. */
+  /** Asks the user about a blueprint with Encela's own question. */
+  private async decision(b: Blueprint, question: string): Promise<Json> {
+    return this.ask(
+      "elicitation/create",
+      {
+        message: `${render(b, this.registry, true, this.tools)}\n\n${question}`,
+        requestedSchema: {
+          type: "object",
+          properties: {
+            decision: {
+              type: "string",
+              title: "Decision",
+              enum: ["approve", "revise", "cancel"],
+              enumNames: ["Approve and build", "I want changes", "Cancel"],
+            },
+            note: { type: "string", title: "Changes or notes (optional)" },
+          },
+          required: ["decision"],
+        },
+      },
+      ASK_TIMEOUT,
+    );
+  }
+
+  /**
+   * The user's decision on a blueprint: asked here when the client allows,
+   * else passed in.
+   *
+   * A client may say it can ask and still close the question at once
+   * (Claude Code does in a run without a terminal). Such a blueprint takes
+   * the answer Claude passes on the next call, as a relayed one.
+   */
   private async approve(args: Json): Promise<string> {
     const b = this.blueprints.get(String(args.id ?? ""));
     if (b.status === "approved" || b.status === "assembled") {
+      // An answer that came through Claude doesn't let pipelines make marked
+      // calls; the user can still give that answer themselves.
+      if (b.approval === "relayed" && b.approvedCalls.length && this.canAsk) {
+        let reply: Json | null = null;
+        try {
+          reply = await this.decision(
+            b,
+            "You approved this through Claude. Let Encela run its pipelines itself, marked calls included?",
+          );
+        } catch {
+          // The client didn't ask after all.
+        }
+        if (reply?.action === "accept" && (reply.content as Json)?.decision === "approve") {
+          b.approval = "direct";
+          this.blueprints.save(b);
+          return `${b.id} is approved, now by the user directly: its pipelines can run, marked calls included.`;
+        }
+        return `${b.id} is already approved, through you: Encela still won't make the marked calls of its pipelines itself. Call blueprint_assemble, or go on.`;
+      }
       return `${b.id} is already approved. Call blueprint_assemble.`;
     }
+    const passed = String(args.user_answer ?? "");
+    const given = ["approve", "revise", "cancel"].includes(passed);
+    const asked = `${b.id}\0${b.updatedAt}`;
     let answer = "";
     let note = String(args.note ?? "").trim();
     let direct = false;
-    if (this.canAsk) {
+    if (this.canAsk && !(given && this.unanswered.has(asked))) {
       try {
-        const reply = await this.ask(
-          "elicitation/create",
-          {
-            message: `${render(b, this.registry, true, this.tools)}\n\nApprove this blueprint?`,
-            requestedSchema: {
-              type: "object",
-              properties: {
-                decision: {
-                  type: "string",
-                  title: "Decision",
-                  enum: ["approve", "revise", "cancel"],
-                  enumNames: ["Approve and build", "I want changes", "Cancel"],
-                },
-                note: { type: "string", title: "Changes or notes (optional)" },
-              },
-              required: ["decision"],
-            },
-          },
-          ASK_TIMEOUT,
-        );
+        const reply = await this.decision(b, "Approve this blueprint?");
+        if (reply.action === "decline") {
+          return `The user declined the approval question, so ${b.id} is still a draft and nothing may be assembled. Ask them what they would like to do.`;
+        }
+        if (reply.action !== "accept") {
+          this.unanswered.add(asked);
+          return `The approval question was closed without an answer (a run without a terminal can't show it), so ${b.id} is still a draft and nothing may be assembled. Ask the user yourself with AskUserQuestion (approve / change something / cancel), then call blueprint_approve again with user_answer and what they said in note. If they already gave you their decision on this blueprint, pass that.`;
+        }
         direct = true;
         const content = (reply.content as Json) ?? {};
-        if (reply.action !== "accept") {
-          return `The user closed the approval question without deciding, so ${b.id} is still a draft and nothing may be assembled. Ask them what they would like to do.`;
-        }
         answer = String(content.decision ?? "");
         note = String(content.note ?? "").trim() || note;
       } catch {
@@ -625,11 +665,12 @@ export class Server {
       }
     }
     if (!direct) {
-      answer = String(args.user_answer ?? "");
-      if (!["approve", "revise", "cancel"].includes(answer)) {
+      answer = passed;
+      if (!given) {
         return `The user hasn't decided yet. Show them the blueprint, ask with AskUserQuestion (approve / change something / cancel; let them drop or swap pieces), then call blueprint_approve again with user_answer and what they said in note.\n\n${render(b, this.registry, false, this.tools)}`;
       }
     }
+    this.unanswered.delete(asked);
     b.approvalNote = note;
     b.updatedAt = new Date().toISOString();
     if (answer === "approve") {
@@ -692,7 +733,7 @@ export class Server {
         const opened = await this.openPiece(piece, entry.tools, entry.env);
         usage.set(
           piece.id,
-          `${piece.id} (${entry.role}): MCP tools named ${exposed(piece.name, "<tool>")}; if they aren't in your tool list, call them with the encela tool piece_call {id: "${piece.id}", tool, arguments} (schemas: piece_tools).`,
+          `${piece.id} (${entry.role}): MCP tools named ${exposed(piece.name, "")}<tool>; if they aren't in your tool list, call them with the encela tool piece_call {id: "${piece.id}", tool, arguments} (schemas: piece_tools).`,
         );
         out.push(`- ${opened}`);
       } catch (e) {
@@ -907,7 +948,7 @@ export class Server {
     }
     if (marked.length && b.approval !== "direct") {
       throw new PipelineError(
-        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), or run a pipeline that only reads.`,
+        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), run a pipeline that only reads, or call blueprint_approve again so the user can answer Encela's own question.`,
       );
     }
     for (const s of p.steps) {

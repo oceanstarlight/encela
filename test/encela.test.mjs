@@ -406,13 +406,63 @@ test("the user is asked directly when the client can ask", async () => {
   await answer({ decision: "revise", note: "smaller" });
   assert.match(said(await pending), /wants changes: smaller/);
   pending = server.call("blueprint_approve", { id });
-  await answer({}, "cancel");
-  assert.match(said(await pending), /closed the approval question without deciding/);
+  await answer({}, "decline");
+  assert.match(said(await pending), /declined the approval question/);
   assert.equal(new Blueprints(project).get(id).status, "draft");
   pending = server.call("blueprint_approve", { id });
   await answer({ decision: "approve" });
   assert.match(said(await pending), /Approved/);
   assert.equal(new Blueprints(project).get(id).status, "approved");
+  assert.equal(new Blueprints(project).get(id).approval, "direct");
+});
+
+test("a client that closes the question unanswered: the answer comes through Claude", async () => {
+  // Claude Code without a terminal (-p) says it can ask and answers every question with "cancel".
+  const { server, sent, project, ready: init } = start({ elicitation: {} });
+  await init;
+  const questions = () => sent.filter((m) => m.method === "elicitation/create").length;
+  const close = (action = "cancel", content) => {
+    const asked = sent.find((m) => m.method === "elicitation/create" && !m.answered);
+    asked.answered = true;
+    return server.handle({ jsonrpc: "2.0", id: asked.id, result: { action, content } });
+  };
+  await server.call("blueprint_save", { blueprint: { goal: "g", steps: [{ title: "Do it" }] } });
+  const id = new Blueprints(project).list()[0].id;
+
+  // The first call is still asked directly, whatever Claude passes.
+  let pending = server.call("blueprint_approve", { id, user_answer: "approve" });
+  await close();
+  assert.match(said(await pending), /closed without an answer .* still a draft/);
+  assert.equal(new Blueprints(project).get(id).status, "draft");
+  // Without an answer to pass, it is asked again.
+  pending = server.call("blueprint_approve", { id });
+  await close();
+  assert.match(said(await pending), /closed without an answer/);
+  assert.equal(questions(), 2);
+  // With one, it is taken as relayed, and nothing more is asked.
+  assert.match(
+    said(await server.call("blueprint_approve", { id, user_answer: "approve" })),
+    /Approved/,
+  );
+  assert.equal(questions(), 2);
+  assert.equal(new Blueprints(project).get(id).approval, "relayed");
+
+  // A changed blueprint is a new question.
+  await server.call("blueprint_save", {
+    blueprint: {
+      id,
+      goal: "g",
+      pieces: [{ piece: "cli:ripgrep", role: "search" }],
+      steps: [{ title: "Do it" }],
+    },
+  });
+  assert.equal(new Blueprints(project).get(id).status, "draft");
+  pending = server.call("blueprint_approve", { id, user_answer: "approve" });
+  await close("accept", { decision: "approve" });
+  assert.match(said(await pending), /Approved/);
+  assert.equal(questions(), 3);
+  assert.equal(new Blueprints(project).get(id).approval, "direct");
+  server.closeAll();
 });
 
 test("the server speaks MCP: tools, prompt, unknown methods", async () => {
