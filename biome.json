@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!catalog", "!dist"]
+    "includes": ["**", "!catalog", "!dist", "!test/fixtures/jq-cases.json", "!.claude"]
   },
   "formatter": {
     "enabled": true,
@@ -33,5 +33,32 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/jq.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noVoidTypeReturn": "off",
+            "noPrecisionLoss": "off"
+          },
+          "suspicious": {
+            "noShadowRestrictedNames": "off",
+            "noControlCharactersInRegex": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["test/fixtures/jq-cases.gen.mjs"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noThenProperty": "off"
+          }
+        }
+      }
+    }
+  ]
 }

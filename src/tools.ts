@@ -52,6 +52,19 @@ export function configKey(config: unknown): string {
     .slice(0, 16);
 }
 
+/**
+ * How a piece is started for one blueprint: its own configuration with the
+ * blueprint's extra environment. What a server says about its tools holds
+ * for the environment it said it in.
+ */
+export function withEnv<T extends { env: Record<string, string> }>(
+  config: T | null,
+  env: Record<string, string> | undefined,
+): T | null {
+  if (!config || !env || !Object.keys(env).length) return config;
+  return { ...config, env: { ...config.env, ...env } };
+}
+
 export class ToolCache {
   constructor(private dir = home()) {}
 

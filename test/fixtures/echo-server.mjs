@@ -16,7 +16,12 @@ const tools = [
     inputSchema: { type: "object", properties: { a: { type: "number" }, b: { type: "number" } } },
     annotations: local,
   },
-  { name: "upper", description: "Upper case, wrapped in one field", inputSchema: text, annotations: local },
+  {
+    name: "upper",
+    description: "Upper case, wrapped in one field",
+    inputSchema: text,
+    annotations: local,
+  },
   {
     name: "list",
     description: "A JSON list of files, as text",
@@ -40,8 +45,18 @@ const tools = [
     description: "Appends a line to the file named by ECHO_LOG",
     inputSchema: { type: "object", properties: { line: { type: "string" } }, required: ["line"] },
   },
-  { name: "fetch", description: "Pretends to fetch a URL", inputSchema: text, annotations: { readOnlyHint: true } },
-  { name: "image", description: "A one-pixel image", inputSchema: { type: "object" }, annotations: local },
+  {
+    name: "fetch",
+    description: "Pretends to fetch a URL",
+    inputSchema: text,
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: "image",
+    description: "A one-pixel image",
+    inputSchema: { type: "object" },
+    annotations: local,
+  },
 ];
 const send = (m) => process.stdout.write(`${JSON.stringify(m)}\n`);
 const say = (t, extra = {}) => ({ content: [{ type: "text", text: t }], ...extra });
@@ -53,7 +68,11 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   if (m.id === undefined) return;
   const ok = (result) => send({ jsonrpc: "2.0", id: m.id, result });
   if (m.method === "initialize") {
-    ok({ protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "echo" } });
+    ok({
+      protocolVersion: "2025-06-18",
+      capabilities: { tools: {} },
+      serverInfo: { name: "echo" },
+    });
   } else if (m.method === "tools/list") ok({ tools });
   else if (m.method === "tools/call") {
     const a = m.params.arguments ?? {};
@@ -67,7 +86,10 @@ createInterface({ input: process.stdin }).on("line", (line) => {
         return ok(say(out, { structuredContent: { content: out } }));
       }
       case "list": {
-        const files = Array.from({ length: a.n ?? 3 }, (_, i) => ({ path: `f${i}.ts`, size: 10 * (i + 1) }));
+        const files = Array.from({ length: a.n ?? 3 }, (_, i) => ({
+          path: `f${i}.ts`,
+          size: 10 * (i + 1),
+        }));
         return ok(say(JSON.stringify({ files, id: "h-1" })));
       }
       case "read":

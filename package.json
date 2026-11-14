@@ -37,6 +37,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "node build.mjs --test && node --test test/*.test.mjs",
+    "check:view": "node scripts/check-view.mjs",
     "prepublishOnly": "node build.mjs"
   },
   "devDependencies": {

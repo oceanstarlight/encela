@@ -1,7 +1,7 @@
 // The registry: every piece Encela knows. The catalog's pieces ship with the
 // package; the user's own (and the ones Claude found outside) live in
 // `<home>/pieces.json`.
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { asset, home } from "./paths";
 import { normalizePiece, type Piece } from "./piece";
@@ -35,9 +35,11 @@ function readJson(file: string): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+/** Writes a JSON file whole or not at all. A link at its name is replaced, never written through. */
 export function writeJson(file: string, value: unknown) {
   const tmp = `${file}.tmp-${process.pid}`;
-  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+  rmSync(tmp, { force: true });
+  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { flag: "wx" });
   renameSync(tmp, file);
 }
 
@@ -49,6 +51,11 @@ export class Registry {
 
   get file() {
     return join(this.dir, FILE);
+  }
+
+  /** The user's Encela folder this registry lives in. */
+  get folder() {
+    return this.dir;
   }
 
   /** The user's own pieces. */

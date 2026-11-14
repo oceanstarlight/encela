@@ -16,7 +16,7 @@ Successor of `oceanstarlight/ai-management-pg-fo-desktop` (the desktop app is fr
 ## Layout
 
 - `src/piece.ts` piece shape, checks, what the user is warned about. `registry.ts` catalog + the user's `~/.encela/pieces.json`. `search.ts` keyword search.
-- `src/blueprint.ts` blueprint shape, checks, rendering, storage, what an approval records. `assemble.ts` working copies and worker briefs.
+- `src/blueprint.ts` blueprint shape, checks, rendering, storage, what an approval records. `assemble.ts` working copies and worker briefs. `seal.ts` the key in the user's Encela folder that makes an approval or a run count.
 - `src/pipeline.ts` pipeline shape, checks before a run, `{{ }}` references, marks and fingerprints. `engine.ts` runs (scheduling, each, retries, waiting claude steps, state on disk, reports). `jq.ts` the expression language (own jq subset, cases recorded from jq 1.7 in `test/fixtures/jq-cases.json`). `sandbox.ts` evaluates expressions in a worker thread with a time limit. `schema.ts` a small JSON Schema check. `tools.ts` cache of each MCP piece's tool list.
 - `src/server.ts` the MCP server (15 tools, the hub that starts MCP pieces on demand, the approval gate, the pipeline tools). `client.ts` MCP client for the pieces.
 - `src/hook.ts` UserPromptSubmit hook. `setup.ts` writes and installs the plugin. `cli.ts` the command.
@@ -37,7 +37,8 @@ Run all three before committing. To try it in Claude Code: `node dist/cli.js set
 ## Rules
 
 - Nothing is assembled or run before the user approves the blueprint. A piece Claude found outside (`origin: external`) is untrusted until a blueprint with it is approved. Don't add paths around this.
-- Pipelines: a marked call runs only if the user saw it, as it is, when approving, and only after a direct approval (the user answered Encela's own question). A call whose fate is unknown (timeout, lost connection) is never repeated automatically unless the tool is known to be read-only or idempotent. The server reads and writes only inside `.encela/`. Expressions never run in the server's own thread.
+- The project folder is not trusted: a repository can ship its own `.encela/`. An approval and a run count only with this computer's seal (`src/seal.ts`); a blueprint without one is a draft, a run folder without one is ignored. Build every path under `.encela` with `inEncela` (it refuses links), write a run's files with the engine's `put`, and never take a path from a file in the project.
+- Pipelines: a marked call runs only if the user saw it, as it is, when approving, and only after a direct approval (the user answered Encela's own question). "As it is" includes where it is, its `when` and `retry`, and every step and input that feeds it (`stepPrint`, `feeds` in `pipeline.ts`): anything new that decides what a marked call does belongs in that print and in the approval text. A question the client closed unanswered (Claude Code does this without a terminal) is not an answer: the approval is then relayed through Claude and marked calls stay off. A call whose fate is unknown (timeout, lost connection) is never repeated automatically unless the tool is known to be read-only or idempotent. The server reads and writes only inside `.encela/`. Expressions never run in the server's own thread.
 - Never read, copy or store Claude credentials. Run the user's own `claude` only.
 - Windows matters: the plugin's MCP command goes through `cmd /c`, the hook command must not (see `setup.ts`). CI runs the tests on Windows.
 - Text Claude reads (tool results, the skill) is English; Claude shows it to the user in their language.
@@ -54,17 +55,12 @@ Run all three before committing. To try it in Claude Code: `node dist/cli.js set
 
 1. [x] Pieces, registry, hub
 2. [x] Blueprint, approval, orchestrate skill, hook
-3. [ ] Pipeline engine: blueprint `pipelines` run inside the server (tool, transform and Claude steps), results kept out of context
+3. [x] Pipeline engine: blueprint `pipelines` run inside the server (tool, transform and Claude steps), results kept out of context
 4. [ ] GitHub finder: search, read a repository, draft a piece
 5. [ ] Recipes: save a blueprint that worked and reuse it
 
-## In progress (remove when done)
+## Open
 
-Stage 3, pipeline engine. Everything is written; it has not been compiled or tested yet because `src/jq.ts` was still being built when this was last updated.
-
-- [ ] `src/jq.ts`: own jq subset, built and attacked by a workflow (differential testing against jq 1.7). If it is missing or a stub, that work was cut off: build it to the API in `docs/pipeline-design.md` ("The jq subset") with `compile(source) -> { source, freeVars, refs, run(input, { vars }) }`, `run`, `JqError`
-- [ ] `pnpm typecheck`, then `test/pipeline.test.mjs` (engine and server tests, written against the design, never run)
-- [ ] Review of the stage 3 code; a real end-to-end run with real MCP pieces and a headless Claude Code run
-- [ ] README: tick stage 3 in the roadmap once the above holds
-
-Catalog: done (256 pieces). The new MCP entries were not start-tested (running that many third-party servers was not permitted in the session that added them); each carries a warning. `encela` has no command yet that start-tests an entry on the user's machine: worth adding.
+- Stage 3 was reviewed adversarially (five reviewers, every finding reproduced and re-checked); what it changed is in `docs/pipeline-design.md`, "Decisions after the review", and each finding has a test. Not checked: an interactive session answering Encela's approval dialog, Windows beyond CI.
+- The MCP entries added to the catalog last (each carries the warning "Not start-tested by Encela yet") were not started: running that many third-party servers was not permitted in the session that added them. `encela` has no command yet that start-tests an entry on the user's machine: worth adding.
+- `src/jq.ts` differs from jq 1.7 in 14 recorded cases (`test/fixtures/jq-known-differences.json`, each with its reason).

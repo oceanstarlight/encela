@@ -327,13 +327,25 @@ class Http implements Conn {
         `This server needs a sign-in. Encela can't do OAuth: put a token (\${VAR}) in a header, or add the server to the project and sign in with /mcp`,
       );
     }
+    // A gateway that gave up says nothing about whether the server behind it got the call.
+    if ([502, 503, 504].includes(res.status)) {
+      throw new CallLost(`The server's gateway returned HTTP ${res.status}`);
+    }
     if (!res.ok) throw new Error(`The server returned HTTP ${res.status}`);
     return res;
   }
 
   async request(message: Json, timeout: number): Promise<Json> {
     const res = await this.post(message, timeout);
-    const text = await res.text();
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (e) {
+      // The request went out and the answer broke off: the call may have happened.
+      throw new CallLost(
+        `The connection to the server broke while it answered: ${e instanceof Error ? e.message : e}`,
+      );
+    }
     const id = message.id;
     const sse = (res.headers.get("content-type") ?? "").startsWith("text/event-stream");
     const chunks = sse
@@ -349,7 +361,8 @@ class Http implements Conn {
       const found = findReply(chunk, id);
       if (found) return found;
     }
-    throw new Error("Couldn't read the server's answer");
+    // It answered, but not with a reply to this call: nobody knows what became of it.
+    throw new CallLost("Couldn't read the server's answer");
   }
 
   async notify(message: Json) {

@@ -25,17 +25,20 @@ import {
   ready,
   render,
   type StepStatus,
+  unapprove,
 } from "./blueprint";
 import { Client, forThisOs, supported } from "./client";
 import { type Answer, Engine, type Host } from "./engine";
+import { type Live, LiveWriter, type Phase } from "./live";
 import { lang, projectDir, VERSION } from "./paths";
 import { cautions, isDocument, KINDS, type McpConfig, type Piece, type PieceKind } from "./piece";
 import { describe, markedSteps, marksOf, type Pipeline, PipelineError } from "./pipeline";
 import { Registry } from "./registry";
 import { Sandbox } from "./sandbox";
 import { signature } from "./schema";
+import { Seals } from "./seal";
 import { line, search } from "./search";
-import { type KnownTool, knownTool, ToolCache } from "./tools";
+import { type KnownTool, knownTool, ToolCache, withEnv } from "./tools";
 
 type Json = Record<string, unknown>;
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -130,7 +133,7 @@ function ownTools() {
         blueprint: {
           type: "object",
           description:
-            "id (only when changing one), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, retry, onError, parallel, after. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}.",
+            "id (only when changing one), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, parallel, after; a tool or transform step also retry and onError. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}: nothing else in that call is changed, and {name, remove: true} in the list deletes that pipeline.",
         },
       },
       ["blueprint"],
@@ -242,7 +245,7 @@ function ownTools() {
     ),
     tool(
       "pipeline_get",
-      'A run\'s report (the latest run when `run` is left out), after waiting up to `wait` seconds for it to need you. With `step`: that step\'s output, cut at `max` characters; `query` is a jq expression over the output object {text, json, structured, file, files, items, ...}, e.g. ".json.items[:5]" or ".text | split("\\n")[:20]". For a step that waits for you, what it asks.',
+      'A run\'s report (the latest run when `run` is left out), after waiting up to `wait` seconds for it to need you. With `step`: that step\'s output, cut at `max` characters; `query` is a jq expression over the output object {text, json, structured, file, files, items, ...}, e.g. ".json[:5]", ".items[:5] | map(.text)" for an each step, or ".text | split("\\n")[:20]". For a step that waits for you, what it asks.',
       {
         run: { type: "string", description: "The run's id" },
         step: { type: "string", description: "A step's id" },
@@ -268,6 +271,8 @@ export interface ServerOptions {
   project?: string;
   registry?: Registry;
   tools?: ToolCache;
+  /** The user's Encela folder, where the key for seals is kept. The registry's folder when left out. */
+  home?: string;
 }
 
 const envKey = (env: Record<string, string>) => JSON.stringify(Object.entries(env).sort());
@@ -279,6 +284,8 @@ export class Server {
   private starting = new Map<string, Promise<Client>>();
   private changed = false;
   private canAsk = false;
+  /** Blueprints (as they were) whose approval question the client closed without an answer. */
+  private unanswered = new Set<string>();
   private nextId = 1;
   private asked = new Map<number, (m: Json) => void>();
   private project: string;
@@ -288,6 +295,10 @@ export class Server {
   private sandbox = new Sandbox();
   private engine: Engine;
   private progressed = 0;
+  /** What the view inside Claude Code draws (src/live.ts). */
+  private live: LiveWriter;
+  /** The blueprint this session last worked on. */
+  private current = "";
 
   constructor(
     private send: (m: Json) => void,
@@ -296,10 +307,103 @@ export class Server {
     this.project = opts.project ?? projectDir();
     this.registry = opts.registry ?? new Registry();
     this.tools = opts.tools ?? new ToolCache();
-    this.blueprints = new Blueprints(this.project);
-    this.engine = new Engine(this.project, this.host(), (source, input, vars) =>
-      this.sandbox.run(source, input, vars),
+    // What the user approved, and the runs this server started, count only
+    // with a seal of this computer: the project's own files don't get to say.
+    const seals = new Seals(opts.home ?? this.registry.folder);
+    this.blueprints = new Blueprints(this.project, seals);
+    this.engine = new Engine(
+      this.project,
+      this.host(),
+      (source, input, vars) => this.sandbox.run(source, input, vars),
+      { seals, onChange: () => this.live.touch() },
     );
+    this.live = new LiveWriter(this.project, () => this.liveState());
+  }
+
+  /** Where everything stands, for the view. */
+  private liveState(): Live {
+    // The blueprint this session works on; before it has one, the build the
+    // project was left with, unless a new request is already being looked into.
+    const mine = this.current
+      ? this.blueprints.load(this.current)
+      : this.live.searched
+        ? null
+        : this.blueprints.active();
+    const b = mine && mine.status !== "cancelled" ? mine : null;
+    const phase: Phase = this.live.asking
+      ? "approval"
+      : b
+        ? ({ draft: "blueprint", approved: "assemble", assembled: "build", done: "done" } as const)[
+            b.status as "draft" | "approved" | "assembled" | "done"
+          ]
+        : this.live.searched
+          ? "pieces"
+          : "idle";
+    const ids = new Set(b?.pieces.map((p) => p.piece) ?? []);
+    for (const name of this.open.keys()) ids.add(`mcp:${name}`);
+    const pieces = [...ids].flatMap((id) => {
+      const piece = this.registry.find(id);
+      if (!piece) return [];
+      return [
+        {
+          id: piece.id,
+          name: piece.name,
+          kind: piece.kind,
+          running: this.open.has(piece.name),
+          ...this.live.usage(piece.name),
+        },
+      ];
+    });
+    const runs = [...new Set([...this.engine.unfinished(), this.engine.latest() ?? ""])]
+      .filter(Boolean)
+      .slice(0, 3)
+      .flatMap((id) => {
+        try {
+          const run = this.engine.get(id);
+          if (b && run.blueprint !== b.id) return [];
+          return [
+            {
+              id: run.id,
+              pipeline: run.pipeline.name,
+              status: run.status,
+              steps: run.steps.map((s) => ({
+                id: s.id,
+                kind: s.kind,
+                state: s.state,
+                items: s.items,
+                itemsDone: s.itemsDone,
+              })),
+            },
+          ];
+        } catch {
+          return [];
+        }
+      });
+    return {
+      v: 1,
+      at: Date.now(),
+      lang: lang(),
+      phase,
+      blueprint: b
+        ? {
+            id: b.id,
+            goal: b.goal,
+            status: b.status,
+            approval: b.approval,
+            steps: b.steps.map((s) => ({
+              id: s.id,
+              title: s.title,
+              status: s.status,
+              worker: s.worker,
+              pipeline: s.pipeline,
+            })),
+            workers: b.workers.map((w) => w.name),
+          }
+        : null,
+      pieces,
+      runs,
+      events: this.live.recent(),
+    };
   }
 
   /** What the pipeline engine may do with the running pieces. */
@@ -313,12 +417,19 @@ export class Server {
           await this.openPiece(piece, [...(running.allow ?? [])], running.env);
           running = this.running(piece.name);
         }
-        return running.client.call(name, args, timeout);
+        const client = running.client;
+        return this.live.calling(piece.name, name, () => client.call(name, args, timeout));
       },
       tools: (id) => {
         const piece = this.registry.find(id);
         const running = piece && this.open.get(piece.name);
         return running ? running.client.tools().map(knownTool) : null;
+      },
+      remembered: (id, blueprint) => {
+        const piece = this.registry.find(id);
+        if (!piece) return null;
+        const env = this.blueprints.load(blueprint)?.pieces.find((x) => x.piece === piece.id)?.env;
+        return this.tools.load(piece.name, withEnv(piece.config, env));
       },
     };
   }
@@ -425,6 +536,15 @@ export class Server {
 
   async call(name: string, args: Json, progressToken?: unknown): Promise<Json> {
     try {
+      return await this.dispatch(name, args, progressToken);
+    } finally {
+      // Written before the answer goes out: the view reads it when the call returns.
+      this.live.write();
+    }
+  }
+
+  private async dispatch(name: string, args: Json, progressToken?: unknown): Promise<Json> {
+    try {
       switch (name) {
         case "find_pieces":
           return text(this.findPieces(args));
@@ -463,7 +583,9 @@ export class Server {
           if (running.allow && !running.allow.has(wanted)) {
             throw new Error(`The blueprint doesn't allow ${piece.name}'s tool ${wanted}`);
           }
-          return await running.client.call(wanted, args.arguments);
+          return await this.live.calling(piece.name, wanted, () =>
+            running.client.call(wanted, args.arguments),
+          );
         }
         case "piece_close":
           return text(this.closePiece(this.registry.get(String(args.id ?? "")).name));
@@ -471,7 +593,9 @@ export class Server {
           for (const [piece, running] of this.open) {
             const t = running.client.tools().find((x) => exposed(piece, String(x.name)) === name);
             if (t && (!running.allow || running.allow.has(String(t.name)))) {
-              return await running.client.call(String(t.name), args);
+              return await this.live.calling(piece, String(t.name), () =>
+                running.client.call(String(t.name), args),
+              );
             }
           }
           return text(`Unknown tool ${name}. Its piece isn't running: assemble or open it.`, true);
@@ -491,6 +615,8 @@ export class Server {
       kinds,
       limit: Number(args.limit) > 0 ? Number(args.limit) : 15,
     });
+    this.live.searched = true;
+    this.live.note("found", queries.join(", "), String(found.length));
     if (!found.length) {
       return "No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look outside (GitHub) and keep what you find with piece_add, or go without.";
     }
@@ -510,9 +636,11 @@ export class Server {
     // Only pipelines given for a saved blueprint: change those, keep the rest.
     const patch = !!previous && Array.isArray(given.pipelines) && given.goal === undefined;
     let input: unknown = raw;
+    let ignored: string[] = [];
     if (previous && patch) {
       const changed = (given.pipelines as Json[]).filter((p) => p && typeof p === "object");
       const names = new Set(changed.map((p) => String(p.name ?? "")));
+      ignored = Object.keys(given).filter((k) => k !== "id" && k !== "pipelines");
       input = {
         ...previous,
         pipelines: [
@@ -524,33 +652,57 @@ export class Server {
     const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
     if (!previous) b.id = this.blueprints.freeId(b.id);
     this.blueprints.save(b);
-    const marker = (piece: string, name: string) => this.marks(piece, name);
-    const again =
-      previous && previous.status !== "draft" && b.status === "draft"
-        ? " It was approved before; what changed (the pieces, or a pipeline call that may change things or reach outside) needs the user's approval again."
-        : "";
+    this.current = b.id;
+    this.live.note("saved", b.id, b.status);
+    const marker = (piece: string, name: string) => this.marks(piece, name, b);
+    let again = "";
+    if (previous && previous.status !== "draft" && b.status === "draft") {
+      again =
+        " It was approved before; what changed (the pieces, or a pipeline call that may change things or reach outside, or something that feeds such a call) needs the user's approval again.";
+      // An approval that no longer holds doesn't go on making calls.
+      const stopped = this.engine
+        .unfinished()
+        .filter((run) => this.engine.get(run).blueprint === b.id)
+        .filter((run) => {
+          try {
+            return this.engine.cancel(run).status === "cancelled";
+          } catch {
+            return false;
+          }
+        });
+      if (stopped.length) {
+        again += ` Its unfinished run${stopped.length > 1 ? "s" : ""} ${stopped.join(", ")} ${stopped.length > 1 ? "were" : "was"} stopped: once the user has approved, pipeline_resume {run, retry: true} goes on from what was done.`;
+      }
+    }
     if (patch) {
       const shown = b.pipelines
         .filter((p) => (given.pipelines as Json[]).some((g) => g?.name === p.name))
         .flatMap((p) => describe(p, marker));
-      return `${shown.join("\n") || "Removed."}\n\nSaved ${b.id}; it is ${b.status}.${again}${b.status === "draft" ? " Show the user the changed pipelines, then call blueprint_approve." : ""}`;
+      const dropped = ignored.length
+        ? ` Only the pipelines were changed: ${ignored.join(", ")} ${ignored.length > 1 ? "were" : "was"} left as ${ignored.length > 1 ? "they were" : "it was"} (send the whole blueprint, with its goal, to change anything else).`
+        : "";
+      return `${shown.join("\n") || "Removed."}\n\nSaved ${b.id}; it is ${b.status}.${dropped}${again}${b.status === "draft" ? " Show the user the changed pipelines, then call blueprint_approve." : ""}`;
     }
     const next =
       b.status === "draft"
-        ? `Show this blueprint to the user in their language (every piece, its warnings marked with !, every pipeline with its marked calls and their arguments, and the choices), then call blueprint_approve.${again}`
+        ? `Show this blueprint to the user in their language (every piece with what it is started with and its warnings marked with !, every pipeline with its marked calls, their arguments and what feeds them, and the choices), then call blueprint_approve.${again}`
         : `Saved; still ${b.status} (nothing the user approved has changed).`;
     return `${render(b, this.registry, false, this.tools)}\n\n${next}`;
   }
 
-  /** A tool's marks: from the running piece when there is one, else from what it showed last time. */
-  private marks(pieceId: string, name: string) {
+  /**
+   * A tool's marks for a blueprint: from the running piece when it runs the
+   * way that blueprint runs it, else from what it showed the last time it did.
+   */
+  private marks(pieceId: string, name: string, b: Blueprint | null) {
     const piece = this.registry.find(pieceId);
-    const running = piece && this.open.get(piece.name);
-    const known = running
-      ? running.client.tools().map(knownTool)
-      : piece
-        ? this.tools.load(piece.name, piece.config)
-        : null;
+    if (!piece) return marksOf(name, null);
+    const env = b?.pieces.find((x) => x.piece === piece.id)?.env ?? {};
+    const running = this.open.get(piece.name);
+    const known =
+      running && envKey(running.env) === envKey(env)
+        ? running.client.tools().map(knownTool)
+        : this.tools.load(piece.name, withEnv(piece.config, env));
     return marksOf(name, known);
   }
 
@@ -582,42 +734,123 @@ export class Server {
       .join("\n");
   }
 
-  /** The user's decision on a blueprint: asked here when the client allows, else passed in. */
-  private async approve(args: Json): Promise<string> {
-    const b = this.blueprints.get(String(args.id ?? ""));
-    if (b.status === "approved" || b.status === "assembled") {
-      return `${b.id} is already approved. Call blueprint_assemble.`;
+  /** Asks the user about a blueprint with Encela's own question. */
+  private async decision(b: Blueprint, question: string): Promise<Json> {
+    this.current = b.id;
+    this.live.asking = true;
+    this.live.note("asked", b.id);
+    try {
+      return await this.ask(
+        "elicitation/create",
+        {
+          message: `${render(b, this.registry, true, this.tools)}\n\n${question}`,
+          requestedSchema: {
+            type: "object",
+            properties: {
+              decision: {
+                type: "string",
+                title: "Decision",
+                enum: ["approve", "revise", "cancel"],
+                enumNames: ["Approve and build", "I want changes", "Cancel"],
+              },
+              note: { type: "string", title: "Changes or notes (optional)" },
+            },
+            required: ["decision"],
+          },
+        },
+        ASK_TIMEOUT,
+      );
+    } finally {
+      this.live.asking = false;
+      this.live.touch();
     }
+  }
+
+  /**
+   * The user's decision on a blueprint: asked here when the client allows,
+   * else passed in.
+   *
+   * A client may say it can ask and still close the question at once
+   * (Claude Code does in a run without a terminal). Such a blueprint takes
+   * the answer Claude passes on the next call, as a relayed one.
+   *
+   * The question can stay open for a long time. What the user answers is an
+   * answer about the blueprint they were shown: if it was saved anew in the
+   * meantime, the answer isn't applied.
+   */
+  private async approve(args: Json): Promise<string> {
+    const id = String(args.id ?? "");
+    let b = this.blueprints.get(id);
+    /** The blueprint as it is now, if it is still the one the user was shown. */
+    const same = (shown: Blueprint): Blueprint | null => {
+      const now = this.blueprints.load(shown.id);
+      return now && now.updatedAt === shown.updatedAt && now.status === shown.status ? now : null;
+    };
+    const changed = `${id} was changed while the user was looking at it, so their answer wasn't applied. Show them the blueprint as it is now and call blueprint_approve again.`;
+
+    if (b.status === "approved" || b.status === "assembled") {
+      // An answer that came through Claude doesn't let pipelines make marked
+      // calls; the user can still give that answer themselves.
+      if (b.approval !== "relayed" || !b.approvedCalls.length) {
+        return `${b.id} is already approved. Call blueprint_assemble.`;
+      }
+      const through = `${b.id} is approved through you, not by the user answering Encela directly: Encela won't make the marked calls of its pipelines itself. Make those calls one at a time, or go on with the rest.`;
+      if (!this.canAsk) {
+        return `${through} (Here the user can't be asked directly, so that stays so.)`;
+      }
+      let reply: Json | null = null;
+      try {
+        reply = await this.decision(
+          b,
+          "You approved this through Claude. Let Encela run its pipelines itself, marked calls included?",
+        );
+      } catch {
+        // The client didn't ask after all.
+      }
+      if (reply?.action !== "accept") return through;
+      const now = same(b);
+      if (!now) return changed;
+      b = now;
+      const content = (reply.content as Json) ?? {};
+      const note = String(content.note ?? "").trim();
+      if (content.decision === "approve") {
+        b.approval = "direct";
+        this.blueprints.seal(b);
+        this.blueprints.save(b);
+        this.live.note("approved", b.id, "direct");
+        return `${b.id} is approved, now by the user directly: its pipelines can run, marked calls included.`;
+      }
+      if (content.decision === "cancel") {
+        b.status = "cancelled";
+        b.approvalNote = note;
+        this.blueprints.save(b);
+        return `The user cancelled this blueprint${note ? `: ${note}` : ""}. Don't go on building it; ask what they want instead.`;
+      }
+      unapprove(b);
+      b.approvalNote = note;
+      b.updatedAt = new Date().toISOString();
+      this.blueprints.save(b);
+      return `The user wants changes${note ? `: ${note}` : " (ask them which)"}. ${b.id} is a draft again: change it, save it with blueprint_save and ask for approval again.`;
+    }
+
+    const passed = String(args.user_answer ?? "");
+    const given = ["approve", "revise", "cancel"].includes(passed);
+    const asked = `${b.id}\0${b.updatedAt}`;
     let answer = "";
     let note = String(args.note ?? "").trim();
     let direct = false;
-    if (this.canAsk) {
+    if (this.canAsk && !(given && this.unanswered.has(asked))) {
       try {
-        const reply = await this.ask(
-          "elicitation/create",
-          {
-            message: `${render(b, this.registry, true, this.tools)}\n\nApprove this blueprint?`,
-            requestedSchema: {
-              type: "object",
-              properties: {
-                decision: {
-                  type: "string",
-                  title: "Decision",
-                  enum: ["approve", "revise", "cancel"],
-                  enumNames: ["Approve and build", "I want changes", "Cancel"],
-                },
-                note: { type: "string", title: "Changes or notes (optional)" },
-              },
-              required: ["decision"],
-            },
-          },
-          ASK_TIMEOUT,
-        );
+        const reply = await this.decision(b, "Approve this blueprint?");
+        if (reply.action === "decline") {
+          return `The user declined the approval question, so ${b.id} is still a draft and nothing may be assembled. Ask them what they would like to do.`;
+        }
+        if (reply.action !== "accept") {
+          this.unanswered.add(asked);
+          return `The approval question was closed without an answer (a run without a terminal can't show it), so ${b.id} is still a draft and nothing may be assembled. Ask the user yourself with AskUserQuestion (approve / change something / cancel), then call blueprint_approve again with user_answer and what they said in note. If they already gave you their decision on this blueprint, pass that.`;
+        }
         direct = true;
         const content = (reply.content as Json) ?? {};
-        if (reply.action !== "accept") {
-          return `The user closed the approval question without deciding, so ${b.id} is still a draft and nothing may be assembled. Ask them what they would like to do.`;
-        }
         answer = String(content.decision ?? "");
         note = String(content.note ?? "").trim() || note;
       } catch {
@@ -625,16 +858,23 @@ export class Server {
       }
     }
     if (!direct) {
-      answer = String(args.user_answer ?? "");
-      if (!["approve", "revise", "cancel"].includes(answer)) {
+      answer = passed;
+      if (!given) {
         return `The user hasn't decided yet. Show them the blueprint, ask with AskUserQuestion (approve / change something / cancel; let them drop or swap pieces), then call blueprint_approve again with user_answer and what they said in note.\n\n${render(b, this.registry, false, this.tools)}`;
       }
     }
+    this.unanswered.delete(asked);
+    const now = same(b);
+    if (!now) return changed;
+    b = now;
     b.approvalNote = note;
     b.updatedAt = new Date().toISOString();
     if (answer === "approve") {
       approve(b, direct ? "direct" : "relayed", this.registry, this.tools);
+      this.blueprints.seal(b);
       this.blueprints.save(b);
+      this.current = b.id;
+      this.live.note("approved", b.id, b.approval);
       // The user has now seen what each outside piece is and runs.
       this.registry.trust(b.pieces.map((p) => p.piece));
       const relayed =
@@ -646,9 +886,12 @@ export class Server {
     if (answer === "cancel") {
       b.status = "cancelled";
       this.blueprints.save(b);
+      this.live.note("cancelled", b.id);
+      this.live.searched = false;
       return `The user cancelled this blueprint${note ? `: ${note}` : ""}. Don't build it; ask what they want instead.`;
     }
     this.blueprints.save(b);
+    this.live.note("changes", b.id);
     return `The user wants changes${note ? `: ${note}` : " (ask them which)"}. Change the blueprint, save it with blueprint_save (id ${b.id}) and ask for approval again.`;
   }
 
@@ -656,7 +899,7 @@ export class Server {
     const b = this.blueprints.get(id);
     if (b.status !== "approved" && b.status !== "assembled") {
       throw new Error(
-        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing was assembled.`,
+        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing was assembled.${this.foreignNote(b.id)}`,
       );
     }
     const usage = new Map<string, string>();
@@ -665,8 +908,8 @@ export class Server {
     const copies = writeCopies(
       b,
       (pid) => this.registry.find(pid),
-      this.blueprints.buildDir(b.id),
       this.project,
+      this.blueprints.seals,
     );
     for (const entry of b.pieces) {
       const piece = this.registry.find(entry.piece);
@@ -679,7 +922,7 @@ export class Server {
         const copy = copies.find((c) => c.piece.id === piece.id) as Copy;
         usage.set(piece.id, documentUsage(copy));
         out.push(
-          `- ${piece.id}: working copy at ${copy.path}${copy.written ? "" : " (kept the one already there)"}${entry.adapt ? `. To adapt: ${entry.adapt}` : ""}`,
+          `- ${piece.id}: working copy at ${copy.path}${copy.replaced ? " (a file was already there that Encela hadn't written: it was replaced with the piece)" : copy.written ? "" : " (kept the one already there)"}${entry.adapt ? `. To adapt: ${entry.adapt}` : ""}`,
         );
         continue;
       }
@@ -692,7 +935,7 @@ export class Server {
         const opened = await this.openPiece(piece, entry.tools, entry.env);
         usage.set(
           piece.id,
-          `${piece.id} (${entry.role}): MCP tools named ${exposed(piece.name, "<tool>")}; if they aren't in your tool list, call them with the encela tool piece_call {id: "${piece.id}", tool, arguments} (schemas: piece_tools).`,
+          `${piece.id} (${entry.role}): MCP tools named ${exposed(piece.name, "")}<tool>; if they aren't in your tool list, call them with the encela tool piece_call {id: "${piece.id}", tool, arguments} (schemas: piece_tools).`,
         );
         out.push(`- ${opened}`);
       } catch (e) {
@@ -704,6 +947,8 @@ export class Server {
     b.status = "assembled";
     b.updatedAt = new Date().toISOString();
     this.blueprints.save(b);
+    this.current = b.id;
+    this.live.note("assembled", b.id, String(b.pieces.length - failed));
 
     const toAdapt = copies.filter((c) => c.entry.adapt);
     if (toAdapt.length) {
@@ -749,6 +994,8 @@ export class Server {
       throw new Error("status is todo, doing, done or failed");
     }
     s.status = status;
+    this.current = b.id;
+    this.live.note("step", s.title || s.id, status);
     if (typeof args.note === "string") s.note = args.note.trim();
     b.updatedAt = new Date().toISOString();
     const allDone = b.steps.every((x) => x.status === "done");
@@ -799,13 +1046,15 @@ export class Server {
     if (!running) {
       let start = this.starting.get(piece.name);
       if (!start) {
-        const withEnv = { ...config, env: { ...config.env, ...env } };
+        const started = withEnv(config, env) as McpConfig;
         const name = piece.name;
-        start = Client.start(forThisOs(withEnv), this.project, () => {
+        start = Client.start(forThisOs(started), this.project, () => {
           this.send({ jsonrpc: "2.0", method: "notifications/tools/list_changed" });
           // What it says about its tools changed: keep the new list for the next blueprint.
           const now = this.open.get(name);
-          void now?.client.freshTools().then((list) => this.tools.save(name, config, list));
+          void now?.client
+            .freshTools()
+            .then((list) => this.tools.save(name, withEnv(config, now.env), list));
         });
         this.starting.set(piece.name, start);
       }
@@ -820,8 +1069,9 @@ export class Server {
       running = this.open.get(piece.name) ?? { client, allow: null, env };
       this.open.set(piece.name, running);
       this.changed = true;
+      this.live.note("opened", piece.name, String(client.tools().length));
       // Kept so that later blueprints can be checked, and their tools marked, before anything starts.
-      this.tools.save(piece.name, config, client.tools());
+      this.tools.save(piece.name, withEnv(config, running.env), client.tools());
     }
     const allow = tools.length ? new Set(tools) : null;
     if (JSON.stringify([...(running.allow ?? [])]) !== JSON.stringify([...(allow ?? [])])) {
@@ -858,6 +1108,7 @@ export class Server {
     running.client.close();
     this.open.delete(name);
     this.changed = true;
+    this.live.note("closed", name);
     return `Stopped ${name}.`;
   }
 
@@ -872,6 +1123,15 @@ export class Server {
     for (const r of this.open.values()) r.client.close();
     this.open.clear();
     this.sandbox.close();
+    this.engine.close();
+    this.live.close();
+  }
+
+  /** Why a blueprint that says it is approved isn't taken as approved, when that is so. */
+  private foreignNote(id: string): string {
+    return this.blueprints.foreign(id)
+      ? " Its file says it was approved, but not on this computer (it came with the project, the project folder moved, or the file was edited by hand): that doesn't count."
+      : "";
   }
 
   // Pipelines --------------------------------------------------------------
@@ -880,11 +1140,15 @@ export class Server {
    * Makes a pipeline ready to run for its blueprint: the blueprint is
    * approved, its pieces run with the blueprint's own settings, and every
    * call that may change things or reach outside is one the user was shown.
+   *
+   * `current` is false for the pipeline a run was started with, which may
+   * be older than the blueprint's: what it lacks is then the run's problem,
+   * not the blueprint's.
    */
-  private async prepare(b: Blueprint, p: Pipeline) {
+  private async prepare(b: Blueprint, p: Pipeline, current = true) {
     if (!["approved", "assembled", "done"].includes(b.status)) {
       throw new PipelineError(
-        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing ran.`,
+        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing ran.${this.foreignNote(b.id)}`,
       );
     }
     for (const id of new Set(p.steps.filter((s) => s.kind === "tool").map((s) => s.piece))) {
@@ -893,21 +1157,24 @@ export class Server {
       await this.openPiece(this.registry.get(id), entry.tools, entry.env);
     }
     // With the pieces running, their tools are known as they are now.
-    const marked = markedSteps([p], (piece, name) => this.marks(piece, name));
+    const marked = markedSteps([p], (piece, name) => this.marks(piece, name, b));
     const unseen = marked.filter((m) => !b.approvedCalls.includes(m.print));
+    const names = unseen.map((m) => `${m.step.id} (${m.step.piece} ${m.step.tool})`).join(", ");
+    if (unseen.length && !current) {
+      throw new PipelineError(
+        `Nothing ran. This run was started from an earlier version of the pipeline ${p.name}: ${names} isn't among the calls the user approved for ${b.id} as it is now. pipeline_resume {"retry": true} goes on with the approved version, or start a new run.`,
+      );
+    }
     if (unseen.length) {
-      b.status = "draft";
-      b.approvedAt = null;
-      b.approval = "";
-      b.approvedCalls = [];
+      unapprove(b);
       this.blueprints.save(b);
       throw new PipelineError(
-        `Nothing ran. ${unseen.map((m) => `${m.step.id} (${m.step.piece} ${m.step.tool})`).join(", ")} may change things or reach outside and wasn't among the calls the user approved, or it was changed since. ${b.id} is a draft again: show the user the pipeline and call blueprint_approve.`,
+        `Nothing ran. ${names} may change things or reach outside and wasn't among the calls the user approved, or it, or something that feeds it, was changed since. ${b.id} is a draft again: show the user the pipeline and call blueprint_approve.`,
       );
     }
     if (marked.length && b.approval !== "direct") {
       throw new PipelineError(
-        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), or run a pipeline that only reads.`,
+        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), or run a pipeline that only reads${this.canAsk ? ", or call blueprint_approve again so the user can answer Encela's own question" : ""}.`,
       );
     }
     for (const s of p.steps) {
@@ -955,6 +1222,8 @@ export class Server {
     }
     await this.prepare(b, p);
     const run = this.engine.start(b.id, p, args.inputs);
+    this.current = b.id;
+    this.live.note("run", p.name, "started");
     const step = b.steps.find((s) => s.pipeline === p.name);
     const report = await this.waitAndReport(run.id, args.wait, 50, token);
     return step
@@ -986,7 +1255,7 @@ export class Server {
         );
       }
       // The steps after an answer may call tools: their pieces must be running, and approved.
-      await this.prepare(b, run.pipeline);
+      await this.prepare(b, run.pipeline, false);
       notes.push(...this.engine.answer(id, answers));
     }
     const report = await this.waitAndReport(id, args.wait, 50, token);
