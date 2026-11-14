@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { isMainThread } from "node:worker_threads";
 import { run as runHook } from "./hook";
 import { home, lang, VERSION } from "./paths";
 import { KINDS, type PieceKind } from "./piece";
@@ -120,12 +121,14 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
-main(process.argv.slice(2)).then(
-  (code) => {
-    process.exitCode = code;
-  },
-  (e) => {
-    console.error(e instanceof Error ? e.message : e);
-    process.exitCode = 1;
-  },
-);
+// The bundle is also started as a worker thread to evaluate expressions (src/sandbox.ts); there is no command to run then.
+if (isMainThread)
+  main(process.argv.slice(2)).then(
+    (code) => {
+      process.exitCode = code;
+    },
+    (e) => {
+      console.error(e instanceof Error ? e.message : e);
+      process.exitCode = 1;
+    },
+  );
