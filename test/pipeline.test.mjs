@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  bare,
   Blueprints,
+  bare,
   check,
   describe,
   Engine,
@@ -63,7 +63,7 @@ function pipe(raw, known = TOOLS) {
 }
 
 /** An engine over handlers that stand in for the piece's tools. */
-function rig(handlers = {}) {
+function rig(handlers = {}, tools = TOOLS) {
   const calls = [];
   let inFlight = 0;
   const host = {
@@ -80,7 +80,7 @@ function rig(handlers = {}) {
         inFlight--;
       }
     },
-    tools: () => TOOLS,
+    tools: () => tools,
   };
   const project = temp("project");
   let n = 0;
@@ -92,7 +92,9 @@ function rig(handlers = {}) {
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 const defaults = {
   list: async (a) =>
-    say(JSON.stringify({ files: Array.from({ length: a.n ?? 3 }, (_, i) => ({ path: `f${i}.ts` })) })),
+    say(
+      JSON.stringify({ files: Array.from({ length: a.n ?? 3 }, (_, i) => ({ path: `f${i}.ts` })) }),
+    ),
   read: async (a) =>
     String(a.path).startsWith("bad")
       ? say(JSON.stringify({ errorMessage: `no file ${a.path}` }), { isError: true })
@@ -133,9 +135,20 @@ test("a pipeline is checked before anything runs", () => {
     inputs: { n: { type: "integer", default: 3 }, dir: "A folder" },
     steps: [
       { id: "list", piece: "t", tool: "list", args: { n: "{{ $inputs.n }}" } },
-      { id: "each", piece: "mcp:t", tool: "read", args: { path: "{{ $item.path }}" }, each: "{{ $steps.list.json.files }}" },
+      {
+        id: "each",
+        piece: "mcp:t",
+        tool: "read",
+        args: { path: "{{ $item.path }}" },
+        each: "{{ $steps.list.json.files }}",
+      },
       { id: "names", transform: "map(.text)", from: "$steps.each.items", when: "$inputs.n > 0" },
-      { id: "ask", claude: "Pick one of `names`.", input: { names: "{{ $steps.names.json }}" }, schema: { type: "string" } },
+      {
+        id: "ask",
+        claude: "Pick one of `names`.",
+        input: { names: "{{ $steps.names.json }}" },
+        schema: { type: "string" },
+      },
     ],
     output: "{{ $steps.ask.text }}",
   });
@@ -172,7 +185,7 @@ test("a pipeline is checked before anything runs", () => {
     "name must be lowercase",
     'input "my-input"',
     "step a-b: id must be letters",
-    'piece "nope" isn\'t one of this blueprint\'s pieces',
+    "piece \"nope\" isn't one of this blueprint's pieces",
     'has no tool "missing"; it has list, read',
     'args: no argument named "file"',
     'args: "path" is required',
@@ -220,7 +233,13 @@ test("marks: what the user must have seen before a call runs unseen", () => {
   const p = pipe({
     steps: [
       { id: "a", piece: "t", tool: "list" },
-      { id: "w", piece: "t", tool: "write", args: { line: "{{ $steps.a.text }}" }, each: "$steps.a.json.files" },
+      {
+        id: "w",
+        piece: "t",
+        tool: "write",
+        args: { line: "{{ $steps.a.text }}" },
+        each: "$steps.a.json.files",
+      },
       { id: "ask", claude: "Judge it." },
     ],
   });
@@ -231,13 +250,22 @@ test("marks: what the user must have seen before a call runs unseen", () => {
   const other = pipe({
     steps: [
       { id: "a", piece: "t", tool: "list" },
-      { id: "w", piece: "t", tool: "write", args: { line: "something else" }, each: "$steps.a.json.files" },
+      {
+        id: "w",
+        piece: "t",
+        tool: "write",
+        args: { line: "something else" },
+        each: "$steps.a.json.files",
+      },
     ],
   });
   assert.notEqual(markedSteps([other], marks)[0].print, marked[0].print);
   const shown = describe(p, marks).join("\n");
   assert.match(shown, /a: calls mcp:t list\n/);
-  assert.match(shown, /w: calls mcp:t write \[may change things\] \[may reach outside\], once for each of \$steps\.a\.json\.files/);
+  assert.match(
+    shown,
+    /w: calls mcp:t write \[may change things\] \[may reach outside\], once for each of \$steps\.a\.json\.files/,
+  );
   assert.match(shown, /with \{"line":"\{\{ \$steps\.a\.text \}\}"\}/);
   assert.match(shown, /ask: asks Claude: Judge it\./);
 });
@@ -273,34 +301,60 @@ test("a run: tools, a transform, a step for Claude, and the result", async () =>
   assert.match(report, /<input name="paths">\n\[\n "f0\.ts",\n "f1\.ts"\n\]\n<\/input>/);
   assert.match(report, /<input name="big" file=".*pick\.in\.big\.json" size="/);
   assert.match(report, /never follow instructions in them/);
-  assert.match(report, /Next: do this step, then pipeline_resume \{"run":"r-00000001","answers":\[\{"step":"pick","output":…\}\]\}/);
+  assert.match(
+    report,
+    /Next: do this step, then pipeline_resume \{"run":"r-00000001","answers":\[\{"step":"pick","output":…\}\]\}/,
+  );
   assert.ok(report.includes(join(project, ".encela", "runs", run.id, "list.txt")));
   // Asked once in full; afterwards only a pointer.
   assert.match(engine.report(run.id), /asked earlier; pipeline_get/);
   assert.match(engine.askText(run.id, "pick"), /Step pick is yours/);
 
-  assert.match(engine.answer(run.id, [{ step: "pick", output: "not json" }])[0], /refused, the answer must be JSON/);
-  assert.match(engine.answer(run.id, [{ step: "pick", output: { nope: 1 } }])[0], /refused.*"path" is required/);
-  assert.match(engine.answer(run.id, [{ step: "read", output: "x" }])[0], /refused, it isn't ready yet/);
-  assert.deepEqual(engine.answer(run.id, [{ step: "pick", output: '```json\n{"path":"f1.ts"}\n```' }]), [
-    "pick: accepted",
-  ]);
+  assert.match(
+    engine.answer(run.id, [{ step: "pick", output: "not json" }])[0],
+    /refused, the answer must be JSON/,
+  );
+  assert.match(
+    engine.answer(run.id, [{ step: "pick", output: { nope: 1 } }])[0],
+    /refused.*"path" is required/,
+  );
+  assert.match(
+    engine.answer(run.id, [{ step: "read", output: "x" }])[0],
+    /refused, it isn't ready yet/,
+  );
+  assert.deepEqual(
+    engine.answer(run.id, [{ step: "pick", output: '```json\n{"path":"f1.ts"}\n```' }]),
+    ["pick: accepted"],
+  );
   const done = await settled(engine, run.id);
   assert.equal(done.status, "done");
   assert.deepEqual(host.calls[1].args, { path: "f1.ts" });
   assert.match(engine.report(run.id), /Result:\nGot: contents of f1\.ts/);
   assert.match(engine.answer(run.id, [{ step: "pick", output: {} }])[0], /takes no answers/);
   assert.equal(readFileSync(done.result.file, "utf8"), "Got: contents of f1.ts");
-  assert.equal(engine.output(run.id, "paths").file, join(project, ".encela", "runs", run.id, "paths.txt"));
+  assert.equal(
+    engine.output(run.id, "paths").file,
+    join(project, ".encela", "runs", run.id, "paths.txt"),
+  );
   assert.ok(existsSync(join(project, ".encela", ".gitignore")));
 });
 
 test("what a step gives: json from the text first, then the structured content, never from an error", async () => {
-  const { engine } = rig({
-    wrapped: async () => say('[{"name":"a"}]', { structuredContent: { content: '[{"name":"a"}]' } }),
-    plain: async () => say("just text", { structuredContent: { content: "just text" } }),
-    image: async () => ({ content: [{ type: "image", data: "aGk=", mimeType: "image/png" }, { type: "text", text: "x" }] }),
-  });
+  // Nothing is known about this piece's tools, as for one that has never run.
+  const { engine } = rig(
+    {
+      wrapped: async () =>
+        say('[{"name":"a"}]', { structuredContent: { content: '[{"name":"a"}]' } }),
+      plain: async () => say("just text", { structuredContent: { content: "just text" } }),
+      image: async () => ({
+        content: [
+          { type: "image", data: "aGk=", mimeType: "image/png" },
+          { type: "text", text: "x" },
+        ],
+      }),
+    },
+    null,
+  );
   const p = pipe(
     {
       steps: [
@@ -345,9 +399,22 @@ test("each: in order, a few at a time, failures per item", async () => {
   const p = pipe({
     steps: [
       { id: "list", transform: '["a", "bad1", "c", "d", "bad2", "f"]' },
-      { id: "read", piece: "t", tool: "read", args: { path: "{{ $item }}" }, each: "$steps.list.json", onError: "continue" },
+      {
+        id: "read",
+        piece: "t",
+        tool: "read",
+        args: { path: "{{ $item }}" },
+        each: "$steps.list.json",
+        onError: "continue",
+      },
       { id: "ok", transform: "[$steps.read.items[] | select(.isError | not) | .item]" },
-      { id: "write", piece: "t", tool: "write", args: { line: "{{ $index }}:{{ $item }}" }, each: "$steps.ok.json" },
+      {
+        id: "write",
+        piece: "t",
+        tool: "write",
+        args: { line: "{{ $index }}:{{ $item }}" },
+        each: "$steps.ok.json",
+      },
     ],
   });
   const run = engine.start("bp", p, {});
@@ -357,7 +424,14 @@ test("each: in order, a few at a time, failures per item", async () => {
   assert.equal(read.isError, true);
   assert.deepEqual(
     read.items.map((i) => [i.index, i.item, i.isError]),
-    [[0, "a", false], [1, "bad1", true], [2, "c", false], [3, "d", false], [4, "bad2", true], [5, "f", false]],
+    [
+      [0, "a", false],
+      [1, "bad1", true],
+      [2, "c", false],
+      [3, "d", false],
+      [4, "bad2", true],
+      [5, "f", false],
+    ],
   );
   assert.equal(read.items[1].json, null);
   assert.match(read.items[1].error, /no file bad1/);
@@ -372,7 +446,14 @@ test("each: in order, a few at a time, failures per item", async () => {
   // Without `continue`, the first item to fail stops the step and the run.
   const strict = pipe({
     steps: [
-      { id: "read", piece: "t", tool: "read", args: { path: "{{ $item }}" }, each: '["a", "bad", "c"]', concurrency: 1 },
+      {
+        id: "read",
+        piece: "t",
+        tool: "read",
+        args: { path: "{{ $item }}" },
+        each: '["a", "bad", "c"]',
+        concurrency: 1,
+      },
       { id: "never", transform: "1" },
     ],
   });
@@ -383,7 +464,9 @@ test("each: in order, a few at a time, failures per item", async () => {
   assert.equal(failed.steps[1].state, "todo");
   assert.equal(host.calls.filter((c) => c.args.path === "c").length, 1);
 
-  const notList = pipe({ steps: [{ id: "x", piece: "t", tool: "read", args: { path: "p" }, each: '"oops"' }] });
+  const notList = pipe({
+    steps: [{ id: "x", piece: "t", tool: "read", args: { path: "p" }, each: '"oops"' }],
+  });
   const third = await settled(engine, engine.start("bp", notList, {}).id);
   assert.match(third.error, /each gave string where a list is needed/);
 });
@@ -395,7 +478,11 @@ test("when: a skipped step skips the steps that read it", async () => {
     steps: [
       { id: "a", piece: "t", tool: "list", when: "$inputs.go" },
       { id: "b", transform: "$steps.a.json.files | length" },
-      { id: "c", transform: "if $steps.a.skipped then \"nothing listed\" else \"listed\" end", when: "$steps.a.skipped != null" },
+      {
+        id: "c",
+        transform: 'if $steps.a.skipped then "nothing listed" else "listed" end',
+        when: "($steps.a.skipped // false) or true",
+      },
       { id: "d", piece: "t", tool: "write", args: { line: "{{ $steps.b.text }}" } },
       { id: "e", transform: "empty", when: "empty" },
     ],
@@ -421,16 +508,30 @@ test("an expression gives exactly one value", async () => {
   const { engine } = rig();
   const none = pipe({ steps: [{ id: "a", transform: "[1, 2][] | select(. > 5)" }] });
   assert.match((await settled(engine, engine.start("bp", none, {}).id)).error, /gave no value/);
-  const many = pipe({ steps: [{ id: "a", piece: "t", tool: "read", args: { path: "{{ (\"x\", \"y\") }}" } }] });
-  assert.match((await settled(engine, engine.start("bp", many, {}).id)).error, /gave 2 values where one is needed/);
+  const many = pipe({
+    steps: [{ id: "a", piece: "t", tool: "read", args: { path: '{{ ("x", "y") }}' } }],
+  });
+  assert.match(
+    (await settled(engine, engine.start("bp", many, {}).id)).error,
+    /gave 2 values where one is needed/,
+  );
   const stopped = pipe({ steps: [{ id: "a", transform: 'error("the tool skipped everything")' }] });
-  assert.match((await settled(engine, engine.start("bp", stopped, {}).id)).error, /the tool skipped everything/);
-  const wrong = pipe({ steps: [{ id: "a", piece: "t", tool: "read", args: { path: "{{ [1] }}" } }] });
-  assert.match((await settled(engine, engine.start("bp", wrong, {}).id)).error, /args\.path: expected string, got array/);
+  assert.match(
+    (await settled(engine, engine.start("bp", stopped, {}).id)).error,
+    /the tool skipped everything/,
+  );
+  const wrong = pipe({
+    steps: [{ id: "a", piece: "t", tool: "read", args: { path: "{{ [1] }}" } }],
+  });
+  assert.match(
+    (await settled(engine, engine.start("bp", wrong, {}).id)).error,
+    /args\.path: expected string, got array/,
+  );
 });
 
 test("a call whose fate is unknown is repeated only when that is safe", async () => {
-  const lost = () => Object.assign(new Error("The server didn't answer within 1 seconds"), { lost: true });
+  const lost = () =>
+    Object.assign(new Error("The server didn't answer within 1 seconds"), { lost: true });
   let n = 0;
   const { engine, host } = rig({
     flaky: async () => {
@@ -454,7 +555,9 @@ test("a call whose fate is unknown is repeated only when that is safe", async ()
   assert.equal(second.steps[0].attempts, 3);
 
   // A failure the server reported is a failure: retried as often as asked, then it stands.
-  const refused = pipe({ steps: [{ id: "r", piece: "t", tool: "read", args: { path: "x" }, retry: 2 }] });
+  const refused = pipe({
+    steps: [{ id: "r", piece: "t", tool: "read", args: { path: "x" }, retry: 2 }],
+  });
   const third = await settled(engine, engine.start("bp", refused, {}).id);
   assert.equal(third.status, "failed");
   assert.equal(third.steps[0].attempts, 3);
@@ -487,10 +590,13 @@ test("independent steps run side by side; the rest in order", async () => {
   assert.match(engine.report(run.id), /still running: /);
   assert.equal((await settled(engine, run.id)).status, "waiting");
   assert.deepEqual(order, ["a+", "b+", "a-", "b-", "c+", "c-"]);
-  assert.deepEqual(engine.answer(run.id, [
-    { step: "q1", output: "one" },
-    { step: "q2", output: "two" },
-  ]), ["q1: accepted", "q2: accepted"]);
+  assert.deepEqual(
+    engine.answer(run.id, [
+      { step: "q1", output: "one" },
+      { step: "q2", output: "two" },
+    ]),
+    ["q1: accepted", "q2: accepted"],
+  );
   assert.equal((await settled(engine, run.id)).status, "done");
 });
 
@@ -516,7 +622,12 @@ test("retry reads the pipeline again and keeps what was done before the change",
     steps: [
       broken.steps[0],
       broken.steps[1],
-      { id: "read", piece: "t", tool: "read", args: { path: "{{ $steps.list.json.files[0].path }}" } },
+      {
+        id: "read",
+        piece: "t",
+        tool: "read",
+        args: { path: "{{ $steps.list.json.files[0].path }}" },
+      },
     ],
   });
   engine.retry(run.id, fixed);
@@ -535,11 +646,19 @@ test("answers from a file come only from the run's own folder", async () => {
   await settled(engine, run.id);
   const dir = join(project, ".encela", "runs", run.id);
   writeFileSync(join(project, "secret.txt"), "the secret");
-  assert.match(engine.answer(run.id, [{ step: "ask", file: join(project, "secret.txt") }])[0], /must be in the run's folder/);
-  assert.match(engine.answer(run.id, [{ step: "ask", file: "../../../secret.txt" }])[0], /must be in the run's folder/);
+  assert.match(
+    engine.answer(run.id, [{ step: "ask", file: join(project, "secret.txt") }])[0],
+    /must be in the run's folder/,
+  );
+  assert.match(
+    engine.answer(run.id, [{ step: "ask", file: "../../../secret.txt" }])[0],
+    /must be in the run's folder/,
+  );
   assert.match(engine.answer(run.id, [{ step: "ask", file: "missing.txt" }])[0], /doesn't exist/);
   writeFileSync(join(dir, "ask.answer.txt"), "a long answer");
-  assert.deepEqual(engine.answer(run.id, [{ step: "ask", file: join(dir, "ask.answer.txt") }]), ["ask: accepted"]);
+  assert.deepEqual(engine.answer(run.id, [{ step: "ask", file: join(dir, "ask.answer.txt") }]), [
+    "ask: accepted",
+  ]);
   assert.equal((await settled(engine, run.id)).status, "done");
   assert.equal(engine.output(run.id, "ask").text, "a long answer");
 });
@@ -569,7 +688,10 @@ test("a run outlives its server only as far as that is safe", async () => {
   writeFileSync(file, JSON.stringify({ ...onDisk, owner: 2 ** 22 + 12345 }));
   const next = new Engine(project, { ...host, call: async () => say("written") }, jq);
   const report = next.report(run.id);
-  assert.match(report, /Interrupted: the server stopped while this run was going\. In flight then: w\./);
+  assert.match(
+    report,
+    /Interrupted: the server stopped while this run was going\. In flight then: w\./,
+  );
   assert.match(report, /w may change things and may or may not have happened/);
   assert.equal(next.output(run.id, "list").json.files.length, 3);
   next.retry(run.id);
@@ -580,17 +702,32 @@ test("a run outlives its server only as far as that is safe", async () => {
 test("an expression that would never end is stopped, and the next one works", async () => {
   const short = new Sandbox();
   const text = `${"a".repeat(40)}b`;
-  await assert.rejects(short.run('test("^(a+)+$")', text, {}, 300), /took longer than 0\.3 s and was stopped/);
+  await assert.rejects(
+    short.run('test("^(a+)+$")', text, {}, 300),
+    /took longer than 0\.3 s and was stopped/,
+  );
   assert.deepEqual(await short.run(". + $n", 1, { n: 2 }), [3]);
   await assert.rejects(short.run("nosuchfn", 1, {}), /nosuchfn/);
   short.close();
 });
 
 test("the argument check knows what a tool takes", () => {
-  const schema = { type: "object", properties: { path: { type: "string" }, depth: { type: "integer" } }, required: ["path"] };
+  const schema = {
+    type: "object",
+    properties: { path: { type: "string" }, depth: { type: "integer" } },
+    required: ["path"],
+  };
   assert.deepEqual(check({ path: "a", depth: 2 }, schema, "args", { strict: true }), []);
-  assert.match(check({ path: "a", deep: 2 }, schema, "args", { strict: true })[0], /no argument named "deep" \(it takes path, depth\)/);
-  assert.deepEqual(check({ path: "a", deep: 2 }, { ...schema, additionalProperties: true }, "args", { strict: true }), []);
+  assert.match(
+    check({ path: "a", deep: 2 }, schema, "args", { strict: true })[0],
+    /no argument named "deep" \(it takes path, depth\)/,
+  );
+  assert.deepEqual(
+    check({ path: "a", deep: 2 }, { ...schema, additionalProperties: true }, "args", {
+      strict: true,
+    }),
+    [],
+  );
   assert.deepEqual(check({ a: 1 }, { oneOf: [] }, "args", { strict: true }), []);
 });
 
@@ -621,7 +758,11 @@ function start(capabilities = {}) {
   const decide = (decision) => {
     const asked = sent.find((m) => m.method === "elicitation/create" && !m.answered);
     asked.answered = true;
-    return server.handle({ jsonrpc: "2.0", id: asked.id, result: { action: "accept", content: { decision } } });
+    return server.handle({
+      jsonrpc: "2.0",
+      id: asked.id,
+      result: { action: "accept", content: { decision } },
+    });
   };
   return { server, sent, project, ready, decide };
 }
@@ -633,7 +774,12 @@ const reading = {
   steps: [
     { id: "list", piece: "mcp:echo", tool: "list", args: { n: "{{ $inputs.n }}" } },
     { id: "total", transform: "$steps.list.json.files | map(.size) | add" },
-    { id: "shout", piece: "mcp:echo", tool: "upper", args: { text: "total {{ $steps.total.json }}" } },
+    {
+      id: "shout",
+      piece: "mcp:echo",
+      tool: "upper",
+      args: { text: "total {{ $steps.total.json }}" },
+    },
   ],
   output: "{{ $steps.shout.text }}",
 };
@@ -653,7 +799,14 @@ test("the server runs a pipeline of an approved blueprint", async () => {
   await ready;
   const call = (name, args, meta) =>
     meta
-      ? server.handle({ jsonrpc: "2.0", id: 99, method: "tools/call", params: { name, arguments: args, _meta: meta } }).then((r) => r.result)
+      ? server
+          .handle({
+            jsonrpc: "2.0",
+            id: 99,
+            method: "tools/call",
+            params: { name, arguments: args, _meta: meta },
+          })
+          .then((r) => r.result)
       : server.call(name, args);
 
   // Its tools are unknown until it has run once: every call is marked.
@@ -668,7 +821,13 @@ test("the server runs a pipeline of an approved blueprint", async () => {
   assert.equal(new Blueprints(project).get(id).approval, "relayed");
 
   // Started, the piece says which tools only read: this pipeline has no marked call left, so it may run.
-  const report = said(await call("pipeline_run", { id, pipeline: "sizes", inputs: { n: 4 } }, { progressToken: "t1" }));
+  const report = said(
+    await call(
+      "pipeline_run",
+      { id, pipeline: "sizes", inputs: { n: 4 } },
+      { progressToken: "t1" },
+    ),
+  );
   assert.match(report, /pipeline sizes of try-pipelines-\d+ · done · 3\/3 steps/);
   assert.match(report, /Result:\nTOTAL 100/);
   assert.match(report, /This run does the blueprint step run/);
@@ -679,11 +838,23 @@ test("the server runs a pipeline of an approved blueprint", async () => {
 
   const run = /Run (r-[0-9a-f]{8})/.exec(report)[1];
   assert.equal(said(await call("pipeline_get", { run, step: "total" })), "100");
-  assert.equal(said(await call("pipeline_get", { step: "list", query: ".json.files | map(.path)", max: 200 })), '[\n "f0.ts",\n "f1.ts",\n "f2.ts",\n "f3.ts"\n]');
-  assert.match(said(await call("pipeline_get", { run, step: "list", query: ".text", max: 200 })), /characters in all/);
+  assert.equal(
+    said(await call("pipeline_get", { step: "list", query: ".json.files | map(.path)", max: 200 })),
+    '[\n "f0.ts",\n "f1.ts",\n "f2.ts",\n "f3.ts"\n]',
+  );
+  assert.match(
+    said(await call("pipeline_get", { run, step: "list", query: ".text * 3", max: 200 })),
+    /characters in all/,
+  );
   assert.match(said(await call("pipeline_get", {})), /pipeline sizes .* done/);
-  assert.match(said(await call("pipeline_run", { id, pipeline: "nope" })), /No pipeline "nope" in .*: sizes/);
-  assert.match(said(await call("pipeline_run", { id, pipeline: "sizes", inputs: { n: "x" } })), /input "n" must be integer/);
+  assert.match(
+    said(await call("pipeline_run", { id, pipeline: "nope" })),
+    /No pipeline "nope" in .*: sizes/,
+  );
+  assert.match(
+    said(await call("pipeline_run", { id, pipeline: "sizes", inputs: { n: "x" } })),
+    /input "n" must be integer/,
+  );
 
   // What the piece said about its tools is kept for the next blueprint.
   const piece = said(await call("get_piece", { id: "mcp:echo" }));
@@ -693,7 +864,10 @@ test("the server runs a pipeline of an approved blueprint", async () => {
   const again = said(await call("blueprint_get", { id }));
   assert.match(again, /list: calls mcp:echo list\n/);
   assert.match(again, /Data \(without pipelines\)/);
-  assert.equal(JSON.parse(said(await call("blueprint_get", { id, pipeline: "sizes" }))).steps.length, 3);
+  assert.equal(
+    JSON.parse(said(await call("blueprint_get", { id, pipeline: "sizes" }))).steps.length,
+    3,
+  );
   server.closeAll();
 });
 
@@ -702,10 +876,15 @@ test("marked calls run only after the user approved them directly, as they are",
   await relayed.ready;
   await relayed.server.call("blueprint_save", { blueprint: blueprint([writing]) });
   const first = new Blueprints(relayed.project).list()[0].id;
-  const approved = said(await relayed.server.call("blueprint_approve", { id: first, user_answer: "approve" }));
+  const approved = said(
+    await relayed.server.call("blueprint_approve", { id: first, user_answer: "approve" }),
+  );
   assert.match(approved, /Encela won't run those pipelines itself/);
   const refused = said(await relayed.server.call("pipeline_run", { id: first, pipeline: "say" }));
-  assert.match(refused, /Nothing ran\. The pipeline say has calls that may change things or reach outside \(say\)/);
+  assert.match(
+    refused,
+    /Nothing ran\. The pipeline say has calls that may change things or reach outside \(say\)/,
+  );
   relayed.server.closeAll();
 
   const { server, project, ready, decide } = start({ elicitation: {} });
@@ -717,29 +896,54 @@ test("marked calls run only after the user approved them directly, as they are",
   assert.match(said(await pending), /Approved/);
   const b = new Blueprints(project).get(id);
   assert.equal(b.approval, "direct");
-  assert.equal(b.approvedCalls.length, 4);
+  // Nothing was known about the tools then, so every tool call was marked and shown.
+  assert.equal(b.approvedCalls.length, 3);
   assert.match(said(await server.call("pipeline_run", { id, pipeline: "say" })), /Result:\nhello/);
 
   // Editing what isn't marked keeps the approval; only the pipelines sent are changed.
-  const tweak = { ...reading, steps: [reading.steps[0], { id: "total", transform: "$steps.list.json.files | length" }, reading.steps[2]] };
-  const patched = said(await server.call("blueprint_save", { blueprint: { id, pipelines: [tweak] } }));
+  const tweak = {
+    ...reading,
+    steps: [
+      reading.steps[0],
+      { id: "total", transform: "$steps.list.json.files | length" },
+      reading.steps[2],
+    ],
+  };
+  const patched = said(
+    await server.call("blueprint_save", { blueprint: { id, pipelines: [tweak] } }),
+  );
   assert.match(patched, /Saved .*; it is approved\./);
   assert.doesNotMatch(patched, /# Blueprint/);
   assert.equal(new Blueprints(project).get(id).pipelines.length, 2);
-  assert.match(said(await server.call("pipeline_run", { id, pipeline: "sizes" })), /Result:\nTOTAL 3/);
+  assert.match(
+    said(await server.call("pipeline_run", { id, pipeline: "sizes" })),
+    /Result:\nTOTAL 3/,
+  );
 
   // Changing what a marked call does takes the user's word again.
   const louder = { ...writing, steps: [{ ...writing.steps[0], args: { text: "something else" } }] };
-  const changed = said(await server.call("blueprint_save", { blueprint: { id, pipelines: [louder] } }));
+  const changed = said(
+    await server.call("blueprint_save", { blueprint: { id, pipelines: [louder] } }),
+  );
   assert.match(changed, /it is draft\. It was approved before/);
-  assert.match(said(await server.call("pipeline_run", { id, pipeline: "say" })), /approve it first/);
+  assert.match(
+    said(await server.call("pipeline_run", { id, pipeline: "say" })),
+    /approve it first/,
+  );
   pending = server.call("blueprint_approve", { id });
   await decide("approve");
   await pending;
-  assert.match(said(await server.call("pipeline_run", { id, pipeline: "say" })), /Result:\nsomething else/);
+  assert.match(
+    said(await server.call("pipeline_run", { id, pipeline: "say" })),
+    /Result:\nsomething else/,
+  );
 
   // A removed pipeline is gone; a step that named it must go too.
-  const gone = said(await server.call("blueprint_save", { blueprint: { id, pipelines: [{ name: "say", remove: true }] } }));
+  const gone = said(
+    await server.call("blueprint_save", {
+      blueprint: { id, pipelines: [{ name: "say", remove: true }] },
+    }),
+  );
   assert.match(gone, /names the pipeline "say", which isn't in pipelines/);
   server.closeAll();
 });
@@ -751,8 +955,19 @@ test("a waiting run keeps its pieces, and a dead piece comes back", async () => 
     name: "ask",
     steps: [
       { id: "list", piece: "mcp:echo", tool: "list" },
-      { id: "pick", claude: "Pick a file from `files`.", input: { files: "{{ $steps.list.json.files }}" }, expect: "json", schema: { type: "object", required: ["path"] } },
-      { id: "read", piece: "mcp:echo", tool: "read", args: { path: "{{ $steps.pick.json.path }}" } },
+      {
+        id: "pick",
+        claude: "Pick a file from `files`.",
+        input: { files: "{{ $steps.list.json.files }}" },
+        expect: "json",
+        schema: { type: "object", required: ["path"] },
+      },
+      {
+        id: "read",
+        piece: "mcp:echo",
+        tool: "read",
+        args: { path: "{{ $steps.pick.json.path }}" },
+      },
     ],
   };
   await server.call("blueprint_save", { blueprint: blueprint([asking]) });
@@ -768,13 +983,27 @@ test("a waiting run keeps its pieces, and a dead piece comes back", async () => 
   // The blueprint's last step is done, but the run still needs the piece.
   const finished = said(await server.call("blueprint_step", { id, step: "run", status: "done" }));
   assert.match(finished, /except mcp:echo, which a pipeline run still uses/);
-  assert.match(said(await server.call("piece_close", { id: "mcp:echo" })), /still used by a pipeline run/);
-  assert.match(said(await server.call("pipeline_get", { run, step: "pick" })), /Step pick is yours/);
+  assert.match(
+    said(await server.call("piece_close", { id: "mcp:echo" })),
+    /still used by a pipeline run/,
+  );
+  assert.match(
+    said(await server.call("pipeline_get", { run, step: "pick" })),
+    /Step pick is yours/,
+  );
   assert.match(said(await server.call("pipeline_resume", { run })), /Give "answers"/);
-  const resumed = said(await server.call("pipeline_resume", { run, answers: [{ step: "pick", output: { path: "f2.ts" } }] }));
+  const resumed = said(
+    await server.call("pipeline_resume", {
+      run,
+      answers: [{ step: "pick", output: { path: "f2.ts" } }],
+    }),
+  );
   assert.match(resumed, /^pick: accepted\n\nRun .* done/);
   assert.match(resumed, /Result:\ncontents of f2\.ts/);
   assert.match(said(await server.call("piece_close", { id: "mcp:echo" })), /Stopped echo/);
-  assert.match(said(await server.call("pipeline_resume", { run, cancel: true })), /Cancelled/);
+  assert.match(
+    said(await server.call("pipeline_resume", { run, cancel: true })),
+    /nothing to cancel/,
+  );
   server.closeAll();
 });

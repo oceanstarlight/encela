@@ -966,8 +966,10 @@ export class Server {
     const id = String(args.run ?? "");
     const run = this.engine.get(id);
     if (args.cancel === true) {
-      this.engine.cancel(id);
-      return `Cancelled ${id}. Calls that were in flight may still finish in their pieces.`;
+      const stopped = this.engine.cancel(id);
+      return stopped.status === "cancelled"
+        ? `Cancelled ${id}. Calls that were in flight may still finish in their pieces.`
+        : `Run ${id} is ${stopped.status}; there was nothing to cancel.`;
     }
     const b = this.blueprints.get(run.blueprint);
     const notes: string[] = [];
