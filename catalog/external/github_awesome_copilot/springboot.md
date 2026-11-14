@@ -21,7 +21,7 @@ license_path: LICENSE
 ---
 # Spring Boot Development
 
-Apply these instructions only when the project uses Spring Boot. For Kotlin projects, see `kotlin-springboot`.
+Apply these instructions only when the project uses Spring Boot.
 
 ## General Instructions
 

@@ -67,8 +67,6 @@ Search/filter notes:
 - `/filter` requires predicate syntax in `where` and optional sort in `orderby`.
 - Keep filtering and searches read-only and side-effect free.
 
-For CLI-based parquet URL discovery or SQL, use the `hf-cli` skill with `hf datasets parquet` and `hf datasets sql`.
-
 ## Creating and Uploading Datasets
 
 Use one of these flows depending on dependency constraints.
@@ -104,18 +102,3 @@ npx -y @huggingface/hub upload datasets/<namespace>/<repo> ./local/parquet-folde
 ```
 
 After upload, call `/parquet` to discover `<config>/<split>/<shard>` values for querying with `@~parquet`.
-
-## Agent Traces
-
-The Hub supports raw agent session traces from Claude Code, Codex, and Pi Agent. Upload them to Hugging Face Datasets as original JSONL files and the Hub can auto-detect the trace format, tag the dataset as `Traces`, and enable the trace viewer for browsing sessions, turns, tool calls, and model responses. Common local session directories:
-
-- Claude Code: `~/.claude/projects`
-- Codex: `~/.codex/sessions`
-- Pi: `~/.pi/agent/sessions`
-
-Default to private dataset repos because traces can contain prompts, file paths, tool outputs, secrets, or PII. Preserve the raw `.jsonl` files and nest them by project/cwd instead of uploading every session at the dataset root.
-
-```bash
-hf repos create <namespace>/<repo> --type dataset --private --exist-ok
-hf upload <namespace>/<repo> ~/.codex/sessions codex/<project-or-cwd> --type dataset
-```

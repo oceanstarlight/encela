@@ -9,7 +9,7 @@ detail_en: Applies to C/C++ sources and CMake files. Covers naming, short functi
 category: C / C++
 category_en: C / C++
 name: cpp
-description: "Guide Cursor to write modern C++ and CMake code with clear structure, RAII, const-correctness, and safe error handling."
+description: "Rules for writing modern C++ and CMake code with clear structure, RAII, const-correctness, and safe error handling."
 paths:
   - "**/*.c"
   - "**/*.cpp"

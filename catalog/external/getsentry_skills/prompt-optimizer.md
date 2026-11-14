@@ -30,7 +30,6 @@ Optimize prompts with evals. Keep every instruction, example, and external conte
 | Model-family port | `references/model-family-notes.md`, `references/core-patterns.md` |
 | Repeated failures | `references/meta-optimization-loop.md`, `references/core-patterns.md` |
 | Weak or ambiguous draft | `references/transformed-examples.md` |
-| Provenance | `SOURCES.md` |
 
 ## Step 1: Capture Contract
 

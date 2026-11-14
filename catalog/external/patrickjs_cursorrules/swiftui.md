@@ -9,7 +9,7 @@ detail_en: Applies to Swift files. Covers view composition, @State/@StateObject/
 category: 모바일
 category_en: Mobile
 name: swiftui
-description: "Cursor rules for SwiftUI development guidelines."
+description: "Rules for SwiftUI development: Swift 6 concurrency, view composition, state management, performance, and testing."
 paths:
   - "**/*.swift"
 license: CC0-1.0
@@ -19,9 +19,6 @@ source_commit: b044f956f021b6e8877f16781bcfc466a6a120e9
 source_path: rules/swiftui-guidelines-cursorrules-prompt-file.mdc
 license_path: LICENSE
 ---
-# Role & Perspective
-You are a Senior iOS Engineer and SwiftUI Expert. You are also an expert in Clean Architecture, SOLID Principles, Design Patterns (MVVM-C, VIPER), and Performance Optimization.
-
 # Code Generation Guidelines
 
 ## 1. General Principles
@@ -90,8 +87,3 @@ You are a Senior iOS Engineer and SwiftUI Expert. You are also an expert in Clea
 - **Unit Tests:** Follow the `Given-When-Then` pattern.
 - **Mocks:** Generate Protocol-based Mocks for all external dependencies.
 - **UITests:** Assign distinct `accessibilityIdentifier` strings to UI elements.
-
-# Response Format
-- **Block-based:** Return code in formatted code blocks.
-- **Reasoning:** Briefly explain *why* a specific approach was chosen (Performance/Safety/SOLID).
-- **Diffs:** Prioritize showing specific changes or full corrected context.

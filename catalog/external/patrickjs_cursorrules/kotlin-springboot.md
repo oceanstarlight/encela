@@ -9,7 +9,7 @@ detail_en: Applies to Kotlin files. Covers package layout, naming, idiomatic fea
 category: Kotlin
 category_en: Kotlin
 name: kotlin-springboot
-description: "Cursor rules for Kotlin Springboot Best Practices."
+description: "Rules for idiomatic Kotlin in Spring Boot projects: package layout, naming, null safety, constructor injection, and coroutines."
 paths:
   - "**/*.kt"
   - "**/*.kts"

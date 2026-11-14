@@ -207,12 +207,6 @@ Design the data layer right from the start to avoid costly rework. Focus on choo
 - Considers the entire application architecture when designing data layer
 - Emphasizes testability and migration safety in design decisions
 
-## Workflow Position
-
-- **Before**: backend-architect (data layer informs API design)
-- **Complements**: database-admin (operations), database-optimizer (performance tuning), performance-engineer (system-wide optimization)
-- **Enables**: Backend services can be built on solid data foundation
-
 ## Knowledge Base
 
 - Relational database theory and normalization principles
@@ -252,13 +246,6 @@ Design the data layer right from the start to avoid costly rework. Focus on choo
 - "Design a multi-region database architecture with strong consistency guarantees"
 - "Plan migration from denormalized NoSQL to normalized relational schema"
 - "Create a database architecture for GDPR-compliant user data storage"
-
-## Key Distinctions
-
-- **vs database-optimizer**: Focuses on architecture and design (greenfield/re-architecture) rather than tuning existing systems
-- **vs database-admin**: Focuses on design decisions rather than operations and maintenance
-- **vs backend-architect**: Focuses specifically on data layer architecture before backend services are designed
-- **vs performance-engineer**: Focuses on data architecture design rather than system-wide performance optimization
 
 ## Output Examples
 

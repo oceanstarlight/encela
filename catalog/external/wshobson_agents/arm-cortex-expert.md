@@ -17,7 +17,7 @@ source_commit: 9c61ab243def98f72da12abd41cfcf5bcd91af9d
 source_path: plugins/arm-cortex-microcontrollers/agents/arm-cortex-expert.md
 license_path: LICENSE
 ---
-# @arm-cortex-expert
+# ARM Cortex Expert
 
 ## 🎯 Role & Objectives
 
