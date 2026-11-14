@@ -6,7 +6,16 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { projectHome } from "./paths";
 import { cautions, isDocument, type Piece } from "./piece";
+import {
+  describe,
+  type Marks,
+  markedSteps,
+  marksOf,
+  normalizePipelines,
+  type Pipeline,
+} from "./pipeline";
 import { type Registry, writeJson } from "./registry";
+import type { ToolCache } from "./tools";
 
 export type Status = "draft" | "approved" | "assembled" | "done" | "cancelled";
 export type StepStatus = "todo" | "doing" | "done" | "failed";
@@ -39,6 +48,8 @@ export interface Step {
   pieces: string[];
   /** Steps that must be done first. */
   after: string[];
+  /** The pipeline that does this step, when one does. */
+  pipeline: string;
   status: StepStatus;
   note: string;
 }
@@ -62,13 +73,34 @@ export interface Blueprint {
   steps: Step[];
   /** What the user is asked to decide when approving. */
   choices: Choice[];
-  /** Reserved for data pipelines between pieces. */
-  pipelines: unknown[];
+  /** Chains of tool calls Encela runs itself, passing data from piece to piece (src/pipeline.ts). */
+  pipelines: Pipeline[];
   createdAt: string;
   updatedAt: string;
   approvedAt: string | null;
   /** What the user said when approving or asking for changes. */
   approvalNote: string;
+  /**
+   * How it was approved: `direct` when the user answered Encela's own
+   * question, `relayed` when Claude passed the answer on. Pipelines with
+   * marked steps run only after a direct approval.
+   */
+  approval: "" | "direct" | "relayed";
+  /** Fingerprints of the pipeline steps the user saw marked (may change things, may reach outside) when approving. */
+  approvedCalls: string[];
+}
+
+/** The marks of a piece's tool, from what the piece showed the last time it ran. */
+export function marker(registry: Registry, tools?: ToolCache) {
+  return (piece: string, tool: string): Marks => {
+    const p = registry.find(piece);
+    return marksOf(tool, p && tools ? tools.load(p.name, p.config) : null);
+  };
+}
+
+/** The fingerprints of a blueprint's marked pipeline steps, as things are now. */
+export function markedCalls(b: Blueprint, registry: Registry, tools?: ToolCache): string[] {
+  return markedSteps(b.pipelines ?? [], marker(registry, tools)).map((m) => m.print);
 }
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -102,6 +134,7 @@ export function normalizeBlueprint(
   registry: Registry,
   previous: Blueprint | null,
   now = new Date(),
+  tools?: ToolCache,
 ): Blueprint {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("A blueprint is a JSON object");
@@ -153,6 +186,29 @@ export function normalizeBlueprint(
     } else workers.push({ name, role: text(w.role) });
   }
 
+  // Left out, the pipelines stay as they were; they are still checked against the pieces as they are now.
+  const checked = normalizePipelines(
+    r.pipelines === undefined ? previous?.pipelines : r.pipelines,
+    {
+      pieces: new Map(
+        pieces.map((p) => {
+          const piece = known.get(p.piece) as Piece;
+          return [p.piece, { kind: piece.kind, name: piece.name, tools: p.tools }];
+        }),
+      ),
+      resolve: (ref) => {
+        const found = registry.find(ref);
+        return found && known.has(found.id) ? found.id : null;
+      },
+      known: (id) => {
+        const piece = known.get(id);
+        return piece && tools ? tools.load(piece.name, piece.config) : null;
+      },
+    },
+  );
+  problems.push(...checked.problems);
+  const pipelines = checked.pipelines;
+
   const steps: Step[] = [];
   const before = new Map((previous?.steps ?? []).map((s) => [s.id, s]));
   objects(r.steps).forEach((s, i) => {
@@ -173,6 +229,10 @@ export function normalizeBlueprint(
       if (found && known.has(found.id)) uses.push(found.id);
       else problems.push(`steps: ${id} uses "${ref}", which isn't in this blueprint's pieces`);
     }
+    const pipeline = text(s.pipeline);
+    if (pipeline && !pipelines.some((p) => p.name === pipeline)) {
+      problems.push(`steps: ${id} names the pipeline "${pipeline}", which isn't in pipelines`);
+    }
     const status = text(s.status) as StepStatus;
     const old = before.get(id);
     steps.push({
@@ -182,6 +242,7 @@ export function normalizeBlueprint(
       worker,
       pieces: uses,
       after: list(s.after),
+      pipeline,
       status: ["todo", "doing", "done", "failed"].includes(status)
         ? status
         : (old?.status ?? "todo"),
@@ -219,19 +280,50 @@ export function normalizeBlueprint(
     workers,
     steps,
     choices,
-    pipelines: previous?.pipelines ?? [],
+    pipelines,
     createdAt: previous?.createdAt ?? stamp,
     updatedAt: stamp,
     approvedAt: previous?.approvedAt ?? null,
     approvalNote: previous?.approvalNote ?? "",
+    approval: previous?.approval ?? "",
+    approvedCalls: previous?.approvedCalls ?? [],
   };
-  // Other pieces, tools or settings than the user approved: ask again.
-  if (previous && previous.status !== "draft" && fingerprint(previous) !== fingerprint(blueprint)) {
+  // The user approved certain pieces, tools and settings, and certain marked
+  // pipeline calls with their arguments. Anything else: ask again.
+  const unseen = markedCalls(blueprint, registry, tools).filter(
+    (print) => !blueprint.approvedCalls.includes(print),
+  );
+  if (
+    previous &&
+    previous.status !== "draft" &&
+    (fingerprint(previous) !== fingerprint(blueprint) || unseen.length)
+  ) {
     blueprint.status = "draft";
-    blueprint.approvedAt = null;
   }
-  if (blueprint.status === "cancelled" || blueprint.status === "done") blueprint.status = "draft";
+  if (blueprint.status === "cancelled") blueprint.status = "draft";
+  // A finished blueprint that got more to do is being built again.
+  if (blueprint.status === "done" && steps.some((s) => s.status !== "done")) {
+    blueprint.status = "assembled";
+  }
+  if (blueprint.status === "draft") {
+    blueprint.approvedAt = null;
+    blueprint.approval = "";
+    blueprint.approvedCalls = [];
+  }
   return blueprint;
+}
+
+/** Records the user's approval: when, how, and which marked pipeline calls they were shown. */
+export function approve(
+  b: Blueprint,
+  how: "direct" | "relayed",
+  registry: Registry,
+  tools?: ToolCache,
+) {
+  b.status = "approved";
+  b.approvedAt = new Date().toISOString();
+  b.approval = how;
+  b.approvedCalls = markedCalls(b, registry, tools);
 }
 
 function cyclic(steps: Step[]): boolean {
@@ -266,7 +358,7 @@ export const progress = (b: Blueprint) =>
  * The blueprint as text for the user to read before approving: what will be
  * built, with which pieces and why, what each one runs, and who does what.
  */
-export function render(b: Blueprint, registry: Registry, brief = false): string {
+export function render(b: Blueprint, registry: Registry, brief = false, tools?: ToolCache): string {
   const out: string[] = [`# Blueprint: ${b.goal}`, `id ${b.id} · ${b.status} · ${progress(b)}`];
   if (b.request && !brief) out.push("", `Request: ${b.request}`);
   if (b.requirements.length && !brief) {
@@ -299,10 +391,21 @@ export function render(b: Blueprint, registry: Registry, brief = false): string 
     const who = s.worker === MAIN ? "" : ` [${s.worker}]`;
     const uses = s.pieces.length ? ` (uses ${s.pieces.join(", ")})` : "";
     const after = s.after.length ? ` (after ${s.after.join(", ")})` : "";
-    out.push(`${i + 1}. [${mark}] ${s.id}${who} ${s.title}${uses}${after}`);
+    const runs = s.pipeline ? ` (runs the pipeline ${s.pipeline})` : "";
+    out.push(`${i + 1}. [${mark}] ${s.id}${who} ${s.title}${uses}${runs}${after}`);
     if (s.detail) out.push(`   ${s.detail}`);
     if (s.note) out.push(`   Note: ${s.note}`);
   });
+  const pipelines = b.pipelines ?? [];
+  if (pipelines.length) {
+    // Shown in the short form too: this is what runs without further questions.
+    out.push(
+      "",
+      `## Pipelines (${pipelines.length})`,
+      "Encela runs these chains of tool calls itself, without asking again. Calls that may change things or reach outside are marked, with their arguments.",
+    );
+    for (const p of pipelines) out.push(...describe(p, marker(registry, tools)));
+  }
   if (b.choices.length) {
     out.push("", "## For you to decide");
     for (const c of b.choices) {

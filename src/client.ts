@@ -51,7 +51,18 @@ export function forThisOs(config: McpConfig, platform = process.platform): McpCo
   return config;
 }
 
+/**
+ * A call that got no answer: it timed out, or the connection ended. Nobody
+ * knows whether the server did what was asked, so a caller must not simply
+ * repeat a call that changes something.
+ */
+export class CallLost extends Error {
+  readonly lost = true;
+}
+
 interface Conn {
+  /** Whether the server is still there to take a call. */
+  readonly alive: boolean;
   request(message: Json, timeout: number): Promise<Json>;
   notify(message: Json): Promise<void>;
   close(): void;
@@ -125,8 +136,13 @@ export class Client {
     return this.toolList;
   }
 
-  call(tool: string, args: unknown): Promise<Json> {
-    return this.request("tools/call", { name: tool, arguments: args ?? {} }, CALL_TIMEOUT);
+  /** Whether the server is still there; a piece whose process died is started again when next needed. */
+  get alive(): boolean {
+    return this.conn.alive;
+  }
+
+  call(tool: string, args: unknown, timeout = CALL_TIMEOUT): Promise<Json> {
+    return this.request("tools/call", { name: tool, arguments: args ?? {} }, timeout);
   }
 
   private async request(method: string, params: Json, timeout: number): Promise<Json> {
@@ -206,12 +222,21 @@ class Pipe implements Conn {
     }
   }
 
+  get alive(): boolean {
+    return !this.ended;
+  }
+
   private end(why: string) {
     if (this.ended) return;
     const tail = this.stderr.trim().slice(-800);
     this.ended = tail ? `${why}\n${tail}` : why;
+    this.drop();
+  }
+
+  /** Lets every call that is still waiting know there will be no answer. */
+  private drop() {
     for (const [id, resolve] of this.pending) {
-      resolve({ jsonrpc: "2.0", id, error: { message: this.ended } });
+      resolve({ jsonrpc: "2.0", id, error: { message: this.ended, lost: true } });
     }
     this.pending.clear();
   }
@@ -234,13 +259,12 @@ class Pipe implements Conn {
             params: { requestId: id, reason: "timeout" },
           });
         } catch {}
-        reject(new Error(`The server didn't answer within ${timeout / 1000} seconds`));
+        reject(new CallLost(`The server didn't answer within ${timeout / 1000} seconds`));
       }, timeout);
       this.pending.set(id, (m) => {
         clearTimeout(timer);
-        if (m.error && this.ended && (m.error as Json).message === this.ended) {
-          reject(new Error(this.ended));
-        } else resolve(m);
+        if ((m.error as Json | undefined)?.lost) reject(new CallLost(this.ended ?? "closed"));
+        else resolve(m);
       });
       try {
         this.write(message);
@@ -257,12 +281,17 @@ class Pipe implements Conn {
   }
 
   close() {
-    if (!this.ended) this.ended = "closed";
+    if (!this.ended) {
+      this.ended = "The piece was closed";
+      // Calls still waiting must hear of it now, not when their timeout runs out.
+      this.drop();
+    }
     if (this.child.exitCode === null) this.child.kill();
   }
 }
 
 class Http implements Conn {
+  readonly alive = true;
   session: string | null = null;
   version: string | null = null;
 
@@ -276,12 +305,21 @@ class Http implements Conn {
     };
     if (this.session) headers["Mcp-Session-Id"] = this.session;
     if (this.version) headers["MCP-Protocol-Version"] = this.version;
-    const res = await fetch(this.config.url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(message),
-      signal: AbortSignal.timeout(timeout),
-    });
+    let res: Response;
+    try {
+      res = await fetch(this.config.url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(message),
+        signal: AbortSignal.timeout(timeout),
+      });
+    } catch (e) {
+      throw new CallLost(
+        e instanceof Error && e.name === "TimeoutError"
+          ? `The server didn't answer within ${timeout / 1000} seconds`
+          : `The connection to the server failed: ${e instanceof Error ? e.message : e}`,
+      );
+    }
     const s = res.headers.get("mcp-session-id");
     if (s) this.session = s;
     if (res.status === 401 || res.status === 403) {
