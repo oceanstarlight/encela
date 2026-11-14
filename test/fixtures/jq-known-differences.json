@@ -1,0 +1,85 @@
+[
+ {
+  "program": "{a: 1 | . + 1}",
+  "input": null,
+  "why": "a pipe inside an object value without parentheses is accepted here; jq refuses it"
+ },
+ {
+  "program": "{a: 1,}",
+  "input": null,
+  "why": "a trailing comma in an object is refused here; jq 1.7 accepts it"
+ },
+ {
+  "program": ".a?, .[0]?, (.a.b.c)?, .a[]?",
+  "input": 5,
+  "why": "jq 1.7 lets the error of .a[]? on a number escape; here ? catches it"
+ },
+ {
+  "program": "try (.a) catch ., try (.[0]) catch .",
+  "input": "str",
+  "why": "error wording: jq says `with string \"a\"`, this says `with \"a\"`"
+ },
+ {
+  "program": "try (.a) catch ., try (.[0]) catch ., try (.[]) catch .",
+  "input": true,
+  "why": "error wording, as above"
+ },
+ {
+  "program": "try (.[\"a\"]) catch .",
+  "input": [
+   1
+  ],
+  "why": "error wording, as above"
+ },
+ {
+  "program": "try (.[true]) catch \"e\", try (.[{}]) catch \"e\", try (.[null]) catch \"e\"",
+  "input": [
+   1
+  ],
+  "why": "indexing an array with an object: jq raises an error, this returns the array"
+ },
+ {
+  "program": "label $f | try break $f catch \"caught\"",
+  "input": null,
+  "why": "break inside try: jq lets catch see it, here it leaves the label"
+ },
+ {
+  "program": "def f($a): $a + a; f(1, 2)",
+  "input": null,
+  "why": "a $value parameter is not also defined as a function of the same name"
+ },
+ {
+  "program": "def f: f2; 1",
+  "input": null,
+  "why": "an undefined function inside a definition that is never called is refused here; jq 1.7 accepts it"
+ },
+ {
+  "program": "[path(.[])], [path(.[]?)], [path(.a[]?)], [path(.[1:])], [path(.[:2][0])]",
+  "input": [
+   1,
+   2
+  ],
+  "why": "jq raises an error for one of these path expressions on an array; this returns paths for all"
+ },
+ {
+  "program": "try has(\"a\") catch \"e\", try (\"a\" | has(0)) catch \"e\", try (null | has(\"a\")) catch \"e\"",
+  "input": [
+   1
+  ],
+  "why": "null | has(\"a\") is an error here and false in jq"
+ },
+ {
+  "program": "[.[] | test(\"^\\\\h+$\"), test(\"\\\\x41\"), test(\"\\\\u0041\"), test(\"\\\\x{41}\"), test(\"[\\\\x41-\\\\x43]{3}\")]",
+  "input": [
+   "hh",
+   "ABC",
+   "abc"
+  ],
+  "why": "Oniguruma regex syntax (\\h, \\x{41}) that JavaScript's RegExp reads differently"
+ },
+ {
+  "program": "strftime(\"plain\"), strftime(\"\"), strftime(\"%Q %\"), strftime(\"100%%\")",
+  "input": 0,
+  "why": "strftime with an empty or unknown directive: jq raises an error, this passes the text through"
+ }
+]
