@@ -583,9 +583,18 @@ export function normalizePipelines(
       if (s.onError !== undefined && s.onError !== "stop" && s.onError !== "continue") {
         local.push('onError is "stop" or "continue"');
       }
+      // A value left at its default counts as not given, so a pipeline saved earlier can be checked again.
+      const given = (k: string) => {
+        const v = s[k];
+        if (v === undefined || v === null || v === "" || v === 0) return false;
+        if (k === "expect") return v !== "text";
+        if (k === "timeout") return v !== DEFAULT_TIMEOUT;
+        return !(typeof v === "object" && Object.keys(v as object).length === 0);
+      };
       const only = (keys: string[], owner: string) => {
-        for (const k of keys)
-          if (s[k] !== undefined) local.push(`"${k}" belongs to ${owner} steps only`);
+        for (const k of keys) {
+          if (given(k)) local.push(`"${k}" belongs to ${owner} steps only`);
+        }
       };
 
       if (kind === "tool") {
@@ -613,14 +622,18 @@ export function normalizePipelines(
           local.push("args must be an object (or one reference that gives an object)");
         }
         step.each = bare(text(s.each));
-        step.concurrency = int(s.concurrency, 0, 1, LIMITS.concurrency, "concurrency", local);
+        step.concurrency =
+          s.concurrency === 0
+            ? 0
+            : int(s.concurrency, 0, 1, LIMITS.concurrency, "concurrency", local);
         step.timeout = int(s.timeout, DEFAULT_TIMEOUT, 1, LIMITS.timeout, "timeout", local);
         only(["from", "input", "expect", "schema"], "transform or claude");
       } else if (kind === "transform") {
         step.transform = text(s.transform);
         step.from = bare(text(s.from));
-        if (s.input !== undefined)
+        if (given("input")) {
           local.push('a transform takes its value from "from" (a jq expression), not "input"');
+        }
         only(
           ["piece", "args", "each", "concurrency", "timeout", "expect", "schema"],
           "tool or claude",
@@ -632,9 +645,9 @@ export function normalizePipelines(
             'the instruction can\'t hold references; put each value in "input" (e.g. "input": {"notes": "{{ $steps.x.text }}"}) and name it in the instruction',
           );
         }
-        if (s.input !== undefined && !isObject(s.input)) {
+        if (s.input !== undefined && s.input !== null && !isObject(s.input)) {
           local.push("input must be an object of named values");
-        } else step.input = (s.input as Record<string, unknown>) ?? {};
+        } else step.input = (s.input as Record<string, unknown> | null) ?? {};
         step.schema = isObject(s.schema) ? s.schema : null;
         step.expect =
           s.expect === "json" || (s.expect === undefined && step.schema) ? "json" : "text";
