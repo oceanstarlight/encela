@@ -1,0 +1,610 @@
+[
+ {
+  "name": "blender",
+  "kind": "mcp",
+  "repo": "ahujasid/blender-mcp",
+  "commit": "8f40787fbde8e6d8fe51c5a3553e5635fff40d2b",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/ahujasid__blender-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025 Siddharth Ahuja",
+  "lastCommit": "2026-11-13T12:24:01+05:30",
+  "popularity": "unknown at source (search results suggest tens of thousands of GitHub stars)",
+  "package": "pypi:mcp-for-blender@2.2.9",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "mcp-for-blender"
+  ],
+  "env": {
+   "DISABLE_TELEMETRY": "true"
+  },
+  "install": [
+   "uvx mcp-for-blender install-addon"
+  ],
+  "summaryEn": "Lets an AI model build and edit 3D scenes in a running Blender.",
+  "summaryKo": "실행 중인 Blender에서 AI가 3D 장면을 만들고 고쳐요.",
+  "tags": [
+   "blender",
+   "3d",
+   "modeling",
+   "scene"
+  ],
+  "capabilities": [
+   "inspect scene",
+   "create and modify objects",
+   "apply materials",
+   "run Blender Python",
+   "capture viewport screenshots"
+  ],
+  "inputs": [
+   "text",
+   "scene"
+  ],
+  "outputs": [
+   "scene",
+   "image"
+  ],
+  "guideEn": "Install the Blender addon once with `uvx mcp-for-blender install-addon`, enable Interface: MCP for Blender in Edit > Preferences > Add-ons, then press N in the 3D viewport, open the MCP for Blender tab and click Start MCP Server if it is not running. Call `get_scene_info` first to see the scene, check results visually with the viewport screenshot tool, and use `execute_blender_code` for anything the specific tools do not cover. Poly Haven, Sketchfab and AI 3D generation need the user's own API keys.",
+  "guideKo": "애드온은 `uvx mcp-for-blender install-addon`으로 한 번 설치하고, Blender의 Edit > Preferences > Add-ons에서 MCP for Blender를 켜요. 3D 뷰에서 N키를 누르고 MCP for Blender 탭에서 서버가 꺼져 있으면 Start MCP Server를 눌러요. 먼저 `get_scene_info`로 장면을 보고, 뷰포트 스크린샷으로 결과를 확인하고, 나머지는 `execute_blender_code`로 처리해요. Poly Haven, Sketchfab, AI 3D 생성은 본인의 API 키가 필요해요.",
+  "warningsEn": [
+   "Blender must be open with the MCP for Blender addon enabled and its server started",
+   "execute_blender_code runs arbitrary Python inside Blender: save your work first",
+   "A minimal anonymous usage record is sent by default; DISABLE_TELEMETRY=true (set in env) switches it off, and content collection is opt-in",
+   "The README promotes a paid Premium option; the open-source server works without it"
+  ],
+  "warningsKo": [
+   "Blender가 열려 있고 MCP for Blender 애드온이 켜져 서버가 시작돼 있어야 해요",
+   "execute_blender_code는 Blender 안에서 임의의 Python을 실행해요. 먼저 작업을 저장하세요",
+   "최소한의 익명 사용 기록이 기본으로 전송돼요. env의 DISABLE_TELEMETRY=true로 꺼요 (내용 수집은 동의해야만 켜져요)",
+   "README에 유료 Premium 안내가 있지만 오픈소스 서버만으로 쓸 수 있어요"
+  ],
+  "runEvidence": "README: 'claude mcp add blender uvx mcp-for-blender'; 'uvx mcp-for-blender install-addon'; 'DISABLE_TELEMETRY=true uvx mcp-for-blender'. pyproject [project.scripts] mcp-for-blender = blender_mcp.server:main; PyPI mcp-for-blender 2.2.9; server.py defines get_scene_info and execute_blender_code.",
+  "concerns": "README Telemetry Control: content collection opt-in; minimal anonymous usage record otherwise, off with DISABLE_TELEMETRY=true. README has a Premium section (paid keyless 3D generation). PyPI license field empty but repo LICENSE is MIT. Old name blender-mcp still referenced.",
+  "recommend": true,
+  "reason": "Most used Blender server, MIT, updated yesterday, one uvx command plus a one-time addon install, telemetry switch documented.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Popularity claim of about 22k stars is not verifiable here; marked unknown",
+   "Guide now includes enabling the addon in Preferences (README step) and names the screenshot tool generically"
+  ],
+  "checked": "LICENSE, README (setup, telemetry, premium), pyproject scripts, server.py tool defs, PyPI json"
+ },
+ {
+  "name": "godot",
+  "kind": "mcp",
+  "repo": "Coding-Solo/godot-mcp",
+  "commit": "1209744fad78f3998f98c7394fd0f6ef50da5281",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/Coding-Solo__godot-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025 Solomon Elias",
+  "lastCommit": "2026-04-16T19:36:55-04:00",
+  "popularity": "unknown at source (search results suggest a few thousand GitHub stars)",
+  "package": "npm:@coding-solo/godot-mcp@0.1.1",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@coding-solo/godot-mcp"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Lets an AI model launch the Godot editor, run projects, read debug output and edit scenes.",
+  "summaryKo": "AI가 Godot 에디터를 열고 프로젝트를 실행하며 디버그 출력을 읽고 씬을 고쳐요.",
+  "tags": [
+   "godot",
+   "gamedev",
+   "scenes",
+   "debug"
+  ],
+  "capabilities": [
+   "launch editor",
+   "run and stop project",
+   "capture debug output",
+   "create scenes and add nodes",
+   "manage UIDs"
+  ],
+  "inputs": [
+   "project",
+   "text"
+  ],
+  "outputs": [
+   "scene",
+   "text"
+  ],
+  "guideEn": "No Godot plugin is needed: the server drives the Godot executable from the command line, found automatically or via the GODOT_PATH env. Call `list_projects` or `get_project_info` first, then `create_scene`, `add_node`, `load_sprite` and `save_scene` to edit, and `run_project` followed by `get_debug_output` to see errors; `stop_project` ends the run.",
+  "guideKo": "Godot 플러그인은 필요 없어요. 서버가 Godot 실행 파일을 명령줄로 직접 다뤄요 (자동 탐지, 안 되면 GODOT_PATH 환경변수). 먼저 `list_projects`나 `get_project_info`로 프로젝트를 보고, `create_scene`, `add_node`, `load_sprite`, `save_scene`으로 편집해요. `run_project` 뒤에 `get_debug_output`으로 오류를 확인하고 `stop_project`로 멈춰요.",
+  "warningsEn": [
+   "Godot must be installed; set GODOT_PATH if it is not found automatically",
+   "It edits scene and project files and runs the project on the user's machine"
+  ],
+  "warningsKo": [
+   "Godot가 설치되어 있어야 해요. 자동으로 못 찾으면 GODOT_PATH를 지정해요",
+   "씬과 프로젝트 파일을 수정하고 프로젝트를 실행해요"
+  ],
+  "runEvidence": "README: 'claude mcp add godot -- npx @coding-solo/godot-mcp'; GODOT_PATH and DEBUG env table. index.ts tool names: launch_editor, run_project, get_debug_output, stop_project, list_projects, get_project_info, create_scene, add_node, load_sprite, save_scene, get_uid, update_project_uids. npm 0.1.1 MIT, bin godot-mcp.",
+  "concerns": "grep for telemetry found nothing in src. Last commit about 7 months old, inside the 12-month window.",
+  "recommend": true,
+  "reason": "Popular MIT Godot server with a plain npx start and no editor plugin.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "LICENSE, npm registry latest (bin, license), README start and env, index.ts tool names, telemetry grep"
+ },
+ {
+  "name": "unity",
+  "kind": "mcp",
+  "repo": "CoplayDev/unity-mcp",
+  "commit": "5914ce5bd9d11d66a7896ce72e395b0a2f049c2a",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/CoplayDev__unity-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025 CoplayDev",
+  "lastCommit": "2026-11-14T00:45:53-05:00",
+  "popularity": "unknown",
+  "package": "pypi:mcpforunityserver@10.3.0",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "mcpforunityserver",
+   "mcp-for-unity",
+   "--transport",
+   "stdio"
+  ],
+  "env": {
+   "DISABLE_TELEMETRY": "1"
+  },
+  "install": [
+   "In Unity: Window > Package Manager > Add package from git URL: https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main"
+  ],
+  "summaryEn": "Lets an AI model manage scenes, assets, scripts and tests in the Unity Editor.",
+  "summaryKo": "AI가 Unity 에디터에서 씬, 에셋, 스크립트, 테스트를 다뤄요.",
+  "tags": [
+   "unity",
+   "gamedev",
+   "editor",
+   "csharp"
+  ],
+  "capabilities": [
+   "create scenes and GameObjects",
+   "edit C# scripts",
+   "manage assets",
+   "run tests"
+  ],
+  "inputs": [
+   "project",
+   "text"
+  ],
+  "outputs": [
+   "scene",
+   "text"
+  ],
+  "guideEn": "First add the MCP for Unity package to the project through Unity's Package Manager (Add from git URL); the Unity plugin connects to the Python server started by the client. Requires Unity 2021.3 LTS to 6.x and uv. Keep the Unity Editor open while the server runs, and check the plugin window for the connection state.",
+  "guideKo": "먼저 Unity 패키지 매니저의 Add from git URL로 MCP for Unity 패키지를 프로젝트에 넣어요. Unity 플러그인이 클라이언트가 띄운 Python 서버와 연결돼요. Unity 2021.3 LTS~6.x와 uv가 필요해요. 서버가 도는 동안 Unity 에디터를 열어 두고 플러그인 창에서 연결 상태를 확인하세요.",
+  "warningsEn": [
+   "Unity Editor must be open with the package installed",
+   "It can modify scenes, assets and C# scripts",
+   "Anonymous telemetry is on by default in both the server and the Unity package; DISABLE_TELEMETRY=1 turns off the server side (env) and the Unity side also reads DISABLE_TELEMETRY or an EditorPrefs setting",
+   "Sponsored by a commercial vendor (Aura) that advertises paid tools in the README; the server itself is free MIT"
+  ],
+  "warningsKo": [
+   "Unity 에디터가 열려 있고 패키지가 설치돼 있어야 해요",
+   "씬, 에셋, C# 스크립트를 수정할 수 있어요",
+   "서버와 Unity 패키지 양쪽에 익명 통계가 기본으로 켜져 있어요. DISABLE_TELEMETRY=1은 서버 쪽(env)을 끄고, Unity 쪽도 이 환경변수나 EditorPrefs 설정으로 꺼요",
+   "상업 업체(Aura)가 후원하고 README에 유료 도구 광고가 있어요. 서버 자체는 무료 MIT예요"
+  ],
+  "runEvidence": "Server/README.md Option 1: command uvx, args --from mcpforunityserver mcp-for-unity --transport stdio; env DISABLE_TELEMETRY=1. Server/pyproject.toml: mcpforunityserver 10.3.0, license MIT, mcp-for-unity = main:main. Root README: Package Manager git URL.",
+  "concerns": "Server and C# TelemetryHelper both exist; TelemetryHelper reads DISABLE_TELEMETRY / UNITY_MCP_DISABLE_TELEMETRY and an EditorPrefs key. PyPI license field empty, repo and pyproject say MIT.",
+  "recommend": true,
+  "reason": "Most active MIT Unity server with a published package and documented telemetry switches.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed unverified claims of about 50 tools, tool groups and build/profile abilities",
+   "Added the plugin-side telemetry fact (confirmed in TelemetryHelper.cs)",
+   "Dropped the stdio-vs-HTTP default warning, which was not verified"
+  ],
+  "checked": "LICENSE, Server/pyproject.toml, Server/README (stdio config, telemetry), root README requirements, TelemetryHelper.cs, PyPI json"
+ },
+ {
+  "name": "unreal",
+  "kind": "mcp",
+  "repo": "ChiR24/Unreal_mcp",
+  "commit": "2792ba198403bf0842a6cd91f87113d9d86db8e3",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/ChiR24__Unreal_mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025 Unreal Engine MCP Server Contributors",
+  "lastCommit": "2026-11-10T16:43:52+05:30",
+  "popularity": "unknown",
+  "package": "npm:unreal-engine-mcp-server@0.6.0",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "unreal-engine-mcp-server"
+  ],
+  "env": {
+   "UE_PROJECT_PATH": "{project}"
+  },
+  "install": [
+   "Install the EngineWire plugin: from Fab, or a prebuilt zip / source build from the GitHub repo into <project>/Plugins/, then enable it in Edit > Plugins and restart the editor"
+  ],
+  "summaryEn": "Lets an AI model build levels, Blueprints, materials and more in the Unreal Editor.",
+  "summaryKo": "AI가 Unreal 에디터에서 레벨, 블루프린트, 머티리얼 등을 만들어요.",
+  "tags": [
+   "unreal",
+   "gamedev",
+   "editor",
+   "blueprint"
+  ],
+  "capabilities": [
+   "edit levels and actors",
+   "create Blueprints and materials",
+   "play in editor and take screenshots",
+   "read logs and profile"
+  ],
+  "inputs": [
+   "project",
+   "text"
+  ],
+  "outputs": [
+   "scene",
+   "image",
+   "text"
+  ],
+  "guideEn": "The EngineWire C++ plugin inside the editor does the work and serves MCP on http://127.0.0.1:3000/mcp; the npx package is a stdio proxy that reads the plugin's capability token from the project given UE_PROJECT_PATH. It exposes a single tool, `unreal`, with 400+ capabilities grouped by area (for example control_editor covers play-in-editor, input and screenshots). Supports Unreal Engine 5.0 to 5.8 and Node.js 20.19+; the Fab 0.6.0 build ships with the native server off, so turn on Enable Native MCP Server in Project Settings > Plugins > EngineWire and restart.",
+  "guideKo": "에디터 안의 EngineWire C++ 플러그인이 실제 작업을 하고 http://127.0.0.1:3000/mcp 로 MCP를 제공해요. npx 패키지는 stdio 프록시이고 UE_PROJECT_PATH로 프로젝트의 capability 토큰을 찾아요. 도구는 `unreal` 하나이고 영역별로 묶인 400개 이상의 기능을 써요 (예: control_editor는 에디터 재생, 입력, 스크린샷). Unreal 5.0~5.8과 Node.js 20.19 이상을 지원해요. Fab 0.6.0 빌드는 네이티브 서버가 꺼져 있으니 프로젝트 설정 > 플러그인 > EngineWire에서 켜고 재시작해요.",
+  "warningsEn": [
+   "Unreal Editor must be open with the EngineWire plugin enabled",
+   "The capability token at <Project>/Saved/MCP/capability-token works like a password; never commit it",
+   "It can modify the project; building the plugin from source needs a C++ project and a compiler (Fab or prebuilt zip avoids that)"
+  ],
+  "warningsKo": [
+   "Unreal 에디터가 열려 있고 EngineWire 플러그인이 켜져 있어야 해요",
+   "<Project>/Saved/MCP/capability-token 값은 비밀번호처럼 다루고 커밋하지 마세요",
+   "프로젝트를 수정할 수 있어요. 소스에서 플러그인을 빌드하려면 C++ 프로젝트와 컴파일러가 필요해요 (Fab이나 미리 빌드된 zip이면 필요 없어요)"
+  ],
+  "runEvidence": "README Route B: command npx, args -y unreal-engine-mcp-server, env UE_PROJECT_PATH; 'both get the same single tool, unreal'; token at <Project>/Saved/MCP/capability-token; Fab 0.6.0 ships with native server off. npm 0.6.0 MIT bin dist/cli.js.",
+  "concerns": "telemetry-schema.ts is a local metrics schema; docs say everything listens on 127.0.0.1 only. No outbound reporter found. Repo package.json is 0.6.1-beta-b while npm latest is 0.6.0.",
+  "recommend": true,
+  "reason": "Well maintained MIT Unreal server with a published npm package and token protection.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed unverified claims about run-editor-Python, per-call consent and manage_level/system_control tool names",
+   "Added Node.js 20.19+ requirement from the README"
+  ],
+  "checked": "LICENSE, npm registry, README (routes, token, Fab note), docs/security-and-receipts.md, telemetry grep"
+ },
+ {
+  "name": "roblox-studio",
+  "kind": "mcp",
+  "repo": "Chrrxs/robloxstudio-mcp",
+  "commit": "f0393029ad6368456fed443425a0db78328a9110",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/Chrrxs__robloxstudio-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025",
+  "lastCommit": "2026-11-09T17:33:10-05:00",
+  "popularity": "unknown",
+  "package": "npm:@chrrxs/robloxstudio-mcp@3.4.3",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "npx",
+  "args": [
+   "-y",
+   "@chrrxs/robloxstudio-mcp@latest",
+   "--auto-install-plugin"
+  ],
+  "env": {},
+  "install": [],
+  "summaryEn": "Lets an AI model read and edit a Roblox Studio place, run Luau and playtest.",
+  "summaryKo": "AI가 Roblox Studio 플레이스를 읽고 고치고 Luau를 실행하며 플레이테스트해요.",
+  "tags": [
+   "roblox",
+   "luau",
+   "gamedev",
+   "studio"
+  ],
+  "capabilities": [
+   "run Luau in edit mode",
+   "set properties and replace script text",
+   "solo and multiplayer playtests",
+   "capture viewport screenshots"
+  ],
+  "inputs": [
+   "project",
+   "text"
+  ],
+  "outputs": [
+   "scene",
+   "image",
+   "text"
+  ],
+  "guideEn": "The npx command installs the matching Studio plugin automatically (--auto-install-plugin); fully close and reopen Roblox Studio and wait until the plugin shows Connected. Use `execute_luau` for edit-mode work, `set_properties` and `find_and_replace_in_scripts` for changes, `capture_screenshot` to look, and `solo_playtest` to test. `manage_monetization` and `manage_experience` need an Open Cloud API key.",
+  "guideKo": "npx 명령이 맞는 Studio 플러그인을 자동 설치해요(--auto-install-plugin). Roblox Studio를 완전히 닫았다 다시 열고 플러그인이 Connected로 보일 때까지 기다려요. 편집 모드 작업은 `execute_luau`, 변경은 `set_properties`와 `find_and_replace_in_scripts`, 확인은 `capture_screenshot`, 테스트는 `solo_playtest`를 써요. `manage_monetization`, `manage_experience`는 Open Cloud API 키가 필요해요.",
+  "warningsEn": [
+   "Roblox Studio must be open; the command writes a plugin file into Studio's Plugins folder",
+   "Runs Luau code in Studio and can change scripts and properties; give any Open Cloud key only the scopes the agent may use"
+  ],
+  "warningsKo": [
+   "Roblox Studio가 열려 있어야 하고, 명령이 Studio Plugins 폴더에 플러그인 파일을 써요",
+   "Studio에서 Luau 코드를 실행하고 스크립트와 속성을 바꿀 수 있어요. Open Cloud 키는 에이전트에 허용할 범위만 주세요"
+  ],
+  "runEvidence": "README: 'claude mcp add robloxstudio -- npx -y @chrrxs/robloxstudio-mcp@latest --auto-install-plugin'; 'When the plugin displays Connected, you're ready.'; README lists execute_luau, set_properties, find_and_replace_in_scripts, capture_screenshot, solo_playtest, manage_monetization, manage_experience. npm 3.4.3 MIT bin robloxstudio-mcp.",
+  "concerns": "No telemetry hits. Only fetch calls are Open Cloud client calls to Roblox APIs (need the user's key). LICENSE copyright line has no holder name.",
+  "recommend": true,
+  "reason": "Maintained MIT Roblox Studio server, one npx command that also installs the Studio plugin.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Removed the 'Allow HTTP Requests' warning: not found in this repo's README or docs",
+   "Removed get_runtime_logs and profiler/Creator Store claims that were not checked"
+  ],
+  "checked": "LICENSE, npm registry, README start and tool list, telemetry grep, fetch grep"
+ },
+ {
+  "name": "freecad",
+  "kind": "mcp",
+  "repo": "neka-nat/freecad-mcp",
+  "commit": "5014bd9d538b8d09e11201e219cfe291ebca7b4e",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/neka-nat__freecad-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025 Shirokuma (k tanaka)",
+  "lastCommit": "2026-11-12T23:32:31+09:00",
+  "popularity": "unknown",
+  "package": "pypi:freecad-mcp@0.1.31",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "freecad-mcp"
+  ],
+  "env": {},
+  "install": [
+   "git clone https://github.com/neka-nat/freecad-mcp.git, then copy addon/FreeCADMCP into FreeCAD's addon directory (see docs/installation.md in the repo) and restart FreeCAD"
+  ],
+  "summaryEn": "Lets an AI model create and edit FreeCAD models.",
+  "summaryKo": "AI가 FreeCAD 모델을 만들고 고쳐요.",
+  "tags": [
+   "freecad",
+   "cad",
+   "3d",
+   "modeling"
+  ],
+  "capabilities": [
+   "create and edit objects",
+   "run Python in FreeCAD",
+   "inspect documents",
+   "insert library parts"
+  ],
+  "inputs": [
+   "text",
+   "scene"
+  ],
+  "outputs": [
+   "scene",
+   "image",
+   "text"
+  ],
+  "guideEn": "After copying the addon into FreeCAD's addon directory and restarting, pick the MCP Addon workbench and click Start RPC Server in the FreeCAD MCP toolbar; the uvx server connects to it. The server code has `create_document`, `create_object`, `edit_object`, `get_objects`, `get_view`, `execute_code` and `insert_part_from_library`. Keep FreeCAD open with the RPC server running.",
+  "guideKo": "애드온을 FreeCAD 애드온 폴더에 복사하고 재시작한 뒤, MCP Addon 워크벤치에서 FreeCAD MCP 도구줄의 Start RPC Server를 눌러요. uvx 서버가 여기에 연결해요. 서버에는 `create_document`, `create_object`, `edit_object`, `get_objects`, `get_view`, `execute_code`, `insert_part_from_library` 기능이 있어요. FreeCAD를 열고 RPC 서버를 켜 둬요.",
+  "warningsEn": [
+   "FreeCAD must be open with the addon's RPC server started",
+   "execute_code runs Python inside FreeCAD and the tools edit open documents"
+  ],
+  "warningsKo": [
+   "FreeCAD가 열려 있고 애드온의 RPC 서버가 시작돼 있어야 해요",
+   "execute_code는 FreeCAD 안에서 Python을 실행하고 도구가 열린 문서를 수정해요"
+  ],
+  "runEvidence": "README: command uvx, args freecad-mcp; 'Select the MCP Addon workbench and click Start RPC Server'. pyproject [project.scripts] freecad-mcp = freecad_mcp.server:main; PyPI 0.1.31 MIT.",
+  "concerns": "Telemetry grep found no telemetry in code or README. Tool names taken from server.py.",
+  "recommend": true,
+  "reason": "Simple MIT FreeCAD server with a published uvx package and clear addon step.",
+  "verdict": "accept",
+  "problems": [
+   "Removed FEM claim and the Python 3.12 / do-not-install-in-FreeCAD warning (not verified)",
+   "Install path made generic: exact Mod folder not verified"
+  ],
+  "checked": "LICENSE, README, pyproject scripts, server.py tool defs, PyPI json, telemetry grep"
+ },
+ {
+  "name": "ableton",
+  "kind": "mcp",
+  "repo": "ahujasid/ableton-mcp",
+  "commit": "9dddc7bd5b95412510fdeb745949e3bf23f3fd8a",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/ahujasid__ableton-mcp",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2025 Siddharth Ahuja",
+  "lastCommit": "2026-09-22T16:06:49+05:30",
+  "popularity": "unknown",
+  "package": "pypi:ableton-mcp@1.4.5",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "ableton-mcp"
+  ],
+  "env": {
+   "ABLETON_MCP_DISABLE_TELEMETRY": "true"
+  },
+  "install": [
+   "uvx --from ableton-mcp ableton-mcp-install-script"
+  ],
+  "summaryEn": "Lets an AI model control Ableton Live: tracks, clips, instruments and arrangement.",
+  "summaryKo": "AI가 Ableton Live의 트랙, 클립, 악기, 편곡을 다뤄요.",
+  "tags": [
+   "ableton",
+   "music",
+   "midi",
+   "audio"
+  ],
+  "capabilities": [
+   "create MIDI and audio tracks",
+   "create clips and add notes",
+   "load instruments and effects",
+   "read arrangement clips",
+   "control playback"
+  ],
+  "inputs": [
+   "text",
+   "midi"
+  ],
+  "outputs": [
+   "midi",
+   "text"
+  ],
+  "guideEn": "Run `uvx --from ableton-mcp ableton-mcp-install-script` once to copy the Remote Script into Live's User Library, restart Live, then in Settings/Preferences > Link, Tempo & MIDI choose AbletonMCP in the Control Surface dropdown. Start with `get_session_info`, then tools such as `create_midi_track`, `create_clip`, `add_notes_to_clip`, `load_instrument_or_effect`, `set_tempo` and `start_playback`. Keep Live open: the server talks to the script over a local socket.",
+  "guideKo": "`uvx --from ableton-mcp ableton-mcp-install-script`를 한 번 실행해 Remote Script를 Live의 User Library에 복사하고, Live를 재시작한 뒤 설정 > Link, Tempo & MIDI의 Control Surface에서 AbletonMCP를 골라요. `get_session_info`로 시작해서 `create_midi_track`, `create_clip`, `add_notes_to_clip`, `load_instrument_or_effect`, `set_tempo`, `start_playback` 같은 도구를 써요. 서버는 로컬 소켓으로 스크립트와 통신하니 Live를 열어 두세요.",
+  "warningsEn": [
+   "Ableton Live (a paid application, 10.1.13 or newer per the installer note) must be open with the AbletonMCP control surface selected",
+   "Anonymous telemetry is on by default; ABLETON_MCP_DISABLE_TELEMETRY=true (set in env) switches it off, and dataset recording is opt-in",
+   "It edits the open Live set and the install script writes a file into the User Library Remote Scripts folder"
+  ],
+  "warningsKo": [
+   "Ableton Live(유료 앱, 설치 안내 기준 10.1.13 이상)가 열려 있고 Control Surface에 AbletonMCP가 선택돼 있어야 해요",
+   "익명 사용 통계가 기본으로 켜져 있어요. env의 ABLETON_MCP_DISABLE_TELEMETRY=true로 꺼요 (데이터셋 기록은 동의해야만 켜져요)",
+   "열린 Live 세트를 수정하고, 설치 스크립트가 User Library의 Remote Scripts 폴더에 파일을 써요"
+  ],
+  "runEvidence": "README: 'claude mcp add AbletonMCP uvx ableton-mcp'; install script section; 'In the Control Surface dropdown, select AbletonMCP'; telemetry section: 'export ABLETON_MCP_DISABLE_TELEMETRY=true'. pyproject scripts ableton-mcp and ableton-mcp-install-script; PyPI 1.4.5 MIT; server.py defines the named tools.",
+  "concerns": "README: anonymous telemetry on by default (random install ID, tool names, success, duration; no content), opt-out by env var; dataset recording opt-in. Last commit about 2 months ago.",
+  "recommend": true,
+  "reason": "The standard MIT Ableton server on PyPI with a documented telemetry off switch; the paid host app is only a prerequisite.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Replaced the unverified Live 10 claim with the 10.1.13 note from the README",
+   "Added tool names confirmed in server.py"
+  ],
+  "checked": "LICENSE, README (setup, telemetry), pyproject scripts, server.py tool defs, PyPI json"
+ },
+ {
+  "name": "inkscape",
+  "kind": "mcp",
+  "repo": "jjjsood/inkscape-mcp-server",
+  "commit": "b92cdc3732a5b659602571c231957cf74e95049a",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/jjjsood__inkscape-mcp-server",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2026 Johannes Sood",
+  "lastCommit": "2026-10-23T21:08:13+02:00",
+  "popularity": "unknown (new project, not on PyPI)",
+  "package": "none",
+  "needs": "uv",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": [
+   "--from",
+   "git+https://github.com/jjjsood/inkscape-mcp-server.git@b92cdc3732a5b659602571c231957cf74e95049a",
+   "inkscape-mcp"
+  ],
+  "env": {
+   "INKSCAPE_MCP_WORKSPACE_ROOTS": "{project}"
+  },
+  "install": [],
+  "summaryEn": "Lets an AI model edit and export SVG files through Inkscape in a safe workspace.",
+  "summaryKo": "AI가 안전한 작업 폴더 안에서 Inkscape로 SVG를 편집하고 내보내요.",
+  "tags": [
+   "inkscape",
+   "svg",
+   "vector",
+   "graphics"
+  ],
+  "capabilities": [
+   "edit SVG documents",
+   "create shapes and paths",
+   "render and export",
+   "snapshot before edits"
+  ],
+  "inputs": [
+   "svg",
+   "text"
+  ],
+  "outputs": [
+   "svg",
+   "image"
+  ],
+  "guideEn": "Set INKSCAPE_MCP_WORKSPACE_ROOTS to the folder holding the SVG files; the server only works inside that workspace and runs every change on a working copy with a snapshot. Tools are sorted into risk classes and high-risk ones need an approval_token. Inkscape 1.4.x on PATH is needed for render, export and geometry; the README lists create_*, path and style operations.",
+  "guideKo": "INKSCAPE_MCP_WORKSPACE_ROOTS를 SVG가 있는 폴더로 지정해요. 서버는 그 작업 폴더 안에서만 일하고 모든 변경을 작업 사본에 스냅샷과 함께 적용해요. 도구는 위험 등급으로 나뉘고 위험한 것은 approval_token이 필요해요. 렌더, 내보내기, 지오메트리에는 PATH에 Inkscape 1.4.x가 필요해요. README에 create_*, 경로, 스타일 편집 기능이 나와 있어요.",
+  "warningsEn": [
+   "Inkscape 1.4.x must be on PATH and Python 3.12+ is required",
+   "Not on PyPI: uvx builds it from GitHub (pinned here to the checked commit)",
+   "Young project (2026) with unknown popularity"
+  ],
+  "warningsKo": [
+   "PATH에 Inkscape 1.4.x가 있어야 하고 Python 3.12 이상이 필요해요",
+   "PyPI에 없어서 uvx가 GitHub에서 빌드해요 (확인한 커밋으로 고정했어요)",
+   "2026년에 생긴 신생 프로젝트이고 인기는 알 수 없어요"
+  ],
+  "runEvidence": "README: 'inkscape-mcp is not yet published on PyPI'; uvx --from git+https://github.com/jjjsood/inkscape-mcp-server.git inkscape-mcp with env INKSCAPE_MCP_WORKSPACE_ROOTS; 'Inkscape 1.4.x on PATH'. pyproject: inkscape-mcp = inkscape_mcp.server:main, requires-python >=3.12.",
+  "concerns": "No telemetry hits in py or md files. Pinned to commit with @<sha> (uv git revision syntax; not run here).",
+  "recommend": true,
+  "reason": "MIT, sandboxed by design, one uvx command; new but no mature MIT Inkscape server was found.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Pinned the git source to the checked commit",
+   "Added Python 3.12 requirement (pyproject)"
+  ],
+  "checked": "LICENSE, README (setup, risk classes, requirements), pyproject scripts and python version, telemetry grep"
+ },
+ {
+  "name": "kicad",
+  "kind": "mcp",
+  "repo": "mixelpixx/KiCAD-MCP-Server",
+  "commit": "4589944e92aa1322f4f362c5bba586281796a460",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/mixelpixx__KiCAD-MCP-Server",
+  "license": "MIT",
+  "licenseQuote": "MIT License | Copyright (c) 2024 mixelpixx",
+  "lastCommit": "2026-11-13T19:31:36-06:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "node",
+  "transport": "stdio",
+  "command": "node",
+  "args": [
+   "dist/index.js"
+  ],
+  "env": {
+   "KICAD_PYTHON": "/path/to/kicad/python3"
+  },
+  "install": [
+   "git clone --branch stable https://github.com/mixelpixx/KiCAD-MCP-Server.git",
+   "npm install",
+   "npm run build"
+  ],
+  "summaryEn": "Lets an AI model design KiCad PCBs through KiCad's Python API.",
+  "summaryKo": "AI가 KiCad의 Python API로 PCB를 설계해요.",
+  "tags": [
+   "kicad",
+   "pcb",
+   "electronics",
+   "eda"
+  ],
+  "capabilities": [
+   "edit PCB boards",
+   "edit schematics",
+   "export files"
+  ],
+  "inputs": [
+   "project",
+   "text"
+  ],
+  "outputs": [
+   "pcb",
+   "text"
+  ],
+  "guideEn": "Clone the stable branch, run npm install and npm run build, then point the client at dist/index.js with an absolute path; KiCad 9 or newer with pcbnew is required.",
+  "guideKo": "stable 브랜치를 클론하고 npm install, npm run build를 한 뒤 클라이언트가 dist/index.js를 절대경로로 가리키게 해요. pcbnew가 포함된 KiCad 9 이상이 필요해요.",
+  "warningsEn": [
+   "Needs a local build and machine-specific KiCad Python paths"
+  ],
+  "warningsKo": [
+   "로컬 빌드와 PC별 KiCad Python 경로가 필요해요"
+  ],
+  "runEvidence": "README: command node, args /path/to/KiCAD-MCP-Server/dist/index.js; git clone --branch stable, npm install, npm run build.",
+  "concerns": "Not published to a registry under its own name; start command is not path-independent.",
+  "recommend": false,
+  "reason": "MIT and active, but clone-and-build with absolute paths cannot be a reliable catalog start command.",
+  "verdict": "reject",
+  "problems": [
+   "No working registry command could be established (rule: reject when no working command)"
+  ],
+  "checked": "LICENSE, README install, npm/PyPI names (per proposer), git ls-remote"
+ }
+]

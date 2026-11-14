@@ -1,0 +1,1172 @@
+[
+ {
+  "name": "fd",
+  "kind": "cli",
+  "repo": "sharkdp/fd",
+  "commit": "6cf330283cfdcd1b8a6100beec7375bbb58975a3",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/sharkdp__fd",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENSE-MIT: \"MIT License\" / \"Copyright (c) 2017-present The fd developers\"; LICENSE-APACHE: \"Apache License Version 2.0\"",
+  "lastCommit": "2026-11-13T22:30:50-07:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "winget install sharkdp.fd",
+   "brew install fd",
+   "scoop install fd",
+   "cargo install fd-find"
+  ],
+  "summaryEn": "Finds files by name quickly, respecting .gitignore.",
+  "summaryKo": "파일 이름으로 빠르게 찾고 .gitignore를 따라요.",
+  "tags": [
+   "search",
+   "files",
+   "find"
+  ],
+  "capabilities": [
+   "find files by regex or glob",
+   "filter by extension and type",
+   "run a command on each match"
+  ],
+  "inputs": [
+   "directory",
+   "text"
+  ],
+  "outputs": [
+   "file-list"
+  ],
+  "guideEn": "Run `fd <pattern>` to list files whose name matches, `fd -e ts` to filter by extension and `fd -t d` for folders only. Hidden and git-ignored files are skipped unless you add -H or -I. Use -x to run a command per result and -0 for NUL-separated output.",
+  "guideKo": "`fd <패턴>`으로 이름이 맞는 파일을 찾고, `fd -e ts`는 확장자, `fd -t d`는 폴더만 찾아요. 숨김 파일과 gitignore 파일은 -H, -I를 붙여야 나와요. -x로 결과마다 명령을 실행하고 -0은 NUL 구분 출력이에요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "runEvidence": "README: \"brew install fd\", \"scoop install fd\", \"winget install sharkdp.fd\", \"cargo install fd-find\"",
+  "concerns": "Telemetry grep over source files: no hits.",
+  "recommend": true,
+  "reason": "Dual MIT/Apache, active, cross-platform install lines verified in README.",
+  "verdict": "accept",
+  "problems": [
+   "Added cargo install fd-find (README line 741); install lines confirmed"
+  ],
+  "checked": "Read LICENSE-MIT/APACHE, ls-remote matches, README install lines, telemetry grep",
+  "command": "fd",
+  "args": []
+ },
+ {
+  "name": "yq",
+  "kind": "cli",
+  "repo": "mikefarah/yq",
+  "commit": "f2944b823f84906a127dbd29e4c2a3e60c4e550e",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/mikefarah__yq",
+  "license": "MIT",
+  "licenseQuote": "The MIT License (MIT) / Copyright (c) 2017 Mike Farah",
+  "lastCommit": "2026-11-09T15:14:40+11:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "winget install --id MikeFarah.yq",
+   "brew install yq",
+   "scoop install main/yq",
+   "go install github.com/mikefarah/yq/v4@latest"
+  ],
+  "summaryEn": "Reads and edits YAML, JSON, XML and TOML with a jq-like syntax.",
+  "summaryKo": "YAML, JSON, XML, TOML을 jq처럼 읽고 고쳐요.",
+  "tags": [
+   "yaml",
+   "json",
+   "config"
+  ],
+  "capabilities": [
+   "query YAML",
+   "edit files in place",
+   "convert between YAML, JSON and XML"
+  ],
+  "inputs": [
+   "yaml",
+   "json",
+   "xml"
+  ],
+  "outputs": [
+   "yaml",
+   "json",
+   "text"
+  ],
+  "guideEn": "Use `yq '.a.b' file.yaml` to read a value, `yq -i '.a.b = \"x\"' file.yaml` to edit in place, and `yq -o=json '.' file.yaml` to convert to JSON. This is the mikefarah/yq Go tool, not the Python yq wrapper around jq.",
+  "guideKo": "`yq '.a.b' file.yaml`로 값을 읽고, `yq -i '.a.b = \"x\"' file.yaml`로 파일을 바로 고치고, `yq -o=json '.' file.yaml`로 JSON으로 바꿔요. Python yq가 아니라 mikefarah의 Go 도구예요.",
+  "warningsEn": [
+   "-i modifies files in place"
+  ],
+  "warningsKo": [
+   "-i는 파일을 직접 바꿔요"
+  ],
+  "runEvidence": "README: \"winget install --id MikeFarah.yq\", \"brew install yq\", \"scoop install main/yq\", \"go install github.com/mikefarah/yq/v4@latest\"; \"yq -i '.a.b[0].c = \\\"cool\\\"' file.yaml\"",
+  "concerns": "Telemetry grep: no hits.",
+  "recommend": true,
+  "reason": "MIT, active, standard YAML tool; no Go toolchain needed since package managers exist.",
+  "verdict": "accept",
+  "problems": [
+   "needs go -> empty (go install is only one of four routes)",
+   "winget id corrected to the full command with --id MikeFarah.yq, verified in README line 314"
+  ],
+  "checked": "Read LICENSE, README install and usage lines, telemetry grep",
+  "command": "yq",
+  "args": []
+ },
+ {
+  "name": "difftastic",
+  "kind": "cli",
+  "repo": "Wilfred/difftastic",
+  "commit": "87aad1aea4aacdf3cab68d2006e614d4994ece69",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/Wilfred__difftastic",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2021-2025 Wilfred Hughes",
+  "lastCommit": "2026-11-04T01:58:22-08:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "brew install difftastic",
+   "winget install difftastic",
+   "cargo install --locked difftastic"
+  ],
+  "summaryEn": "Compares files by syntax structure instead of by line.",
+  "summaryKo": "줄이 아니라 코드 구조로 파일 차이를 비교해요.",
+  "tags": [
+   "diff",
+   "syntax",
+   "review"
+  ],
+  "capabilities": [
+   "structural diff of two files",
+   "diff of two directories",
+   "use as git external diff"
+  ],
+  "inputs": [
+   "source-code"
+  ],
+  "outputs": [
+   "text"
+  ],
+  "guideEn": "Run `difft old.rs new.rs` to see a structural diff; it also accepts two directories. For git, set GIT_EXTERNAL_DIFF=difft and run `git diff` (see the manual page git.md). The binary is named difft.",
+  "guideKo": "`difft old.rs new.rs`로 구조 기준 차이를 보고, 폴더 두 개도 비교해요. git에서는 GIT_EXTERNAL_DIFF=difft를 설정하고 `git diff`를 실행해요(매뉴얼 git.md). 실행 파일 이름은 difft예요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "runEvidence": "manual/src/installation.md: \"$ brew install difftastic\", \"$ winget install difftastic\"; manual/src/from_source.md: \"$ cargo install --locked difftastic\"; Cargo.toml [[bin]] name = \"difft\"",
+  "concerns": "Telemetry grep hits only sample fixtures; no telemetry.",
+  "recommend": true,
+  "reason": "MIT, active, cleaner diffs for refactor review; cargo line now verified.",
+  "verdict": "accept",
+  "problems": [
+   "cargo install line was unverified; found as cargo install --locked difftastic in from_source.md and corrected",
+   "dropped the 'GIT_EXTERNAL_DIFF=difft git diff' one-liner as an exact claim; manual describes the env var"
+  ],
+  "checked": "Read LICENSE, manual installation and from_source, Cargo.toml bin name",
+  "command": "difft",
+  "args": []
+ },
+ {
+  "name": "hyperfine",
+  "kind": "cli",
+  "repo": "sharkdp/hyperfine",
+  "commit": "c5161524980522320c7d3425e714cc0965a869a5",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/sharkdp__hyperfine",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENSE-MIT: \"MIT License\" / \"Copyright (c) 2018-2022 David Peter, and all hyperfine contributors\"",
+  "lastCommit": "2026-10-12T10:33:47+02:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "winget install hyperfine",
+   "brew install hyperfine",
+   "scoop install hyperfine",
+   "cargo install --locked hyperfine"
+  ],
+  "summaryEn": "Benchmarks command run times with statistics.",
+  "summaryKo": "명령 실행 시간을 통계로 재서 비교해요.",
+  "tags": [
+   "benchmark",
+   "performance",
+   "timing"
+  ],
+  "capabilities": [
+   "time one or more commands",
+   "warmup runs",
+   "export results to JSON or Markdown"
+  ],
+  "inputs": [
+   "command"
+  ],
+  "outputs": [
+   "json",
+   "markdown"
+  ],
+  "guideEn": "Run `hyperfine 'cmd a' 'cmd b'` to compare commands. Add `--warmup 3` to warm caches and `--export-json out.json` (or --export-markdown) for machine-readable results. Commands run without a shell by default (-N / --shell=none); use -S / --shell=default for shell syntax.",
+  "guideKo": "`hyperfine 'cmd a' 'cmd b'`로 명령을 비교해요. `--warmup 3`으로 캐시를 데우고 `--export-json out.json`(또는 --export-markdown)으로 결과를 저장해요. 기본은 셸 없이 실행하고, 셸 문법이 필요하면 `-S`를 써요.",
+  "warningsEn": [
+   "runs the given commands many times"
+  ],
+  "warningsKo": [
+   "넘겨준 명령을 여러 번 실행해요"
+  ],
+  "runEvidence": "README: \"winget install hyperfine\", \"scoop install hyperfine\", \"cargo install --locked hyperfine\"; src/cli.rs: long(\"export-json\")",
+  "concerns": "Telemetry grep: no hits.",
+  "recommend": true,
+  "reason": "Dual MIT/Apache, active, measures before/after a change.",
+  "verdict": "accept",
+  "problems": [
+   "Corrected -N text: README says no-shell is already the default; -S enables shell"
+  ],
+  "checked": "Read LICENSE-MIT, README install lines and shell notes, src/cli.rs for export-json",
+  "command": "hyperfine",
+  "args": []
+ },
+ {
+  "name": "tokei",
+  "kind": "cli",
+  "repo": "XAMPPRocky/tokei",
+  "commit": "c14f744716272fadeb27a74443cdffa0af35f82f",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/XAMPPRocky__tokei",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENCE-MIT: \"MIT License (MIT)\" / \"Copyright (c) 2016 Erin Power\"",
+  "lastCommit": "2026-09-06T19:28:03+02:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "winget install XAMPPRocky.tokei",
+   "brew install tokei",
+   "scoop install tokei",
+   "cargo install tokei"
+  ],
+  "summaryEn": "Counts lines of code, comments and blanks per language.",
+  "summaryKo": "언어별 코드, 주석, 빈 줄 수를 세요.",
+  "tags": [
+   "metrics",
+   "code",
+   "languages"
+  ],
+  "capabilities": [
+   "count lines per language",
+   "per-file breakdown",
+   "JSON output"
+  ],
+  "inputs": [
+   "repository"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Run `tokei` in a folder for a per-language table, `tokei --files` for per-file rows and `tokei --output json` for JSON. Pass paths to limit the scan; it honors .gitignore.",
+  "guideKo": "폴더에서 `tokei`를 실행하면 언어별 표가 나오고, `--files`는 파일별, `--output json`은 JSON 출력이에요. 경로를 주면 범위를 줄이고 .gitignore를 따라요.",
+  "warningsEn": [],
+  "warningsKo": [],
+  "runEvidence": "README: \"winget install XAMPPRocky.tokei\", \"scoop install tokei\", \"brew install tokei\", \"cargo install tokei\"; \"tokei ./foo --output json\"",
+  "concerns": "Telemetry grep: no hits. Last commit about 2 months ago; stable and widely used.",
+  "recommend": true,
+  "reason": "Dual MIT/Apache, small, quick codebase overview.",
+  "verdict": "accept",
+  "problems": [
+   "needs cargo -> empty (winget, scoop, brew exist)",
+   "added winget line from README line 122",
+   "flags confirmed in README: --files, --output json"
+  ],
+  "checked": "Read LICENCE-MIT, README install and output sections",
+  "command": "tokei",
+  "args": []
+ },
+ {
+  "name": "ruff",
+  "kind": "cli",
+  "repo": "astral-sh/ruff",
+  "commit": "b140af2f48bddf33a1ae984174af3180236aaaaf",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/astral-sh__ruff",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2022 Charles Marsh",
+  "lastCommit": "2026-11-13T22:46:48+00:00",
+  "popularity": "unknown",
+  "package": "pypi:ruff@0.17.5",
+  "needs": "uv",
+  "install": [
+   "uv tool install ruff@latest",
+   "pip install ruff"
+  ],
+  "summaryEn": "Lints and formats Python very fast.",
+  "summaryKo": "파이썬 린트와 포맷을 아주 빠르게 해요.",
+  "tags": [
+   "python",
+   "lint",
+   "format"
+  ],
+  "capabilities": [
+   "lint Python",
+   "auto-fix",
+   "format code",
+   "JSON output"
+  ],
+  "inputs": [
+   "source-code"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Run `uvx ruff check` to lint and add `--fix` to auto-fix; `uvx ruff format` formats. `--output-format json` gives machine-readable results. Settings live in pyproject.toml or ruff.toml.",
+  "guideKo": "`uvx ruff check`로 린트하고 `--fix`로 자동 수정해요. `uvx ruff format`은 포맷이에요. 기계가 읽을 결과는 `--output-format json`이에요. 설정은 pyproject.toml이나 ruff.toml에 있어요.",
+  "warningsEn": [
+   "--fix and format modify files"
+  ],
+  "warningsKo": [
+   "--fix와 format은 파일을 바꿔요"
+  ],
+  "runEvidence": "README: \"uvx ruff@0.17.5 check\", \"uvx ruff@0.17.5 format\", \"uv tool install ruff@latest\", \"pip install ruff\"; docs: \"when using the json output format\"",
+  "concerns": "Telemetry grep hits only vendored files; no telemetry. PyPI ruff 0.17.5 MIT.",
+  "recommend": true,
+  "reason": "MIT, very active, standard Python linter/formatter.",
+  "verdict": "accept",
+  "problems": [
+   "Removed trailing '.' arguments from commands (README runs bare check/format)"
+  ],
+  "checked": "Read LICENSE, PyPI JSON, README install lines, json format mention",
+  "command": "uvx",
+  "args": [
+   "ruff"
+  ]
+ },
+ {
+  "name": "biome",
+  "kind": "cli",
+  "repo": "biomejs/biome",
+  "commit": "97aa1838863c7d70618879ec96cfa0d287fd08f0",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/biomejs__biome",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENSE-MIT: \"MIT License\" / \"Copyright (c) 2023-present Biome Developers and Contributors.\"",
+  "lastCommit": "2026-11-13T18:40:27-05:00",
+  "popularity": "unknown",
+  "package": "npm:@biomejs/biome@2.6.7",
+  "needs": "node",
+  "install": [],
+  "summaryEn": "Lints and formats JavaScript, TypeScript, JSON and CSS.",
+  "summaryKo": "JS, TS, JSON, CSS를 린트하고 포맷해요.",
+  "tags": [
+   "javascript",
+   "lint",
+   "format"
+  ],
+  "capabilities": [
+   "lint",
+   "format",
+   "import sorting",
+   "check in CI"
+  ],
+  "inputs": [
+   "source-code"
+  ],
+  "outputs": [
+   "text"
+  ],
+  "guideEn": "Run `npx @biomejs/biome check` to lint and check format, add `--write` to apply fixes. `npx @biomejs/biome format --write` formats only, `lint --write` fixes lint only, and `ci` is for CI runs. Config is biome.json.",
+  "guideKo": "`npx @biomejs/biome check`로 린트와 포맷을 확인하고 `--write`로 고쳐요. 포맷만은 `format --write`, 린트만은 `lint --write`, CI용은 `ci`예요. 설정은 biome.json이에요.",
+  "warningsEn": [
+   "--write modifies files"
+  ],
+  "warningsKo": [
+   "--write는 파일을 바꿔요"
+  ],
+  "runEvidence": "README: \"npx @biomejs/biome format --write\", \"npx @biomejs/biome lint --write\", \"npx @biomejs/biome check --write\", \"npx @biomejs/biome ci\"; registry: bin biome, MIT OR Apache-2.0",
+  "concerns": "Telemetry grep hits only fixtures/lockfile. Host project already uses Biome.",
+  "recommend": true,
+  "reason": "Dual license, active, one tool for JS/TS; host project uses it.",
+  "verdict": "accept",
+  "problems": [
+   "Removed the unverified --reporter=json claim; JSON capability dropped",
+   "Dropped the trailing '.' arguments"
+  ],
+  "checked": "Read LICENSE-MIT, npm registry latest (bin biome), README commands",
+  "command": "npx",
+  "args": [
+   "@biomejs/biome"
+  ]
+ },
+ {
+  "name": "typos",
+  "kind": "cli",
+  "repo": "crate-ci/typos",
+  "commit": "aa7e5314d3f3fc71e2522f80fca1e6ffcc3ce7db",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/crate-ci__typos",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENSE-MIT: \"Copyright (c) Individual contributors\" / \"Permission is hereby granted, free of charge\"",
+  "lastCommit": "2026-11-10T20:25:42-06:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "cargo",
+  "install": [
+   "cargo install typos-cli --locked",
+   "brew install typos-cli",
+   "conda install typos"
+  ],
+  "summaryEn": "Finds and fixes typos in source code and docs.",
+  "summaryKo": "소스와 문서의 오타를 찾아 고쳐요.",
+  "tags": [
+   "spelling",
+   "lint",
+   "docs"
+  ],
+  "capabilities": [
+   "find typos",
+   "write fixes",
+   "JSON lines output"
+  ],
+  "inputs": [
+   "source-code",
+   "text"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Run `typos` to report typos in the current folder, `typos --write-changes` to fix them and `typos --format json` for JSON lines (exit code 2 when typos are found). Words to ignore go in a _typos.toml. The package is typos-cli; the command is typos.",
+  "guideKo": "`typos`는 오타를 보고하고 `typos --write-changes`는 고치며 `typos --format json`은 JSON 줄 출력이에요(오타가 있으면 종료 코드 2). 무시할 단어는 _typos.toml에 넣어요. 패키지는 typos-cli, 명령은 typos예요.",
+  "warningsEn": [
+   "--write-changes modifies files",
+   "on Windows without brew or conda it needs a Rust toolchain (cargo)"
+  ],
+  "warningsKo": [
+   "--write-changes는 파일을 바꿔요",
+   "Windows에서 brew나 conda가 없으면 Rust(cargo)가 필요해요"
+  ],
+  "runEvidence": "README: \"$ cargo install typos-cli --locked\", \"$ brew install typos-cli\", \"$ conda install typos\", \"--format json to get jsonlines with exit code 0 on no errors, code 2 on typos\"",
+  "concerns": "Telemetry grep hits only word lists; no telemetry.",
+  "recommend": true,
+  "reason": "Dual license, active, low false-positive spell check.",
+  "verdict": "accept",
+  "problems": [
+   "Added exit code 2 detail and format json wording from README",
+   "_typos.toml mention not re-verified in README but standard config name"
+  ],
+  "checked": "Read LICENSE-MIT, README install and JSON lines",
+  "command": "typos",
+  "args": []
+ },
+ {
+  "name": "lychee",
+  "kind": "cli",
+  "repo": "lycheeverse/lychee",
+  "commit": "f10ac2774dac100dfdbf014647487520a8ffe08d",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/lycheeverse__lychee",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENSE-MIT: \"MIT License\" / \"Copyright (c) 2022 The lychee maintainers\"",
+  "lastCommit": "2026-11-12T21:46:07+01:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "winget install --id lycheeverse.lychee",
+   "scoop install lychee",
+   "brew install lychee",
+   "cargo install lychee"
+  ],
+  "summaryEn": "Checks for broken links in Markdown, HTML and websites.",
+  "summaryKo": "마크다운, HTML, 웹사이트의 깨진 링크를 찾아요.",
+  "tags": [
+   "links",
+   "docs",
+   "check"
+  ],
+  "capabilities": [
+   "check links in files",
+   "check a URL",
+   "JSON output",
+   "offline mode"
+  ],
+  "inputs": [
+   "markdown",
+   "html",
+   "url"
+  ],
+  "outputs": [
+   "text",
+   "json"
+  ],
+  "guideEn": "Run `lychee README.md docs/` to check links, `lychee --format json <paths>` for JSON (one object per line) and `--offline` to check only local files. A GitHub token (GITHUB_TOKEN) can avoid rate limits but is optional.",
+  "guideKo": "`lychee README.md docs/`로 링크를 검사하고, `lychee --format json <경로>`로 JSON(줄마다 객체 하나)을 받고, `--offline`은 로컬 파일만 봐요. GitHub 토큰(GITHUB_TOKEN)은 선택이고 속도 제한을 피하게 해줘요.",
+  "warningsEn": [
+   "makes many network requests to the checked links"
+  ],
+  "warningsKo": [
+   "검사하는 링크마다 네트워크 요청을 보내요"
+  ],
+  "runEvidence": "README: \"scoop install lychee\", \"winget install --id lycheeverse.lychee\", \"brew install lychee\", \"cargo install lychee\"; \"--format json ... JSON object on its own line\"; \"--offline\"",
+  "concerns": "Telemetry grep: no hits.",
+  "recommend": true,
+  "reason": "Dual license, active, JSON link checks for docs.",
+  "verdict": "accept",
+  "problems": [
+   "winget id confirmed from README line 144"
+  ],
+  "checked": "Read LICENSE-MIT, README install and options",
+  "command": "lychee",
+  "args": []
+ },
+ {
+  "name": "knip",
+  "kind": "cli",
+  "repo": "webpro/knip",
+  "commit": "b72952ceb059ef69bbacc771cd9220e8198416cd",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/webpro__knip",
+  "license": "ISC",
+  "licenseQuote": "ISC License (ISC) / Copyright 2022-2026 Lars Kappert",
+  "lastCommit": "2026-11-13T21:57:28+01:00",
+  "popularity": "unknown",
+  "package": "npm:knip@6.45.1",
+  "needs": "node",
+  "install": [],
+  "summaryEn": "Finds unused files, exports and dependencies in JS and TS projects.",
+  "summaryKo": "JS, TS 프로젝트의 안 쓰는 파일, export, 의존성을 찾아요.",
+  "tags": [
+   "dead-code",
+   "dependencies",
+   "typescript"
+  ],
+  "capabilities": [
+   "unused files",
+   "unused exports",
+   "unused dependencies",
+   "JSON reporter"
+  ],
+  "inputs": [
+   "source-code",
+   "repository"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Run `npx knip` in a project to list unused files, exports and dependencies. Use `knip --reporter json` for scripts and agents. Configure entry points in knip.json if results look wrong.",
+  "guideKo": "프로젝트에서 `npx knip`을 실행하면 안 쓰는 파일, export, 의존성이 나와요. 에이전트용은 `knip --reporter json`이에요. 결과가 이상하면 knip.json에 진입점을 설정해요.",
+  "warningsEn": [
+   "--fix can change files and package.json"
+  ],
+  "warningsKo": [
+   "--fix는 파일과 package.json을 바꿀 수 있어요"
+  ],
+  "runEvidence": "docs/features/reporters.md: \"knip --reporter json\" for scripts, CI and coding agents; registry: bin knip, ISC",
+  "concerns": "Telemetry grep hits only test fixtures.",
+  "recommend": true,
+  "reason": "ISC, very active, main dead-code finder with an agent-ready JSON reporter.",
+  "verdict": "accept",
+  "problems": [],
+  "checked": "Read LICENSE, npm registry (bin knip, ISC), reporters and cli docs",
+  "command": "npx",
+  "args": [
+   "knip"
+  ]
+ },
+ {
+  "name": "gitleaks",
+  "kind": "cli",
+  "repo": "gitleaks/gitleaks",
+  "commit": "5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/gitleaks__gitleaks",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2019 Zachary Rice",
+  "lastCommit": "2026-10-23T15:44:59-05:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "brew install gitleaks",
+   "docker pull ghcr.io/gitleaks/gitleaks:latest",
+   "download a binary from https://github.com/gitleaks/gitleaks/releases"
+  ],
+  "summaryEn": "Scans git history and files for leaked secrets.",
+  "summaryKo": "git 기록과 파일에서 새어 나온 비밀 값을 찾아요.",
+  "tags": [
+   "security",
+   "secrets",
+   "git"
+  ],
+  "capabilities": [
+   "scan git history",
+   "scan a directory",
+   "JSON or SARIF report"
+  ],
+  "inputs": [
+   "repository",
+   "source-code"
+  ],
+  "outputs": [
+   "json",
+   "sarif"
+  ],
+  "guideEn": "Run `gitleaks git -v` in a repository to scan history and `gitleaks dir -v <path>` for plain folders. Add `--report-format json --report-path out.json` for a report (formats: json, csv, junit, sarif, template) and `--redact` to hide secret values.",
+  "guideKo": "저장소에서 `gitleaks git -v`로 기록을 검사하고 일반 폴더는 `gitleaks dir -v <경로>`예요. `--report-format json --report-path out.json`으로 보고서를 만들고(json, csv, junit, sarif, template) `--redact`로 비밀 값을 가려요.",
+  "warningsEn": [
+   "findings may print real secrets unless --redact is used",
+   "Windows has no package-manager line in the README; use the release binary"
+  ],
+  "warningsKo": [
+   "--redact가 없으면 실제 비밀 값이 출력될 수 있어요",
+   "Windows는 README에 패키지 명령이 없어서 릴리스 파일을 받아야 해요"
+  ],
+  "runEvidence": "README: \"gitleaks git -v\", \"brew install gitleaks\", Docker pull lines, \"gitleaks dir -v path_to_directory_or_file\", \"--report-format string output format (json, csv, junit, sarif, template)\"",
+  "concerns": "Telemetry grep: no hits. Defensive tool.",
+  "recommend": true,
+  "reason": "MIT, active, standard secret scanner.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "REMOVED go install github.com/gitleaks/gitleaks/v8@latest: go.mod module is github.com/zricethezav/gitleaks/v8 so that command would fail; README only offers brew, Docker, make build",
+   "needs go -> empty",
+   "install now brew, Docker, release binary"
+  ],
+  "checked": "Read LICENSE, README install and CLI flags, go.mod module path",
+  "command": "gitleaks",
+  "args": []
+ },
+ {
+  "name": "osv-scanner",
+  "kind": "cli",
+  "repo": "google/osv-scanner",
+  "commit": "80fe50567a5d6e0ec408353e2ceacca1561b91be",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/google__osv-scanner",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (standard text; no project copyright line)",
+  "lastCommit": "2026-11-12T13:18:58+11:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "winget install Google.OSVScanner",
+   "scoop install osv-scanner",
+   "brew install osv-scanner",
+   "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest"
+  ],
+  "summaryEn": "Finds known vulnerabilities in your dependencies using the OSV database.",
+  "summaryKo": "OSV 데이터베이스로 의존성의 알려진 취약점을 찾아요.",
+  "tags": [
+   "security",
+   "dependencies",
+   "vulnerabilities"
+  ],
+  "capabilities": [
+   "scan lockfiles",
+   "scan a directory recursively",
+   "JSON or SARIF output"
+  ],
+  "inputs": [
+   "repository",
+   "lockfile"
+  ],
+  "outputs": [
+   "json",
+   "sarif",
+   "table"
+  ],
+  "guideEn": "Run `osv-scanner scan source -r <dir>` to scan a project recursively. `--format json` (also table, markdown, sarif, html) sets the output, and `-L path/to/lockfile` scans one lockfile.",
+  "guideKo": "`osv-scanner scan source -r <폴더>`로 프로젝트를 재귀 검사해요. `--format json`(table, markdown, sarif, html도 가능)으로 출력을 정하고 `-L 경로`는 lockfile 하나를 검사해요.",
+  "warningsEn": [
+   "queries the OSV API over the network with package names and versions"
+  ],
+  "warningsKo": [
+   "패키지 이름과 버전을 OSV API로 보내 조회해요"
+  ],
+  "runEvidence": "docs/installation.md: \"scoop install osv-scanner\", \"winget install Google.OSVScanner\", \"brew install osv-scanner\", \"go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest\"; README: \"osv-scanner scan source -r /path/to/your/dir\"; output.md: \"--format json\"",
+  "concerns": "Telemetry grep: no usage telemetry (opentelemetry libs only in go.mod). Network queries go to the OSV API, which is the tool's purpose.",
+  "recommend": true,
+  "reason": "Apache-2.0, Google, active, no account.",
+  "verdict": "accept",
+  "problems": [
+   "needs go -> empty",
+   "command is scan source -r per README; --lockfile replaced by -L (output.md shows -L)",
+   "added sarif/html"
+  ],
+  "checked": "Read LICENSE header, installation.md, README, output.md",
+  "command": "osv-scanner",
+  "args": []
+ },
+ {
+  "name": "trivy",
+  "kind": "cli",
+  "repo": "aquasecurity/trivy",
+  "commit": "239be7b2671a3c9706bbfec2ba4677210cbdcdec",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/aquasecurity__trivy",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (standard text; no project copyright line)",
+  "lastCommit": "2026-11-13T18:07:19+00:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "brew install trivy",
+   "download the Windows zip from https://github.com/aquasecurity/trivy/releases"
+  ],
+  "summaryEn": "Scans images, folders and configs for vulnerabilities, secrets and misconfigurations.",
+  "summaryKo": "이미지, 폴더, 설정에서 취약점, 비밀 값, 잘못된 설정을 찾아요.",
+  "tags": [
+   "security",
+   "containers",
+   "scanner"
+  ],
+  "capabilities": [
+   "vulnerability scan",
+   "secret scan",
+   "misconfiguration scan",
+   "SBOM"
+  ],
+  "inputs": [
+   "repository",
+   "image"
+  ],
+  "outputs": [
+   "json",
+   "table"
+  ],
+  "guideEn": "Run `trivy fs --disable-telemetry --scanners vuln,secret,misconfig .` to scan a project and `trivy image --disable-telemetry <name>` for a container image. Add `--format json` for JSON. Always pass --disable-telemetry.",
+  "guideKo": "`trivy fs --disable-telemetry --scanners vuln,secret,misconfig .`로 프로젝트를, `trivy image --disable-telemetry <이름>`으로 컨테이너 이미지를 검사해요. JSON은 `--format json`이에요. 항상 --disable-telemetry를 붙여요.",
+  "warningsEn": [
+   "collects anonymous usage data unless --disable-telemetry is passed",
+   "downloads a vulnerability database on first run",
+   "Windows install is a manual zip download"
+  ],
+  "warningsKo": [
+   "--disable-telemetry를 주지 않으면 익명 사용 통계를 보내요",
+   "처음 실행할 때 취약점 DB를 내려받아요",
+   "Windows는 zip을 직접 받아야 해요"
+  ],
+  "runEvidence": "README: \"trivy fs --scanners vuln,secret,misconfig myproject/\", \"trivy image python:3.4-alpine\"; docs/getting-started/installation.md: \"brew install trivy\"; Windows: download zip",
+  "concerns": "docs/guide/advanced/telemetry.md: anonymous usage data on by default; \"You can disable telemetry altogether using the `--disable-telemetry` flag\" (also config file and env). Off switch exists, so the rule is met.",
+  "recommend": false,
+  "reason": "Default-on telemetry makes it a weaker default; fine if the flag is always passed.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "REMOVED scoop install trivy: not in the docs I read; install docs list brew, Linux packages and a Windows zip",
+   "added --disable-telemetry to the commands"
+  ],
+  "checked": "Read LICENSE, README, installation.md, telemetry.md, trivy_filesystem.md flag list",
+  "command": "trivy",
+  "args": []
+ },
+ {
+  "name": "uv",
+  "kind": "cli",
+  "repo": "astral-sh/uv",
+  "commit": "d5c3f174417418c24ec3c276e01b0f62b961b13c",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/astral-sh__uv",
+  "license": "MIT OR Apache-2.0",
+  "licenseQuote": "LICENSE-MIT: \"MIT License\" / \"Copyright (c) 2025 Astral Software Inc.\"",
+  "lastCommit": "2026-11-13T10:37:16-06:00",
+  "popularity": "unknown",
+  "package": "pypi:uv@0.13.8",
+  "needs": "",
+  "install": [
+   "pip install uv",
+   "winget install --id=astral-sh.uv -e",
+   "brew install uv",
+   "scoop install main/uv"
+  ],
+  "summaryEn": "Runs Python tools and manages Python projects and environments fast.",
+  "summaryKo": "파이썬 도구 실행과 프로젝트, 가상환경을 빠르게 관리해요.",
+  "tags": [
+   "python",
+   "packages",
+   "runner"
+  ],
+  "capabilities": [
+   "run tools with uvx",
+   "manage virtual environments",
+   "install Python versions",
+   "run scripts with inline dependencies"
+  ],
+  "inputs": [
+   "python-project"
+  ],
+  "outputs": [
+   "text"
+  ],
+  "guideEn": "Use `uvx <tool>` to run a Python tool in a temporary environment, `uv tool install <tool>` to install one, and `uv run script.py` to run a script in the project environment. `uv sync` installs a project's locked dependencies.",
+  "guideKo": "`uvx <도구>`는 임시 환경에서 파이썬 도구를 실행하고, `uv tool install <도구>`는 설치하고, `uv run script.py`는 프로젝트 환경에서 스크립트를 실행해요. `uv sync`는 잠긴 의존성을 설치해요.",
+  "warningsEn": [
+   "downloads packages and Python builds"
+  ],
+  "warningsKo": [
+   "패키지와 파이썬을 내려받아요"
+  ],
+  "runEvidence": "README: \"pip install uv\", \"uvx pycowsay 'hello world!'\", \"uv tool install ruff\", \"uv run example.py\", \"uv sync\"; docs/getting-started/installation.md: winget, brew, scoop lines",
+  "concerns": "Telemetry grep: no hits.",
+  "recommend": true,
+  "reason": "Dual license, very active, base for the uvx entries the catalog uses.",
+  "verdict": "accept",
+  "problems": [
+   "winget line corrected to `winget install --id=astral-sh.uv -e`; added brew and scoop from docs"
+  ],
+  "checked": "Read LICENSE-MIT, PyPI JSON, README and installation.md",
+  "command": "uv",
+  "args": []
+ },
+ {
+  "name": "duckdb",
+  "kind": "cli",
+  "repo": "duckdb/duckdb",
+  "commit": "b678afa97b529d5856731e115e31542a72d2d978",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/duckdb__duckdb",
+  "license": "MIT",
+  "licenseQuote": "Copyright 2018-2026 Stichting DuckDB Foundation / Permission is hereby granted, free of charge, to any person obtaining a copy",
+  "lastCommit": "2026-11-13T20:22:35+00:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "download the CLI from https://duckdb.org/docs/installation/"
+  ],
+  "summaryEn": "Runs SQL on CSV, Parquet and JSON files from the command line.",
+  "summaryKo": "CSV, Parquet, JSON 파일에 바로 SQL을 실행해요.",
+  "tags": [
+   "sql",
+   "data",
+   "analytics"
+  ],
+  "capabilities": [
+   "query CSV and Parquet with SQL",
+   "JSON or CSV output",
+   "in-memory or file database"
+  ],
+  "inputs": [
+   "csv",
+   "parquet",
+   "json"
+  ],
+  "outputs": [
+   "json",
+   "csv",
+   "table"
+  ],
+  "guideEn": "Run `duckdb -c \"SELECT * FROM 'data.csv' LIMIT 10\"` to query a file directly. Use `-json` or `-csv` for machine-readable output and `duckdb file.db` for a persistent database.",
+  "guideKo": "`duckdb -c \"SELECT * FROM 'data.csv' LIMIT 10\"`으로 파일을 바로 조회해요. 기계용 출력은 `-json`, `-csv`이고 `duckdb file.db`는 저장되는 DB예요.",
+  "warningsEn": [
+   "install is a download from the DuckDB site; I could not read per-OS install commands (the site is blocked here)",
+   "extensions may be downloaded when used"
+  ],
+  "warningsKo": [
+   "설치는 DuckDB 사이트에서 받아야 해요(여기서는 사이트가 막혀 OS별 명령을 확인하지 못했어요)",
+   "확장을 쓰면 내려받을 수 있어요"
+  ],
+  "runEvidence": "tools/shell/shell_command_line_option.cpp: {\"c\", 1, \"COMMAND\", ... \"run COMMAND and exit\"}; shell.cpp: \"-csv\", \"-json\"; README points to duckdb.org installation page",
+  "concerns": "Telemetry grep hits only logging source. winget/brew lines removed because I could not verify them.",
+  "recommend": true,
+  "reason": "MIT, very active, best single tool for SQL on local files.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "REMOVED winget install DuckDB.cli and brew install duckdb: not in README or source; duckdb.org is unreachable here",
+   "flags -c, -json, -csv confirmed in the shell source"
+  ],
+  "checked": "Read LICENSE, README, shell source for flags, telemetry grep",
+  "command": "duckdb",
+  "args": []
+ },
+ {
+  "name": "hurl",
+  "kind": "cli",
+  "repo": "Orange-OpenSource/hurl",
+  "commit": "cb4fa2d3f9db2f0a0300a80070f4bfe7b5fd08bc",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/Orange-OpenSource__hurl",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (standard text; no project copyright line)",
+  "lastCommit": "2026-11-14T03:02:55+00:00",
+  "popularity": "unknown",
+  "package": "npm:@orangeopensource/hurl@8.1.0",
+  "needs": "",
+  "install": [
+   "brew install hurl",
+   "scoop install hurl",
+   "winget install hurl",
+   "npm install --save-dev @orangeopensource/hurl"
+  ],
+  "summaryEn": "Runs and tests HTTP requests written in plain text files.",
+  "summaryKo": "텍스트 파일에 적은 HTTP 요청을 실행하고 검사해요.",
+  "tags": [
+   "http",
+   "api",
+   "testing"
+  ],
+  "capabilities": [
+   "run HTTP requests",
+   "assert on responses",
+   "capture values",
+   "JSON output"
+  ],
+  "inputs": [
+   "hurl-file",
+   "url"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Write requests and assertions in a .hurl file and run `hurl --test file.hurl`. `hurl --json *.hurl` prints each file's result as JSON. The npm package exposes the hurl and hurlfmt commands.",
+  "guideKo": "요청과 검증을 .hurl 파일에 쓰고 `hurl --test file.hurl`로 실행해요. `hurl --json *.hurl`은 파일마다 결과를 JSON으로 출력해요. npm 패키지에는 hurl, hurlfmt 명령이 있어요.",
+  "warningsEn": [
+   "sends real HTTP requests to the URLs in the file",
+   "the npm package is a wrapper that downloads the binary"
+  ],
+  "warningsKo": [
+   "파일에 적힌 URL로 실제 요청을 보내요",
+   "npm 패키지는 실행 파일을 내려받는 래퍼예요"
+  ],
+  "runEvidence": "README/docs installation.md: \"brew install hurl\", \"scoop install hurl\", \"winget install hurl\", \"npm install --save-dev @orangeopensource/hurl\"; README: \"hurl --test sample.hurl\", \"hurl --json *.hurl\"; registry: bin hurl, hurlfmt, Apache-2.0",
+  "concerns": "Telemetry grep: no hits.",
+  "recommend": true,
+  "reason": "Apache-2.0, active, API checks as plain files.",
+  "verdict": "accept",
+  "problems": [
+   "npx command removed: with two bins the choice is ambiguous and README documents installs, not npx; listed package managers instead"
+  ],
+  "checked": "Read LICENSE, installation docs, npm registry, README usage",
+  "command": "hurl",
+  "args": []
+ },
+ {
+  "name": "gh",
+  "kind": "cli",
+  "repo": "cli/cli",
+  "commit": "3d5a9e355a837f2f5ee78d7484c118cc1342ad1a",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/cli__cli",
+  "license": "MIT",
+  "licenseQuote": "MIT License / Copyright (c) 2019 GitHub Inc.",
+  "lastCommit": "2026-11-12T12:24:58-06:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "token",
+  "install": [
+   "winget install --id GitHub.cli --source winget",
+   "brew install gh"
+  ],
+  "summaryEn": "Works with GitHub issues, pull requests and Actions from the command line.",
+  "summaryKo": "GitHub 이슈, PR, Actions를 명령줄로 다뤄요.",
+  "tags": [
+   "github",
+   "pull-requests",
+   "issues"
+  ],
+  "capabilities": [
+   "list and view issues and PRs",
+   "create PRs",
+   "view workflow runs",
+   "raw API calls"
+  ],
+  "inputs": [
+   "repository"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Sign in once with `gh auth login`. Then use `gh pr list --json number,title,state`, `gh pr view <n> --json <fields>` and `gh run list --json <fields>` for machine-readable data, and `gh api <endpoint>` for anything else.",
+  "guideKo": "먼저 `gh auth login`으로 한 번 로그인해요. 이후 `gh pr list --json number,title,state`, `gh pr view <n> --json <필드>`, `gh run list --json <필드>`로 기계가 읽을 데이터를 받고, 나머지는 `gh api <엔드포인트>`예요.",
+  "warningsEn": [
+   "needs a GitHub login; it can create and change issues and PRs",
+   "sends usage telemetry by default; set GH_TELEMETRY=false (or DO_NOT_TRACK=1) to turn it off",
+   "the catalog already has a GitHub MCP server"
+  ],
+  "warningsKo": [
+   "GitHub 로그인이 필요하고 이슈와 PR을 만들고 바꿀 수 있어요",
+   "기본으로 사용 통계를 보내요. GH_TELEMETRY=false(또는 DO_NOT_TRACK=1)로 꺼요",
+   "카탈로그에 GitHub MCP 서버가 이미 있어요"
+  ],
+  "runEvidence": "docs/install_windows.md: \"winget install --id GitHub.cli --source winget\"; docs/install_macos.md: \"brew install gh\"; pkg/cmd/pr/list/list.go uses AddJSONFlags; help_topic.go: GH_TELEMETRY / DO_NOT_TRACK",
+  "concerns": "pkg/cmd/root/help_topic.go: \"gh collects telemetry\"; \"Set to false or 0 to disable telemetry\" (GH_TELEMETRY), DO_NOT_TRACK=1 also disables. Off switch documented, so rule met.",
+  "recommend": true,
+  "reason": "MIT, official, active; off switch exists.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "Telemetry found in internal/telemetry; documented off switches added to warnings (previous text said unverified)",
+   "--json confirmed via AddJSONFlags in pr list/view and run list"
+  ],
+  "checked": "Read LICENSE, install docs, help_topic.go telemetry text, grep for AddJSONFlags",
+  "command": "gh",
+  "args": []
+ },
+ {
+  "name": "jadx",
+  "kind": "cli",
+  "repo": "skylot/jadx",
+  "commit": "469ac588eb89c707c432b5204644883a4b3ee842",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/skylot__jadx",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (standard text; no project copyright line)",
+  "lastCommit": "2026-11-13T23:07:08+00:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "java",
+  "install": [
+   "brew install jadx",
+   "sudo pacman -S jadx",
+   "flatpak install flathub com.github.skylot.jadx",
+   "download a release zip from https://github.com/skylot/jadx/releases"
+  ],
+  "summaryEn": "Decompiles Android APK, DEX and JAR files back to Java source.",
+  "summaryKo": "안드로이드 APK, DEX, JAR 파일을 자바 소스로 되돌려요.",
+  "tags": [
+   "android",
+   "decompiler",
+   "reverse-engineering"
+  ],
+  "capabilities": [
+   "decompile APK",
+   "decompile DEX and JAR",
+   "deobfuscate",
+   "GUI viewer"
+  ],
+  "inputs": [
+   "apk",
+   "dex",
+   "jar"
+  ],
+  "outputs": [
+   "java-source"
+  ],
+  "guideEn": "Run `jadx -d out app.apk` to decompile into the out folder; the README example is `jadx -d out classes.dex`. Use `jadx-gui` for the window. Needs 64-bit Java 11 or later (not needed for the with-jre bundle).",
+  "guideKo": "`jadx -d out app.apk`로 out 폴더에 디컴파일해요. README 예시는 `jadx -d out classes.dex`예요. 창으로 보려면 `jadx-gui`예요. 64비트 Java 11 이상이 필요해요(with-jre 번들은 불필요).",
+  "warningsEn": [
+   "needs Java 11+ unless you use the with-jre bundle",
+   "decompile only files you have the right to analyze",
+   "Windows install is a manual download (no package command in README)"
+  ],
+  "warningsKo": [
+   "Java 11 이상이 필요해요(with-jre 번들은 제외)",
+   "분석 권한이 있는 파일만 디컴파일하세요",
+   "Windows는 README에 패키지 명령이 없어 직접 받아야 해요"
+  ],
+  "runEvidence": "README: \"brew install jadx\", \"sudo pacman -S jadx\", \"jadx -d out classes.dex\", \"make sure you have 64-bit Java 11 or later\"",
+  "concerns": "Telemetry grep: no hits. Analysis tool, not offensive.",
+  "recommend": true,
+  "reason": "Apache-2.0, very active, standard Android decompiler.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "REMOVED scoop install jadx: not in README; added pacman, flatpak, release zip",
+   "dropped unverified --rename-flags mention"
+  ],
+  "checked": "Read LICENSE, README install and usage",
+  "command": "jadx",
+  "args": []
+ },
+ {
+  "name": "capa",
+  "kind": "cli",
+  "repo": "mandiant/capa",
+  "commit": "74114afae97392e1fc08f9ed41acbc88882b645c",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/mandiant__capa",
+  "license": "Apache-2.0",
+  "licenseQuote": "Apache License / Version 2.0, January 2004 (standard text; no project copyright line)",
+  "lastCommit": "2026-11-10T17:01:00+01:00",
+  "popularity": "unknown",
+  "package": "pypi:flare-capa@10.0.0",
+  "needs": "",
+  "install": [
+   "download the standalone binary from https://github.com/mandiant/capa/releases",
+   "pip install flare-capa"
+  ],
+  "summaryEn": "Detects what a program can do (capabilities) in executable files.",
+  "summaryKo": "실행 파일이 어떤 기능을 하는지 찾아내요.",
+  "tags": [
+   "reverse-engineering",
+   "malware-analysis",
+   "binary"
+  ],
+  "capabilities": [
+   "detect capabilities in executables",
+   "JSON output",
+   "rule-based matching"
+  ],
+  "inputs": [
+   "binary"
+  ],
+  "outputs": [
+   "json",
+   "text"
+  ],
+  "guideEn": "Run `capa sample.exe` for a capability table and `capa -j sample.exe` for JSON. The standalone release binary bundles everything and needs no install. If you use a source or pip install, pass a rules folder from capa-rules with `-r`.",
+  "guideKo": "`capa sample.exe`는 기능 표를, `capa -j sample.exe`는 JSON을 내줘요. 릴리스의 단독 실행 파일은 설치 없이 되고 규칙도 들어 있어요. pip나 소스로 설치했다면 capa-rules 폴더를 `-r`로 알려줘요.",
+  "warningsEn": [
+   "static analysis only; do not run unknown binaries",
+   "the pip package may need a rules folder (-r); the release binary does not"
+  ],
+  "warningsKo": [
+   "정적 분석만 하니 모르는 파일을 실행하지 마세요",
+   "pip 설치는 규칙 폴더(-r)가 필요할 수 있고 릴리스 파일은 필요 없어요"
+  ],
+  "runEvidence": "doc/installation.md: standalone binaries \"run it without any installation\"; \"pip install flare-capa\"; \"capa -r capa-rules-10.0.0/ suspicious.exe\"; doc/usage.md: JSON (`-j`); pyproject.toml: capa = \"capa.main:main\"",
+  "concerns": "Telemetry grep hits only lockfile/changelog; no telemetry.",
+  "recommend": true,
+  "reason": "Apache-2.0, active, analysis-only tool.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "REMOVED uvx --from flare-capa capa: docs say a pip/source install does not pull the default rule set, so uvx would likely fail without -r",
+   "install now the standalone binary first"
+  ],
+  "checked": "Read LICENSE, pyproject, installation.md, usage.md",
+  "command": "capa",
+  "args": []
+ },
+ {
+  "name": "godot",
+  "kind": "cli",
+  "repo": "godotengine/godot",
+  "commit": "960f4db5be16e2f1f7b46f9db7c824c2e0af1035",
+  "cloneDir": "/tmp/claude-0/-home-user-ai-management-pg-fo-desktop/652b98ec-4f9a-58ab-bbec-7ba87a86d59c/scratchpad/repos/godotengine__godot",
+  "license": "MIT",
+  "licenseQuote": "Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). / Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.",
+  "lastCommit": "2026-11-13T09:55:49-06:00",
+  "popularity": "unknown",
+  "package": "none",
+  "needs": "",
+  "install": [
+   "download the editor binary from https://godotengine.org/download"
+  ],
+  "summaryEn": "Runs Godot game projects and scripts without a window.",
+  "summaryKo": "Godot 게임 프로젝트와 스크립트를 창 없이 실행해요.",
+  "tags": [
+   "game-engine",
+   "godot",
+   "headless"
+  ],
+  "capabilities": [
+   "run a project headless",
+   "run a GDScript with --script",
+   "export a project"
+  ],
+  "inputs": [
+   "project",
+   "gdscript"
+  ],
+  "outputs": [
+   "text",
+   "build"
+  ],
+  "guideEn": "Run `godot --headless --path <project> --script res://tool.gd` to run a script without a window. `godot --headless --path <project> --export-release <preset> <file>` exports a build (needs a valid project path and export templates). The binary name depends on the download.",
+  "guideKo": "`godot --headless --path <프로젝트> --script res://tool.gd`로 창 없이 스크립트를 실행해요. `godot --headless --path <프로젝트> --export-release <프리셋> <파일>`로 빌드를 내보내요(올바른 프로젝트 경로와 내보내기 템플릿이 필요). 실행 파일 이름은 받은 파일마다 달라요.",
+  "warningsEn": [
+   "the engine must be downloaded manually; no single cross-platform package command",
+   "scripts can read and write project files",
+   "separate from the Godot MCP servers in the catalog"
+  ],
+  "warningsKo": [
+   "엔진을 직접 내려받아야 하고 모든 OS에 같은 설치 명령이 없어요",
+   "스크립트가 프로젝트 파일을 읽고 쓸 수 있어요",
+   "카탈로그의 Godot MCP 서버와는 별개예요"
+  ],
+  "runEvidence": "main/main.cpp: \"--headless ... Useful for servers and with --script\"; handles --path, --script, --export-release; README: binary downloads on the Godot website",
+  "concerns": "Telemetry grep hits only a debug header and CI file; no telemetry found.",
+  "recommend": false,
+  "reason": "MIT and active, but manual install and a variable binary name make it a weaker catalog entry.",
+  "verdict": "accept-with-warnings",
+  "problems": [
+   "needs app -> empty (it is a plain binary, not a running application)",
+   "--export-release confirmed in main.cpp"
+  ],
+  "checked": "Read LICENSE.txt, main/main.cpp flags, README",
+  "command": "godot",
+  "args": []
+ }
+]

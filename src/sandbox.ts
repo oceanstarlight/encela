@@ -30,7 +30,7 @@ interface Reply {
 }
 
 /** An expression that failed, or ran out of time. */
-export class EvalError extends Error {}
+export class ExpressionError extends Error {}
 
 interface Job {
   request: Request;
@@ -74,7 +74,7 @@ export class Sandbox {
       worker.postMessage(job.request);
     } catch (e) {
       // A value that can't be copied to the worker, or a worker that won't start.
-      this.settle(new EvalError(e instanceof Error ? e.message : String(e)));
+      this.settle(new ExpressionError(e instanceof Error ? e.message : String(e)));
       return;
     }
     this.timer = setTimeout(() => {
@@ -82,7 +82,7 @@ export class Sandbox {
       void worker.terminate();
       if (this.worker === worker) this.worker = null;
       this.settle(
-        new EvalError(
+        new ExpressionError(
           `took longer than ${job.timeout / 1000} s and was stopped (a regular expression that backtracks without end is the usual cause)`,
         ),
       );
@@ -99,13 +99,13 @@ export class Sandbox {
     worker.unref();
     worker.on("message", (reply: Reply) => {
       if (reply.id !== this.current?.request.id) return;
-      if (reply.error !== undefined) this.settle(new EvalError(reply.error));
+      if (reply.error !== undefined) this.settle(new ExpressionError(reply.error));
       else this.settle(null, reply.outputs ?? []);
     });
     const gone = (why: string) => {
       if (this.worker !== worker) return;
       this.worker = null;
-      if (this.current) this.settle(new EvalError(why));
+      if (this.current) this.settle(new ExpressionError(why));
     };
     worker.on("error", (e) => gone(`the expression couldn't be evaluated: ${e.message}`));
     worker.on("exit", () => gone("the expression used too much memory and was stopped"));
@@ -126,10 +126,10 @@ export class Sandbox {
   }
 
   close() {
-    for (const job of this.queue) job.reject(new EvalError("stopped"));
+    for (const job of this.queue) job.reject(new ExpressionError("stopped"));
     this.queue = [];
     if (this.timer) clearTimeout(this.timer);
-    this.current?.reject(new EvalError("stopped"));
+    this.current?.reject(new ExpressionError("stopped"));
     this.current = null;
     void this.worker?.terminate();
     this.worker = null;
