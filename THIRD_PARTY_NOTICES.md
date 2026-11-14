@@ -23,9 +23,16 @@ into a project keep that attribution in their frontmatter.
 | [OneRedOak/claude-code-workflows](https://github.com/OneRedOak/claude-code-workflows) | MIT | (c) 2025 Patrick Ellis | `29a34c725313c7621f426f838ed31cf482473fb4` | design-review (subagent), design-review-check (instruction) |
 | [ibelick/ui-skills](https://github.com/ibelick/ui-skills) | MIT | (c) 2026 Julien Thibeaut | `f2264c30213a8a55bd0a6a7668d0438e4564e090` | baseline-ui, fixing-accessibility |
 | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | MIT | (c) 2025 Corey Haines | `1efedbc5148b54b2f0f6c6c9fe0be62e151c7fff` | copywriting, copy-editing, cro, seo-audit |
-| [PatrickJS/awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) | CC0-1.0 | PatrickJS and contributors (public domain dedication) | `b044f956f021b6e8877f16781bcfc466a6a120e9` | Next.js App Router, FastAPI, Docker, Flutter Riverpod, Spring Boot JPA, Kotlin Ktor, Laravel package, HTMX + Django rules |
+| [PatrickJS/awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) | CC0-1.0 | PatrickJS and contributors (public domain dedication) | `b044f956f021b6e8877f16781bcfc466a6a120e9` | Next.js App Router, FastAPI, Docker, Flutter Riverpod, Spring Boot JPA, Kotlin Ktor, Laravel package, HTMX + Django, C++, Kotlin Spring Boot, SwiftUI rules |
+| [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (later additions) | MIT | (c) 2025 Addy Osmani | `39b723ceebf81474d0557c1fecd01eddab585563` | planning-and-task-breakdown, code-simplification, code-review-and-quality, security-and-hardening, performance-optimization, git-workflow-and-versioning, ci-cd-and-automation, documentation-and-adrs, frontend-ui-engineering, observability-and-instrumentation, deprecation-and-migration |
+| [wshobson/agents](https://github.com/wshobson/agents) (later additions) | MIT | (c) 2024 Seth Hobson | `9c61ab243def98f72da12abd41cfcf5bcd91af9d` | mobile-ios-design (skill); reverse-engineer, malware-analyst, firmware-analyst, arm-cortex-expert, database-architect, incident-responder, prompt-engineer (subagents) |
+| [github/awesome-copilot](https://github.com/github/awesome-copilot) | MIT | GitHub, Inc. | `8ecd5b17f02fe5fbebf35eccd1867265eded811f` | C#, Godot 4 GDScript, Spring Boot, Vue, Svelte, Tailwind v4, Ruby on Rails, Terraform, Kubernetes manifests, shell, SQL Server T-SQL, accessibility, web performance rules; github-actions-hardening (skill) |
+| [gamedev-skills/awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) | Apache-2.0 | 2026 Abhishek Barali and the awesome-gamedev-agent-skills contributors | `c6ca6c41c839b68319ffc08430b99ab768debc32` | unity-navmesh, unity-tilemap-2d, godot-gdscript-headless-testing, unreal-niagara, unreal-packaging, prototype-fast, level-design, threejs-scene-setup |
+| [getsentry/skills](https://github.com/getsentry/skills) | Apache-2.0 | 2025 Functional Software, Inc. dba Sentry | `e94f22214528d69899d09c627b3315ddc3544816` | prompt-optimizer, find-bugs |
+| [expo/skills](https://github.com/expo/skills) | MIT | (c) 2025-present 650 Industries, Inc. (aka Expo) | `7582922d039d5a96dc574757d399d22d56370f2b` | expo-project-structure |
+| [huggingface/skills](https://github.com/huggingface/skills) | Apache-2.0 | huggingface/skills contributors (the LICENSE names no holder) | `25910b3d0ba31a2ba102f901cdc9e008c278a69c` | hf-mem, huggingface-datasets |
 
-Full license texts: `catalog/external/<source>/LICENSE`.
+Full license texts: `catalog/external/<source>/LICENSE`, with the project's `NOTICE` file beside it where it has one (caveman, awesome-gamedev-agent-skills).
 
 Changes from the originals: frontmatter is replaced with Encela's own fields
 (Korean title and summary, provenance), subagent names are shortened (for
@@ -88,8 +95,53 @@ are unchanged, except:
   Phrasebank), `plain-english-alternatives.md` (Plain English Campaign) and
   `ai-writing-detection.md`; the lines linking them are removed or reworded.
 
+Later additions, checked file by file against their source at the commits above
+(`catalog/candidates/check_docs.py` prints every difference):
+
+- github/awesome-copilot: each instruction file's `applyTo` pattern becomes the
+  rule's `paths`, narrowed where the original applied to every file (Vue to
+  `*.vue`, Svelte to `*.svelte` files, Tailwind v4 to the Vite config and CSS,
+  SQL Server to `*.sql`, accessibility and web performance to markup, style and
+  component files). In springboot the sentence pointing to the repository's
+  `kotlin-springboot` file is removed. The github-actions-hardening skill comes
+  with its five reference files, unchanged.
+- PatrickJS/awesome-cursorrules C++, Kotlin Spring Boot and SwiftUI: converted
+  to rules as before, with a description that doesn't name Cursor. In SwiftUI
+  the "Role & Perspective" lines and the "Response Format" section (advice on
+  chat replies) are removed.
+- addyosmani/agent-skills (later additions): sentences and "See Also" sections
+  that point to the repository's `references/*-checklist.md` files, to its
+  `/build` command and to skills that aren't bundled
+  (`constraint-driven-development`, `debugging-and-error-recovery`,
+  `shipping-and-launch`) are removed, in the skills and in the two bundled
+  reference files (`hardening-patterns.md`, `optimization-patterns.md`); in
+  security-and-hardening that includes the three-line "Review Checklist"
+  section. In frontend-ui-engineering one verification item is reworded ("is
+  reviewed against this list") because the gate it named isn't defined in the
+  file; in ci-cd-and-automation and observability-and-instrumentation one line
+  each is reworded for the same reason.
+- gamedev-skills/awesome-gamedev-agent-skills: the "Related skills" section of
+  each skill is removed, with the few clauses that send the reader to skills
+  that aren't bundled (`unity-csharp-scripting`, `godot-gdscript`,
+  `unreal-cpp-gameplay`) and one optional step about Epic's `unreal-mcp` skill.
+  level-design and threejs-scene-setup come with one reference file each,
+  unchanged.
+- getsentry/skills prompt-optimizer: bundled with its four reference files;
+  `SPEC.md` and `SOURCES.md` are not included and the table row naming
+  `SOURCES.md` is removed.
+- expo/skills expo-project-structure: the "Submitting Feedback" section, which
+  has the agent send reports to Expo with a command line tool, is removed.
+- huggingface/skills huggingface-datasets: the "Agent Traces" section (about
+  uploading local agent session logs) and the line pointing to the `hf-cli`
+  skill are removed.
+- wshobson/agents (later additions): subagent names are shortened as before;
+  in arm-cortex-expert the title line `# @arm-cortex-expert` becomes a plain
+  title; in database-architect the "Workflow Position" and "Key Distinctions"
+  sections, which describe other agents of that repository, are removed.
+
 Only the Markdown of the listed files is included: no scripts, hooks, MCP
 configuration or other files from these projects.
 
-The modules in `catalog/modules.json` (MCP servers and command line tools) are
-not bundled: Encela only records how to start them from their own source.
+The modules in `catalog/modules.json` (MCP servers, command line tools and
+libraries) are not bundled: Encela only records where each comes from, its
+license, and how to start or add it.

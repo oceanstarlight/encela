@@ -323,10 +323,6 @@ function useToggleTask() {
 }
 ```
 
-## See Also
-
-For detailed accessibility requirements and testing tools, see `../../references/accessibility-checklist.md`.
-
 ## Common Rationalizations
 
 | Rationalization | Reality |
@@ -356,5 +352,5 @@ After building UI, check what you can with the project's own tooling, and review
 - [ ] Responsive: works at 320px, 768px, 1024px, 1440px
 - [ ] Loading, empty, error, success, and permission states handled when applicable
 - [ ] Follows the project's design system (spacing, colors, typography)
-- [ ] The rendered result passes a final UI-specific finish-gate review
+- [ ] The rendered result is reviewed against this list
 - [ ] No accessibility warnings in dev tools or axe-core

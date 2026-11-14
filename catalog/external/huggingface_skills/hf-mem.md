@@ -11,7 +11,7 @@ category_en: Data
 name: hf-mem
 description: "Hugging Face CLI to estimate the required memory to load Safetensors or GGUF model weights for inference from the Hugging Face Hub"
 license: Apache-2.0
-copyright: "Copyright [yyyy] [name of copyright owner]"
+copyright: "huggingface/skills contributors (its LICENSE names no holder)"
 source_repo: huggingface/skills
 source_commit: 25910b3d0ba31a2ba102f901cdc9e008c278a69c
 source_path: skills/hf-mem/SKILL.md

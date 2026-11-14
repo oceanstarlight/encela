@@ -11,7 +11,7 @@ category_en: Data
 name: huggingface-datasets
 description: "Use this skill for Hugging Face Dataset Viewer API workflows that fetch subset/split metadata, paginate rows, search text, apply filters, download parquet URLs, and read size or statistics."
 license: Apache-2.0
-copyright: "Copyright [yyyy] [name of copyright owner]"
+copyright: "huggingface/skills contributors (its LICENSE names no holder)"
 source_repo: huggingface/skills
 source_commit: 25910b3d0ba31a2ba102f901cdc9e008c278a69c
 source_path: skills/huggingface-datasets/SKILL.md
