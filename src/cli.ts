@@ -14,18 +14,19 @@ import { setup, uninstall } from "./setup";
 const HELP = `encela ${VERSION} - Encela for Claude Code
 
 Usage:
-  encela setup [--no-auto] [--no-claude]   Install the Claude Code plugin
-  encela status                            What Encela has and where
-  encela pieces [words...] [--kind <kind>] List or search the pieces
-  encela add <file.json>                   Keep a piece of your own (see README for the format)
-  encela remove <id>                       Remove one of your own pieces
-  encela import [mcp-hub.json]             Take in the modules of an earlier Encela
-  encela uninstall                         Remove the Claude Code plugin (your pieces stay)
-  encela mcp                               Run the MCP server (the plugin starts it)
-  encela hook                              Run the prompt hook (the plugin starts it)
+  encela setup [--no-auto] [--no-view] [--no-claude] Install the Claude Code plugin
+  encela status                                      What Encela has and where
+  encela pieces [words...] [--kind <kind>]           List or search the pieces
+  encela add <file.json>                             Keep a piece of your own (see README for the format)
+  encela remove <id>                                 Remove one of your own pieces
+  encela import [mcp-hub.json]                       Take in the modules of an earlier Encela
+  encela uninstall                                   Remove the Claude Code plugin (your pieces stay)
+  encela mcp                                         Run the MCP server (the plugin starts it)
+  encela hook                                        Run the prompt hook (the plugin starts it)
   encela --version
 
   --no-auto     Don't add a note to every prompt; use /encela:go <request> instead
+  --no-view     Leave out the pane and the line that show a build going on
   --no-claude   Only write the files; install the plugin yourself`;
 
 function status(): number {
@@ -75,7 +76,11 @@ async function main(argv: string[]): Promise<number> {
       console.log(VERSION);
       return 0;
     case "setup":
-      return setup({ auto: !rest.includes("--no-auto"), noClaude: rest.includes("--no-claude") });
+      return setup({
+        auto: !rest.includes("--no-auto"),
+        view: !rest.includes("--no-view"),
+        noClaude: rest.includes("--no-claude"),
+      });
     case "uninstall":
       return uninstall();
     case "status":

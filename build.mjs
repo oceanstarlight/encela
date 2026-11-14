@@ -175,7 +175,11 @@ for (const p of pieces) {
   ids.add(p.id);
 }
 writeFileSync(join(dist, "catalog.json"), JSON.stringify({ version: pkg.version, pieces }));
-cpSync(join(here, "plugin"), join(dist, "plugin"), { recursive: true });
+// The plugin's files, without the view's tests (they need Claude Code to run).
+cpSync(join(here, "plugin"), join(dist, "plugin"), {
+  recursive: true,
+  filter: (source) => relative(join(here, "plugin"), source).split(/[\\/]/)[0] !== "tests",
+});
 
 const common = {
   bundle: true,
@@ -197,6 +201,12 @@ if (process.argv.includes("--test")) {
     ...common,
     entryPoints: [join(here, "src", "lib.ts")],
     outfile: join(here, "test", ".build", "lib.js"),
+  });
+  // What the view shows is worked out apart from Claude Code, and tested so.
+  await build({
+    ...common,
+    entryPoints: [join(here, "plugin", "hooks", "model.ts")],
+    outfile: join(here, "test", ".build", "view.js"),
   });
   // The expression language is tested on its own.
   if (existsSync(join(here, "src", "jq.ts"))) {

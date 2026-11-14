@@ -519,7 +519,10 @@ test("the plugin is written with its skill, subagent, hook and server", () => {
   const hooks = JSON.parse(read("hooks", "hooks.json")).hooks.UserPromptSubmit[0].hooks[0];
   assert.match(hooks.command, / hook$/);
   assert.equal(JSON.parse(read(".claude-plugin", "plugin.json")).name, "encela");
-  assert.ok(!existsSync(join(writePlugin(root, false), "plugins", "encela", "hooks")));
+  // Without the note on every prompt, only the view's module is left there.
+  const quiet = join(writePlugin(root, false), "plugins", "encela", "hooks", "hooks.json");
+  assert.deepEqual(JSON.parse(readFileSync(quiet, "utf8")), { modules: ["./view.tsx"] });
+  assert.ok(!existsSync(join(writePlugin(root, false, false), "plugins", "encela", "hooks")));
 });
 
 test("the plugin starts Encela the right way on each OS", () => {

@@ -259,6 +259,8 @@ export interface EngineOptions {
    * engine alone) every run folder is taken as the engine's own.
    */
   seals?: Seals;
+  /** Called whenever a run's state was saved (the server's live view listens). */
+  onChange?: () => void;
 }
 
 export class Engine {
@@ -1203,6 +1205,7 @@ export class Engine {
     } catch {
       // A full disk mustn't take the run down; its state is still in memory.
     }
+    this.opts.onChange?.();
   }
 
   /** Keeps what a later start of the server needs to read the output again. The text is in its own file. */

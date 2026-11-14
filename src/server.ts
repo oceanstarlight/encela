@@ -29,6 +29,7 @@ import {
 } from "./blueprint";
 import { Client, forThisOs, supported } from "./client";
 import { type Answer, Engine, type Host } from "./engine";
+import { type Live, LiveWriter, type Phase } from "./live";
 import { lang, projectDir, VERSION } from "./paths";
 import { cautions, isDocument, KINDS, type McpConfig, type Piece, type PieceKind } from "./piece";
 import { describe, markedSteps, marksOf, type Pipeline, PipelineError } from "./pipeline";
@@ -294,6 +295,10 @@ export class Server {
   private sandbox = new Sandbox();
   private engine: Engine;
   private progressed = 0;
+  /** What the view inside Claude Code draws (src/live.ts). */
+  private live: LiveWriter;
+  /** The blueprint this session last worked on. */
+  private current = "";
 
   constructor(
     private send: (m: Json) => void,
@@ -310,8 +315,95 @@ export class Server {
       this.project,
       this.host(),
       (source, input, vars) => this.sandbox.run(source, input, vars),
-      { seals },
+      { seals, onChange: () => this.live.touch() },
     );
+    this.live = new LiveWriter(this.project, () => this.liveState());
+  }
+
+  /** Where everything stands, for the view. */
+  private liveState(): Live {
+    // The blueprint this session works on; before it has one, the build the
+    // project was left with, unless a new request is already being looked into.
+    const mine = this.current
+      ? this.blueprints.load(this.current)
+      : this.live.searched
+        ? null
+        : this.blueprints.active();
+    const b = mine && mine.status !== "cancelled" ? mine : null;
+    const phase: Phase = this.live.asking
+      ? "approval"
+      : b
+        ? ({ draft: "blueprint", approved: "assemble", assembled: "build", done: "done" } as const)[
+            b.status as "draft" | "approved" | "assembled" | "done"
+          ]
+        : this.live.searched
+          ? "pieces"
+          : "idle";
+    const ids = new Set(b?.pieces.map((p) => p.piece) ?? []);
+    for (const name of this.open.keys()) ids.add(`mcp:${name}`);
+    const pieces = [...ids].flatMap((id) => {
+      const piece = this.registry.find(id);
+      if (!piece) return [];
+      return [
+        {
+          id: piece.id,
+          name: piece.name,
+          kind: piece.kind,
+          running: this.open.has(piece.name),
+          ...this.live.usage(piece.name),
+        },
+      ];
+    });
+    const runs = [...new Set([...this.engine.unfinished(), this.engine.latest() ?? ""])]
+      .filter(Boolean)
+      .slice(0, 3)
+      .flatMap((id) => {
+        try {
+          const run = this.engine.get(id);
+          if (b && run.blueprint !== b.id) return [];
+          return [
+            {
+              id: run.id,
+              pipeline: run.pipeline.name,
+              status: run.status,
+              steps: run.steps.map((s) => ({
+                id: s.id,
+                kind: s.kind,
+                state: s.state,
+                items: s.items,
+                itemsDone: s.itemsDone,
+              })),
+            },
+          ];
+        } catch {
+          return [];
+        }
+      });
+    return {
+      v: 1,
+      at: Date.now(),
+      lang: lang(),
+      phase,
+      blueprint: b
+        ? {
+            id: b.id,
+            goal: b.goal,
+            status: b.status,
+            approval: b.approval,
+            steps: b.steps.map((s) => ({
+              id: s.id,
+              title: s.title,
+              status: s.status,
+              worker: s.worker,
+              pipeline: s.pipeline,
+            })),
+            workers: b.workers.map((w) => w.name),
+          }
+        : null,
+      pieces,
+      runs,
+      events: this.live.recent(),
+    };
   }
 
   /** What the pipeline engine may do with the running pieces. */
@@ -325,7 +417,8 @@ export class Server {
           await this.openPiece(piece, [...(running.allow ?? [])], running.env);
           running = this.running(piece.name);
         }
-        return running.client.call(name, args, timeout);
+        const client = running.client;
+        return this.live.calling(piece.name, name, () => client.call(name, args, timeout));
       },
       tools: (id) => {
         const piece = this.registry.find(id);
@@ -443,6 +536,15 @@ export class Server {
 
   async call(name: string, args: Json, progressToken?: unknown): Promise<Json> {
     try {
+      return await this.dispatch(name, args, progressToken);
+    } finally {
+      // Written before the answer goes out: the view reads it when the call returns.
+      this.live.write();
+    }
+  }
+
+  private async dispatch(name: string, args: Json, progressToken?: unknown): Promise<Json> {
+    try {
       switch (name) {
         case "find_pieces":
           return text(this.findPieces(args));
@@ -481,7 +583,9 @@ export class Server {
           if (running.allow && !running.allow.has(wanted)) {
             throw new Error(`The blueprint doesn't allow ${piece.name}'s tool ${wanted}`);
           }
-          return await running.client.call(wanted, args.arguments);
+          return await this.live.calling(piece.name, wanted, () =>
+            running.client.call(wanted, args.arguments),
+          );
         }
         case "piece_close":
           return text(this.closePiece(this.registry.get(String(args.id ?? "")).name));
@@ -489,7 +593,9 @@ export class Server {
           for (const [piece, running] of this.open) {
             const t = running.client.tools().find((x) => exposed(piece, String(x.name)) === name);
             if (t && (!running.allow || running.allow.has(String(t.name)))) {
-              return await running.client.call(String(t.name), args);
+              return await this.live.calling(piece, String(t.name), () =>
+                running.client.call(String(t.name), args),
+              );
             }
           }
           return text(`Unknown tool ${name}. Its piece isn't running: assemble or open it.`, true);
@@ -509,6 +615,8 @@ export class Server {
       kinds,
       limit: Number(args.limit) > 0 ? Number(args.limit) : 15,
     });
+    this.live.searched = true;
+    this.live.note("found", queries.join(", "), String(found.length));
     if (!found.length) {
       return "No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look outside (GitHub) and keep what you find with piece_add, or go without.";
     }
@@ -544,6 +652,8 @@ export class Server {
     const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
     if (!previous) b.id = this.blueprints.freeId(b.id);
     this.blueprints.save(b);
+    this.current = b.id;
+    this.live.note("saved", b.id, b.status);
     const marker = (piece: string, name: string) => this.marks(piece, name, b);
     let again = "";
     if (previous && previous.status !== "draft" && b.status === "draft") {
@@ -626,26 +736,34 @@ export class Server {
 
   /** Asks the user about a blueprint with Encela's own question. */
   private async decision(b: Blueprint, question: string): Promise<Json> {
-    return this.ask(
-      "elicitation/create",
-      {
-        message: `${render(b, this.registry, true, this.tools)}\n\n${question}`,
-        requestedSchema: {
-          type: "object",
-          properties: {
-            decision: {
-              type: "string",
-              title: "Decision",
-              enum: ["approve", "revise", "cancel"],
-              enumNames: ["Approve and build", "I want changes", "Cancel"],
+    this.current = b.id;
+    this.live.asking = true;
+    this.live.note("asked", b.id);
+    try {
+      return await this.ask(
+        "elicitation/create",
+        {
+          message: `${render(b, this.registry, true, this.tools)}\n\n${question}`,
+          requestedSchema: {
+            type: "object",
+            properties: {
+              decision: {
+                type: "string",
+                title: "Decision",
+                enum: ["approve", "revise", "cancel"],
+                enumNames: ["Approve and build", "I want changes", "Cancel"],
+              },
+              note: { type: "string", title: "Changes or notes (optional)" },
             },
-            note: { type: "string", title: "Changes or notes (optional)" },
+            required: ["decision"],
           },
-          required: ["decision"],
         },
-      },
-      ASK_TIMEOUT,
-    );
+        ASK_TIMEOUT,
+      );
+    } finally {
+      this.live.asking = false;
+      this.live.touch();
+    }
   }
 
   /**
@@ -699,6 +817,7 @@ export class Server {
         b.approval = "direct";
         this.blueprints.seal(b);
         this.blueprints.save(b);
+        this.live.note("approved", b.id, "direct");
         return `${b.id} is approved, now by the user directly: its pipelines can run, marked calls included.`;
       }
       if (content.decision === "cancel") {
@@ -754,6 +873,8 @@ export class Server {
       approve(b, direct ? "direct" : "relayed", this.registry, this.tools);
       this.blueprints.seal(b);
       this.blueprints.save(b);
+      this.current = b.id;
+      this.live.note("approved", b.id, b.approval);
       // The user has now seen what each outside piece is and runs.
       this.registry.trust(b.pieces.map((p) => p.piece));
       const relayed =
@@ -765,9 +886,12 @@ export class Server {
     if (answer === "cancel") {
       b.status = "cancelled";
       this.blueprints.save(b);
+      this.live.note("cancelled", b.id);
+      this.live.searched = false;
       return `The user cancelled this blueprint${note ? `: ${note}` : ""}. Don't build it; ask what they want instead.`;
     }
     this.blueprints.save(b);
+    this.live.note("changes", b.id);
     return `The user wants changes${note ? `: ${note}` : " (ask them which)"}. Change the blueprint, save it with blueprint_save (id ${b.id}) and ask for approval again.`;
   }
 
@@ -823,6 +947,8 @@ export class Server {
     b.status = "assembled";
     b.updatedAt = new Date().toISOString();
     this.blueprints.save(b);
+    this.current = b.id;
+    this.live.note("assembled", b.id, String(b.pieces.length - failed));
 
     const toAdapt = copies.filter((c) => c.entry.adapt);
     if (toAdapt.length) {
@@ -868,6 +994,8 @@ export class Server {
       throw new Error("status is todo, doing, done or failed");
     }
     s.status = status;
+    this.current = b.id;
+    this.live.note("step", s.title || s.id, status);
     if (typeof args.note === "string") s.note = args.note.trim();
     b.updatedAt = new Date().toISOString();
     const allDone = b.steps.every((x) => x.status === "done");
@@ -941,6 +1069,7 @@ export class Server {
       running = this.open.get(piece.name) ?? { client, allow: null, env };
       this.open.set(piece.name, running);
       this.changed = true;
+      this.live.note("opened", piece.name, String(client.tools().length));
       // Kept so that later blueprints can be checked, and their tools marked, before anything starts.
       this.tools.save(piece.name, withEnv(config, running.env), client.tools());
     }
@@ -979,6 +1108,7 @@ export class Server {
     running.client.close();
     this.open.delete(name);
     this.changed = true;
+    this.live.note("closed", name);
     return `Stopped ${name}.`;
   }
 
@@ -994,6 +1124,7 @@ export class Server {
     this.open.clear();
     this.sandbox.close();
     this.engine.close();
+    this.live.close();
   }
 
   /** Why a blueprint that says it is approved isn't taken as approved, when that is so. */
@@ -1091,6 +1222,8 @@ export class Server {
     }
     await this.prepare(b, p);
     const run = this.engine.start(b.id, p, args.inputs);
+    this.current = b.id;
+    this.live.note("run", p.name, "started");
     const step = b.steps.find((s) => s.pipeline === p.name);
     const report = await this.waitAndReport(run.id, args.wait, 50, token);
     return step

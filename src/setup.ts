@@ -95,8 +95,16 @@ Use the encela:orchestrate skill for this request, even if it looks small.
 ${FLOW}
 `;
 
-/** Writes the plugin as a local marketplace; its folder. */
-export function writePlugin(root = join(home(), "claude-plugin"), auto = true): string {
+/**
+ * Writes the plugin as a local marketplace; its folder. `auto` adds the note
+ * to every prompt, `view` the pane and the line that show a build going on
+ * (`plugin/hooks/view.tsx`, a hooks module Claude Code runs itself).
+ */
+export function writePlugin(
+  root = join(home(), "claude-plugin"),
+  auto = true,
+  view = true,
+): string {
   const run = launcher();
   const plugin = join(root, "plugins", PLUGIN);
   rmSync(root, { recursive: true, force: true });
@@ -118,29 +126,40 @@ export function writePlugin(root = join(home(), "claude-plugin"), auto = true): 
     version: VERSION,
     author: { name: "Encela" },
     homepage: "https://github.com/oceanstarlight/encela",
+    license: "Apache-2.0",
     description:
       "Turns a request into a blueprint you approve, then assembles the pieces it needs (MCP servers, CLIs, skills, rules, subagents) and builds.",
+    // What the view keeps in the session's state.
+    ...(view ? { types: "./types/index.d.ts" } : {}),
   });
   json(join(plugin, ".mcp.json"), {
     mcpServers: { encela: { command: run.command, args: [...run.args, "mcp"] } },
   });
+  const hooks: Record<string, unknown> = {};
   if (auto) {
+    hooks.hooks = {
+      UserPromptSubmit: [
+        {
+          hooks: [
+            {
+              type: "command",
+              command: hookCommandFor(process.platform, ...installed()),
+              timeout: 10,
+            },
+          ],
+        },
+      ],
+    };
+  }
+  if (view) hooks.modules = ["./view.tsx"];
+  else {
+    // Without the view its files don't go along: nothing of it is loaded.
+    rmSync(join(plugin, "hooks"), { recursive: true, force: true });
+    rmSync(join(plugin, "types"), { recursive: true, force: true });
+  }
+  if (auto || view) {
     mkdirSync(join(plugin, "hooks"), { recursive: true });
-    json(join(plugin, "hooks", "hooks.json"), {
-      hooks: {
-        UserPromptSubmit: [
-          {
-            hooks: [
-              {
-                type: "command",
-                command: hookCommandFor(process.platform, ...installed()),
-                timeout: 10,
-              },
-            ],
-          },
-        ],
-      },
-    });
+    json(join(plugin, "hooks", "hooks.json"), hooks);
   }
   mkdirSync(join(plugin, "commands"), { recursive: true });
   writeFileSync(join(plugin, "commands", "go.md"), GO_COMMAND);
@@ -161,6 +180,8 @@ function claude(args: string[]): { ok: boolean; out: string } {
 
 export interface SetupOptions {
   auto: boolean;
+  /** The pane and the line in Claude Code that show a build going on. */
+  view: boolean;
   /** Only write files; don't run `claude` (for tests, or to install by hand). */
   noClaude: boolean;
 }
@@ -170,8 +191,8 @@ export function setup(opts: SetupOptions, log: (s: string) => void = console.log
   log(
     `Pieces: ${registry.all().length} (${registry.own().length} of your own in ${registry.file})`,
   );
-  const root = writePlugin(undefined, opts.auto);
-  log(`Plugin: ${root}${opts.auto ? "" : " (no automatic hook)"}`);
+  const root = writePlugin(undefined, opts.auto, opts.view);
+  log(`Plugin: ${root}${opts.auto ? "" : " (no automatic hook)"}${opts.view ? "" : " (no view)"}`);
   if (opts.noClaude) {
     log(
       `Install it yourself: claude plugin marketplace add "${root}" && claude plugin install ${PLUGIN_ID}`,
@@ -199,7 +220,7 @@ export function setup(opts: SetupOptions, log: (s: string) => void = console.log
   }
   claude(["plugin", "update", PLUGIN_ID, "--scope", "user"]);
   log(
-    `Done. Start a new Claude Code session (or run /reload-plugins).\n- Just write your request: Encela has Claude start with a blueprint${opts.auto ? "" : " (automatic hook off: use the command)"}.\n- Or run /encela:go <request>.`,
+    `Done. Start a new Claude Code session (or run /reload-plugins).\n- Just write your request: Encela has Claude start with a blueprint${opts.auto ? "" : " (automatic hook off: use the command)"}.\n- Or run /encela:go <request>.${opts.view ? "\n- /encela-view shows what is being built: the steps, the pieces and the workers." : ""}`,
   );
   return 0;
 }
