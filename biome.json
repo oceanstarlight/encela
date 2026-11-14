@@ -7,12 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": [
-      "**",
-      "!catalog",
-      "!dist",
-      "!test/fixtures/jq-cases.json"
-    ]
+    "includes": ["**", "!catalog", "!dist", "!test/fixtures/jq-cases.json"]
   },
   "formatter": {
     "enabled": true,
@@ -41,9 +36,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "src/jq.ts"
-      ],
+      "includes": ["src/jq.ts"],
       "linter": {
         "rules": {
           "correctness": {
@@ -58,9 +51,7 @@
       }
     },
     {
-      "includes": [
-        "test/fixtures/jq-cases.gen.mjs"
-      ],
+      "includes": ["test/fixtures/jq-cases.gen.mjs"],
       "linter": {
         "rules": {
           "suspicious": {

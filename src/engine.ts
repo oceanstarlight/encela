@@ -806,10 +806,11 @@ export class Engine {
       shown: false,
     };
     rec.state = "waiting";
+    // The caller is told by settle(), once this step no longer counts as
+    // active: only then is it known whether the whole run waits or goes on.
     l.attention = true;
     this.changed(l, `${rec.id} waits for Claude`);
     this.save(l);
-    this.wake(l);
   }
 
   /**

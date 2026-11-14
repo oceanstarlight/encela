@@ -741,6 +741,12 @@ const echo = {
 };
 const said = (result) => result.content[0].text;
 
+// A failed assertion must not leave a piece's process behind: the file would never end.
+const servers = [];
+after(() => {
+  for (const s of servers) s.closeAll();
+});
+
 function start(capabilities = {}) {
   const sent = [];
   const home = temp("home");
@@ -748,6 +754,7 @@ function start(capabilities = {}) {
   registry.add(echo, "user");
   const project = temp("project");
   const server = new Server((m) => sent.push(m), { project, registry, tools: new ToolCache(home) });
+  servers.push(server);
   const ready = server.handle({
     jsonrpc: "2.0",
     id: 0,
