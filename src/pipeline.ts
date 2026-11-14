@@ -389,10 +389,55 @@ export function marksOf(tool: string, known: KnownTool[] | null): Marks {
   return { changes: !t?.readOnly, outside: !t || t.openWorld };
 }
 
-/** What an approval of a marked step covers: the piece, the tool, its arguments as written, and what it iterates. */
-export function stepPrint(s: PipelineStep): string {
+/** What a step does, as written: the part of it an approval covers. */
+function written(s: PipelineStep): unknown[] {
+  if (s.kind === "tool") return ["tool", s.piece, s.tool, s.args, s.each, s.when, s.retry];
+  if (s.kind === "transform") return ["transform", s.transform, s.from, s.when];
+  return ["claude", s.claude, s.input, s.expect, s.schema, s.when];
+}
+
+/**
+ * The steps and inputs that decide what a step does: those it reads (in its
+ * arguments, its `each`, its `when`), and those they read, all the way back.
+ */
+export function feeds(p: Pipeline, s: PipelineStep): { steps: PipelineStep[]; inputs: string[] } {
+  const steps = new Map<string, PipelineStep>();
+  const inputs = new Set<string>();
+  const visit = (x: PipelineStep) => {
+    const before = p.steps.slice(0, p.steps.indexOf(x));
+    for (const reads of [stepReads(x), whenReads(x)]) {
+      for (const name of reads.inputs) inputs.add(name);
+      const ids = reads.allSteps ? before.map((b) => b.id) : [...reads.steps.keys()];
+      for (const id of ids) {
+        const from = before.find((b) => b.id === id);
+        if (!from || steps.has(id)) continue;
+        steps.set(id, from);
+        visit(from);
+      }
+    }
+  };
+  visit(s);
+  return { steps: p.steps.filter((x) => steps.has(x.id)), inputs: [...inputs].sort() };
+}
+
+/**
+ * What an approval of a marked step covers: where it is (pipeline and id),
+ * the call as written (piece, tool, arguments, each, when, retry), and
+ * everything that feeds it: the steps it reads, as written, and the inputs
+ * it reads, with their defaults. Change any of it and the print changes.
+ */
+export function stepPrint(p: Pipeline, s: PipelineStep): string {
+  const fed = feeds(p, s);
   return createHash("sha256")
-    .update(JSON.stringify([s.piece, s.tool, s.args, s.each]))
+    .update(
+      JSON.stringify([
+        p.name,
+        s.id,
+        written(s),
+        fed.steps.map((x) => [x.id, written(x)]),
+        fed.inputs.map((name) => [name, p.inputs[name] ?? null]),
+      ]),
+    )
     .digest("hex")
     .slice(0, 16);
 }
@@ -408,31 +453,53 @@ export function markedSteps(
       if (step.kind !== "tool") continue;
       const m = marks(step.piece, step.tool);
       if (m.changes || m.outside)
-        out.push({ pipeline: p.name, step, marks: m, print: stepPrint(step) });
+        out.push({ pipeline: p.name, step, marks: m, print: stepPrint(p, step) });
     }
   }
   return out;
 }
 
-/** A pipeline as lines of text for the user to read before approving. */
+/**
+ * A pipeline as lines of text for the user to read before approving. A
+ * marked call is shown whole, and so is every step that feeds it: what the
+ * call gets is decided there.
+ */
 export function describe(p: Pipeline, marks: (piece: string, tool: string) => Marks): string[] {
   const out = [`- ${p.name}${p.description ? `: ${p.description}` : ""}`];
   const inputs = Object.entries(p.inputs).map(
     ([name, i]) => `${name}${i.required ? "" : ` (default ${JSON.stringify(i.default)})`}`,
   );
   if (inputs.length) out.push(`  Inputs chosen when it runs: ${inputs.join(", ")}`);
+  const marked = (s: PipelineStep) => {
+    if (s.kind !== "tool") return false;
+    const m = marks(s.piece, s.tool);
+    return m.changes || m.outside;
+  };
+  // Which marked steps each step feeds.
+  const feeding = new Map<string, string[]>();
+  for (const s of p.steps.filter(marked)) {
+    for (const from of feeds(p, s).steps) {
+      feeding.set(from.id, [...(feeding.get(from.id) ?? []), s.id]);
+    }
+  }
   p.steps.forEach((s, i) => {
     const n = `  ${i + 1}. ${s.id}:`;
-    if (s.kind === "transform") out.push(`${n} reshapes data`);
-    else if (s.kind === "claude") out.push(`${n} asks Claude: ${s.claude}`);
+    const into = feeding.get(s.id);
+    const fed = into ? ` (feeds ${into.join(", ")})` : "";
+    const when = s.when && (into || marked(s)) ? `, when ${s.when}` : "";
+    if (s.kind === "transform") {
+      out.push(`${n} reshapes data${fed}${when}`);
+      if (into) out.push(`     with ${s.transform}${s.from ? `, from ${s.from}` : ""}`);
+    } else if (s.kind === "claude") out.push(`${n} asks Claude${fed}${when}: ${s.claude}`);
     else {
       const m = marks(s.piece, s.tool);
       const tags = `${m.changes ? " [may change things]" : ""}${m.outside ? " [may reach outside]" : ""}`;
+      const again = marked(s) && s.retry ? `, tried up to ${s.retry + 1} times if it refuses` : "";
       out.push(
-        `${n} calls ${s.piece} ${s.tool}${tags}${s.each ? `, once for each of ${s.each}` : ""}`,
+        `${n} calls ${s.piece} ${s.tool}${tags}${s.each ? `, once for each of ${s.each}` : ""}${when}${again}${fed}`,
       );
       // What a marked call does is in its arguments: the user sees them as written.
-      if (m.changes || m.outside) out.push(`     with ${JSON.stringify(s.args)}`);
+      if (marked(s) || into) out.push(`     with ${JSON.stringify(s.args)}`);
     }
   });
   return out;
@@ -530,7 +597,8 @@ export function normalizePipelines(
       if (type && !INPUT_TYPES.includes(type)) {
         say(`input "${key}": type is one of ${INPUT_TYPES.join(", ")}`);
       }
-      const hasDefault = Object.hasOwn(spec, "default");
+      // A saved pipeline spells a required input out (`required: true, default: null`): it stays required.
+      const hasDefault = Object.hasOwn(spec, "default") && spec.required !== true;
       inputs[key] = {
         description: text(spec.description),
         type: INPUT_TYPES.includes(type as InputType) ? type : "",
@@ -640,7 +708,7 @@ export function normalizePipelines(
         );
       } else {
         step.claude = text(s.claude);
-        if (/\{\{[^}]*\$(steps|inputs|item|index)\b/.test(step.claude)) {
+        if (/\{\{[^}]*\$(steps|inputs|item|index|run|project)\b/.test(step.claude)) {
           local.push(
             'the instruction can\'t hold references; put each value in "input" (e.g. "input": {"notes": "{{ $steps.x.text }}"}) and name it in the instruction',
           );
@@ -655,6 +723,9 @@ export function normalizePipelines(
           local.push('expect is "text" or "json"');
         }
         if (step.retry) local.push("retry doesn't apply to a claude step");
+        if (step.onError === "continue") {
+          local.push("onError doesn't apply to a claude step: the run waits for its answer");
+        }
         only(["piece", "args", "each", "concurrency", "timeout", "from"], "tool or transform");
       }
 

@@ -3,8 +3,7 @@
 // or changes it, and only then are the pieces assembled.
 // Kept in the project as `.encela/blueprints/<id>.json`.
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { projectHome } from "./paths";
+import { inEncela } from "./paths";
 import { cautions, isDocument, type Piece } from "./piece";
 import {
   describe,
@@ -15,7 +14,8 @@ import {
   type Pipeline,
 } from "./pipeline";
 import { type Registry, writeJson } from "./registry";
-import type { ToolCache } from "./tools";
+import { place, type Seals } from "./seal";
+import { type ToolCache, withEnv } from "./tools";
 
 export type Status = "draft" | "approved" | "assembled" | "done" | "cancelled";
 export type StepStatus = "todo" | "doing" | "done" | "failed";
@@ -88,20 +88,37 @@ export interface Blueprint {
   approval: "" | "direct" | "relayed";
   /** Fingerprints of the pipeline steps the user saw marked (may change things, may reach outside) when approving. */
   approvedCalls: string[];
+  /**
+   * This computer's seal over the approval (src/seal.ts). Without it the
+   * approval doesn't count: the file may have come with the project.
+   */
+  seal: string;
 }
 
-/** The marks of a piece's tool, from what the piece showed the last time it ran. */
-export function marker(registry: Registry, tools?: ToolCache) {
+/**
+ * The marks of a piece's tool, from what the piece showed the last time it
+ * ran the way `b` runs it (with the blueprint's environment for that piece).
+ */
+export function marker(registry: Registry, tools: ToolCache | undefined, b: Blueprint | null) {
   return (piece: string, tool: string): Marks => {
     const p = registry.find(piece);
-    return marksOf(tool, p && tools ? tools.load(p.name, p.config) : null);
+    const env = b?.pieces.find((x) => x.piece === p?.id)?.env;
+    return marksOf(tool, p && tools ? tools.load(p.name, withEnv(p.config, env)) : null);
   };
 }
 
 /** The fingerprints of a blueprint's marked pipeline steps, as things are now. */
 export function markedCalls(b: Blueprint, registry: Registry, tools?: ToolCache): string[] {
-  return markedSteps(b.pipelines ?? [], marker(registry, tools)).map((m) => m.print);
+  return markedSteps(b.pipelines ?? [], marker(registry, tools, b)).map((m) => m.print);
 }
+
+/**
+ * Environment names a blueprint may not set for a piece: they change which
+ * code the piece's program loads, which is more than configuring it.
+ */
+const LOADS_CODE =
+  /^(NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|LD_AUDIT|DYLD_.*|PYTHONPATH|PYTHONSTARTUP|PYTHONHOME|PYTHONINSPECT|PERL5LIB|PERL5OPT|RUBYOPT|RUBYLIB|GEM_HOME|GEM_PATH|BASH_ENV|ENV|ZDOTDIR|PATH|PATHEXT|COMSPEC|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS|CLASSPATH|DOTNET_STARTUP_HOOKS|GIT_SSH|GIT_SSH_COMMAND|GIT_EXEC_PATH|NPM_CONFIG_.*|BUN_INSTALL|DENO_DIR)$/i;
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const list = (v: unknown) => (Array.isArray(v) ? v.map(text).filter(Boolean) : []);
@@ -122,7 +139,33 @@ function slug(s: string): string {
 
 /** What decides which pieces run and how: changing it needs the user's approval again. */
 const fingerprint = (b: Blueprint) =>
-  JSON.stringify(b.pieces.map((p) => [p.piece, p.tools, p.env]).sort());
+  JSON.stringify(
+    b.pieces
+      .map((p) => [p.piece, p.tools, Object.entries(p.env).sort(([a], [z]) => (a < z ? -1 : 1))])
+      .sort(),
+  );
+
+/** The facts an approval's seal covers: where, which blueprint, how and when, and what was approved. */
+export function sealFacts(b: Blueprint, project: string): string[] {
+  return [
+    "blueprint",
+    place(project),
+    b.id,
+    b.approval,
+    b.approvedAt ?? "",
+    fingerprint(b),
+    ...[...(b.approvedCalls ?? [])].sort(),
+  ];
+}
+
+/** Takes an approval back: the blueprint is a draft again. */
+export function unapprove(b: Blueprint) {
+  b.status = "draft";
+  b.approvedAt = null;
+  b.approval = "";
+  b.approvedCalls = [];
+  b.seal = "";
+}
 
 /**
  * A blueprint from what Claude wrote. Fills what is missing, checks it
@@ -161,18 +204,28 @@ export function normalizeBlueprint(
       problems.push(`pieces: ${found.id} isn't an MCP server, so it has no tools to limit`);
     }
     if (!text(p.role)) problems.push(`pieces: ${found.id} has no role in this build`);
+    const env: Record<string, string> = {};
+    if (p.env && typeof p.env === "object" && !Array.isArray(p.env)) {
+      for (const [k, v] of Object.entries(p.env as Record<string, unknown>)) {
+        if (!ENV_NAME.test(k))
+          problems.push(`pieces: ${found.id}: "${k}" isn't an environment name`);
+        else if (LOADS_CODE.test(k)) {
+          problems.push(
+            `pieces: ${found.id}: env can't set ${k}: it changes which code the piece loads. If the piece needs it, the user sets it in their own environment`,
+          );
+        } else env[k] = String(v);
+      }
+      if (Object.keys(env).length && found.kind !== "mcp") {
+        problems.push(`pieces: ${found.id} isn't an MCP server, so env does nothing for it`);
+      }
+    }
     pieces.push({
       piece: found.id,
       role: text(p.role),
       why: text(p.why),
       adapt: isDocument(found.kind) ? text(p.adapt) : "",
       tools,
-      env:
-        p.env && typeof p.env === "object"
-          ? Object.fromEntries(
-              Object.entries(p.env as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
-            )
-          : {},
+      env,
     });
   }
 
@@ -202,7 +255,8 @@ export function normalizeBlueprint(
       },
       known: (id) => {
         const piece = known.get(id);
-        return piece && tools ? tools.load(piece.name, piece.config) : null;
+        const env = pieces.find((p) => p.piece === id)?.env;
+        return piece && tools ? tools.load(piece.name, withEnv(piece.config, env)) : null;
       },
     },
   );
@@ -287,6 +341,7 @@ export function normalizeBlueprint(
     approvalNote: previous?.approvalNote ?? "",
     approval: previous?.approval ?? "",
     approvedCalls: previous?.approvedCalls ?? [],
+    seal: previous?.seal ?? "",
   };
   // The user approved certain pieces, tools and settings, and certain marked
   // pipeline calls with their arguments. Anything else: ask again.
@@ -305,11 +360,7 @@ export function normalizeBlueprint(
   if (blueprint.status === "done" && steps.some((s) => s.status !== "done")) {
     blueprint.status = "assembled";
   }
-  if (blueprint.status === "draft") {
-    blueprint.approvedAt = null;
-    blueprint.approval = "";
-    blueprint.approvedCalls = [];
-  }
+  if (blueprint.status === "draft") unapprove(blueprint);
   return blueprint;
 }
 
@@ -376,6 +427,11 @@ export function render(b: Blueprint, registry: Registry, brief = false, tools?: 
     if (bp.why && !brief) out.push(`  Why: ${bp.why}`);
     if (bp.adapt && !brief) out.push(`  Adapted for this build: ${bp.adapt}`);
     if (bp.tools.length) out.push(`  Only these tools: ${bp.tools.join(", ")}`);
+    // What it is started with is part of what the user approves.
+    const env = Object.entries(bp.env ?? {});
+    if (env.length) {
+      out.push(`  Started with: ${env.map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}`);
+    }
     for (const c of cautions(p)) out.push(`  ! ${c}`);
   }
   if (b.workers.length && !brief) {
@@ -404,7 +460,7 @@ export function render(b: Blueprint, registry: Registry, brief = false, tools?: 
       `## Pipelines (${pipelines.length})`,
       "Encela runs these chains of tool calls itself, without asking again. Calls that may change things or reach outside are marked, with their arguments.",
     );
-    for (const p of pipelines) out.push(...describe(p, marker(registry, tools)));
+    for (const p of pipelines) out.push(...describe(p, marker(registry, tools, b)));
   }
   if (b.choices.length) {
     out.push("", "## For you to decide");
@@ -416,23 +472,70 @@ export function render(b: Blueprint, registry: Registry, brief = false, tools?: 
   return out.join("\n");
 }
 
-/** A project's blueprints on disk. */
+/**
+ * A project's blueprints on disk.
+ *
+ * The project folder is not trusted to say what was approved: with `seals`,
+ * a blueprint whose approval doesn't carry this computer's seal is read as
+ * a draft. Links inside `.encela` are refused.
+ */
 export class Blueprints {
-  private dir: string;
+  constructor(
+    private project: string,
+    readonly seals?: Seals,
+  ) {}
 
-  constructor(private project: string) {
-    this.dir = join(projectHome(project), "blueprints");
+  private get dir() {
+    return inEncela(this.project, "blueprints");
   }
 
   private file(id: string) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`"${id}" isn't a blueprint id`);
-    return join(this.dir, `${id}.json`);
+    return inEncela(this.project, "blueprints", `${id}.json`);
+  }
+
+  /** Whether the approval in `b` is one this computer's user gave. */
+  sealed(b: Blueprint): boolean {
+    return !this.seals || this.seals.matches(b.seal, ...sealFacts(b, this.project));
+  }
+
+  /** Seals the approval just recorded in `b`. */
+  seal(b: Blueprint) {
+    b.seal = this.seals ? this.seals.sign(...sealFacts(b, this.project)) : "";
+  }
+
+  private read(file: string): Blueprint | null {
+    const b = JSON.parse(readFileSync(file, "utf8")) as Blueprint;
+    if (!b || typeof b !== "object" || typeof b.id !== "string" || !Array.isArray(b.steps)) {
+      return null;
+    }
+    b.pieces = Array.isArray(b.pieces) ? b.pieces : [];
+    b.pipelines = Array.isArray(b.pipelines) ? b.pipelines : [];
+    b.approvedCalls = Array.isArray(b.approvedCalls) ? b.approvedCalls : [];
+    if (b.status !== "draft" && b.status !== "cancelled" && !this.sealed(b)) unapprove(b);
+    return b;
+  }
+
+  /**
+   * True when the file of `id` claims an approval that this computer never
+   * recorded: it came with the project, the project folder moved, or it was
+   * edited by hand.
+   */
+  foreign(id: string): boolean {
+    try {
+      const raw = JSON.parse(readFileSync(this.file(id), "utf8")) as Blueprint;
+      return raw.status !== "draft" && raw.status !== "cancelled" && !this.sealed(raw);
+    } catch {
+      return false;
+    }
   }
 
   load(id: string): Blueprint | null {
     const file = this.file(id);
     if (!existsSync(file)) return null;
-    return JSON.parse(readFileSync(file, "utf8")) as Blueprint;
+    const b = this.read(file);
+    if (b && b.id !== id) return null;
+    return b;
   }
 
   get(id: string): Blueprint {
@@ -444,17 +547,19 @@ export class Blueprints {
 
   /** Every blueprint, the one changed last first. */
   list(): Blueprint[] {
-    if (!existsSync(this.dir)) return [];
+    const dir = this.dir;
+    if (!existsSync(dir)) return [];
     const all: Blueprint[] = [];
-    for (const f of readdirSync(this.dir)) {
+    for (const f of readdirSync(dir)) {
       if (!f.endsWith(".json")) continue;
       try {
-        all.push(JSON.parse(readFileSync(join(this.dir, f), "utf8")) as Blueprint);
+        const b = this.load(f.slice(0, -5));
+        if (b) all.push(b);
       } catch {
         // A file that isn't a blueprint is left alone.
       }
     }
-    return all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return all.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }
 
   /** The blueprint being built, if one is. */
@@ -465,21 +570,21 @@ export class Blueprints {
   save(b: Blueprint) {
     mkdirSync(this.dir, { recursive: true });
     // Blueprints and working copies are this user's; they stay out of git unless the user wants them in.
-    const ignore = join(dirname(this.dir), ".gitignore");
-    if (!existsSync(ignore)) writeFileSync(ignore, "*\n");
+    const ignore = inEncela(this.project, ".gitignore");
+    if (!existsSync(ignore)) writeFileSync(ignore, "*\n", { flag: "wx" });
     writeJson(this.file(b.id), b);
   }
 
   /** A new id that isn't taken: `base`, `base-2`, ... */
   freeId(base: string): string {
     let id = base;
-    for (let n = 2; this.load(id); n++) id = `${base}-${n}`;
+    for (let n = 2; existsSync(this.file(id)); n++) id = `${base}-${n}`;
     return id;
   }
 
   /** Where a blueprint's working copies go. */
   buildDir(id: string) {
     this.file(id);
-    return join(projectHome(this.project), "build", id);
+    return inEncela(this.project, "build", id);
   }
 }

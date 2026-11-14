@@ -149,7 +149,7 @@ Three new tools on the Encela MCP server:
 
 - `pipeline_run { id, pipeline, inputs?, wait? }`: checks the blueprint is approved (status assembled or done), opens the MCP pieces the pipeline needs if they are not running, validates, creates a run, starts it, and waits up to `wait` seconds (default 50, max 100: under Claude Code's 2 minute move to the background) for it to finish, fail, or need Claude. Returns the report. A run still going is reported as running, and `pipeline_get` with `wait` picks it up again.
 - `pipeline_resume { run, answers?: [{ step, output? , file? }], retry?, cancel?, wait? }`: gives the answers of waiting claude steps (`output` inline, or `file`: a path inside the project holding the answer), or retries a failed step, or cancels; then waits as above. Also continues a run that was interrupted by a server restart.
-- `pipeline_get { run?, step?, query?, max?, wait? }`: the report of a run (the latest when `run` is left out); with `step`, that step's output, optionally through a jq `query` over the output object (`.json.items[:5]`), cut at `max` characters (default 4000, max 20000) with the full size and file path noted.
+- `pipeline_get { run?, step?, query?, max?, wait? }`: the report of a run (the latest when `run` is left out); with `step`, that step's output, optionally through a jq `query` over the output object (`.json[:5]`), cut at `max` characters (default 4000, max 20000) with the full size and file path noted.
 
 The run goes on in the server while no call is waiting on it. If the `tools/call` carried a progress token, the server sends `notifications/progress` as steps finish.
 

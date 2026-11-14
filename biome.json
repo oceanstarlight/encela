@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!catalog", "!dist", "!test/fixtures/jq-cases.json"]
+    "includes": ["**", "!catalog", "!dist", "!test/fixtures/jq-cases.json", "!.claude"]
   },
   "formatter": {
     "enabled": true,

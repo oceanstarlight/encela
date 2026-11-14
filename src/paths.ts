@@ -1,6 +1,6 @@
 // Where things live: the package's own files, the user's Encela folder and a
 // project's `.encela` folder.
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,3 +47,29 @@ export function projectDir(): string {
 
 /** The project's Encela folder: blueprints and the working copies built from them. */
 export const projectHome = (project: string) => join(project, ".encela");
+
+/**
+ * A path inside the project's `.encela` folder. Throws when `.encela` or
+ * anything on the way down is a link: a project's own files don't get to say
+ * where Encela reads and writes.
+ */
+export function inEncela(project: string, ...parts: string[]): string {
+  let at = projectHome(project);
+  for (const part of ["", ...parts]) {
+    if (part) {
+      if (part === "." || part === ".." || /[\\/]/.test(part)) {
+        throw new Error(`"${part}" isn't a name inside .encela`);
+      }
+      at = join(at, part);
+    }
+    let link = false;
+    try {
+      link = lstatSync(at).isSymbolicLink();
+    } catch {
+      // Not there yet, so nothing below it is either.
+      continue;
+    }
+    if (link) throw new Error(`${at} is a link: Encela doesn't follow links out of .encela`);
+  }
+  return at;
+}

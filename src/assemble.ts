@@ -2,10 +2,13 @@
 // instruction and subagent gets a working copy in the project
 // (`.encela/build/<blueprint>/`). The copy is what gets adapted to the build
 // and read while building; the piece itself is never changed.
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { type Blueprint, type BlueprintPiece, MAIN, shared } from "./blueprint";
+import { inEncela, projectHome } from "./paths";
 import { isDocument, type Piece } from "./piece";
+import { writeJson } from "./registry";
+import { place, type Seals } from "./seal";
 
 const FOLDER: Record<string, string> = {
   skill: "skills",
@@ -46,35 +49,85 @@ export interface Copy {
   entry: BlueprintPiece;
   /** The working copy, relative to the project. */
   path: string;
-  /** False when a copy was already there (perhaps adapted) and was kept. */
+  /** False when a copy Encela wrote here earlier (perhaps adapted since) was kept. */
   written: boolean;
+  /** True when a file was already there that Encela hadn't written: it was replaced. */
+  replaced: boolean;
 }
 
-/** Writes the working copies that don't exist yet. */
+const LEDGER = "copies.json";
+
+/** The copies of a blueprint that this computer's Encela wrote, by path inside the build folder. */
+function ours(project: string, id: string, seals: Seals): Set<string> {
+  try {
+    const data = JSON.parse(readFileSync(inEncela(project, "build", id, LEDGER), "utf8")) as {
+      paths?: unknown;
+      seal?: unknown;
+    };
+    const paths = Array.isArray(data.paths) ? data.paths.filter((x) => typeof x === "string") : [];
+    return seals.matches(data.seal, "build", place(project), id, ...paths)
+      ? new Set(paths)
+      : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Writes a blueprint's working copies. A copy Encela wrote here before is
+ * kept, since it may have been adapted. A file that was already there
+ * without Encela having written it (it came with the project) is replaced:
+ * the user approved the piece, not that file.
+ */
 export function writeCopies(
   b: Blueprint,
   find: (id: string) => Piece | null,
-  buildDir: string,
   project: string,
+  seals?: Seals,
 ): Copy[] {
   const copies: Copy[] = [];
+  const root = inEncela(project, "build", b.id);
+  const known = seals ? ours(project, b.id, seals) : null;
+  /** A path under the build folder, checked for links all the way down. */
+  const inside = (file: string) =>
+    inEncela(project, ...relative(projectHome(project), file).split(sep));
+  const put = (file: string, content: string) => {
+    mkdirSync(inside(join(file, "..")), { recursive: true });
+    writeFileSync(inside(file), content);
+  };
+  const paths: string[] = [];
   for (const entry of b.pieces) {
     const piece = find(entry.piece);
     if (!piece || !isDocument(piece.kind)) continue;
-    const file = copyPath(buildDir, piece);
-    const written = !existsSync(file);
-    if (written) {
-      mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, copyText(piece));
+    const file = inside(copyPath(root, piece));
+    const name = relative(root, file).split(sep).join("/");
+    const there = existsSync(file);
+    const keep = there && (!known || known.has(name));
+    if (!keep) {
+      put(file, copyText(piece));
       for (const [rel, content] of Object.entries(piece.files)) {
         // A reference file stays next to its skill.
-        if (rel.split(/[\\/]/).includes("..")) continue;
-        const target = join(dirname(file), rel);
-        mkdirSync(dirname(target), { recursive: true });
-        writeFileSync(target, content);
+        const parts = rel.split(/[\\/]/).filter(Boolean);
+        if (!parts.length || parts.includes("..") || parts.includes(".")) continue;
+        put(join(file, "..", ...parts), content);
       }
     }
-    copies.push({ piece, entry, path: relative(project, file).split("\\").join("/"), written });
+    paths.push(name);
+    copies.push({
+      piece,
+      entry,
+      path: relative(project, file).split(sep).join("/"),
+      written: !keep,
+      replaced: there && !keep,
+    });
+  }
+  if (seals && paths.length) {
+    const all = [...new Set([...(known ?? []), ...paths])].sort();
+    mkdirSync(root, { recursive: true });
+    writeJson(inEncela(project, "build", b.id, LEDGER), {
+      paths: all,
+      seal: seals.sign("build", place(project), b.id, ...all),
+    });
   }
   return copies;
 }
@@ -100,7 +153,11 @@ export function briefs(b: Blueprint, usage: Usage): { worker: string; text: stri
         "Steps:",
         ...steps.map((s) => {
           const after = s.after.length ? ` (after ${s.after.join(", ")})` : "";
-          return `- ${s.id}: ${s.title}${after}${s.detail ? `. ${s.detail}` : ""}`;
+          // A step a pipeline does is run, not done by hand: that is what the user approved.
+          const run = s.pipeline
+            ? ` Do it by running the pipeline: pipeline_run {id: "${b.id}", pipeline: "${s.pipeline}"}, then do what the report's last line says.`
+            : "";
+          return `- ${s.id}: ${s.title}${after}${s.detail ? `. ${s.detail}` : ""}${run}`;
         }),
       ];
       if (pieces.length) lines.push("Pieces to use:", ...pieces.map((id) => `- ${usage(id)}`));

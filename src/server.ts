@@ -25,6 +25,7 @@ import {
   ready,
   render,
   type StepStatus,
+  unapprove,
 } from "./blueprint";
 import { Client, forThisOs, supported } from "./client";
 import { type Answer, Engine, type Host } from "./engine";
@@ -34,8 +35,9 @@ import { describe, markedSteps, marksOf, type Pipeline, PipelineError } from "./
 import { Registry } from "./registry";
 import { Sandbox } from "./sandbox";
 import { signature } from "./schema";
+import { Seals } from "./seal";
 import { line, search } from "./search";
-import { type KnownTool, knownTool, ToolCache } from "./tools";
+import { type KnownTool, knownTool, ToolCache, withEnv } from "./tools";
 
 type Json = Record<string, unknown>;
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -130,7 +132,7 @@ function ownTools() {
         blueprint: {
           type: "object",
           description:
-            "id (only when changing one), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, retry, onError, parallel, after. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}.",
+            "id (only when changing one), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, parallel, after; a tool or transform step also retry and onError. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}: nothing else in that call is changed, and {name, remove: true} in the list deletes that pipeline.",
         },
       },
       ["blueprint"],
@@ -242,7 +244,7 @@ function ownTools() {
     ),
     tool(
       "pipeline_get",
-      'A run\'s report (the latest run when `run` is left out), after waiting up to `wait` seconds for it to need you. With `step`: that step\'s output, cut at `max` characters; `query` is a jq expression over the output object {text, json, structured, file, files, items, ...}, e.g. ".json.items[:5]" or ".text | split("\\n")[:20]". For a step that waits for you, what it asks.',
+      'A run\'s report (the latest run when `run` is left out), after waiting up to `wait` seconds for it to need you. With `step`: that step\'s output, cut at `max` characters; `query` is a jq expression over the output object {text, json, structured, file, files, items, ...}, e.g. ".json[:5]", ".items[:5] | map(.text)" for an each step, or ".text | split("\\n")[:20]". For a step that waits for you, what it asks.',
       {
         run: { type: "string", description: "The run's id" },
         step: { type: "string", description: "A step's id" },
@@ -268,6 +270,8 @@ export interface ServerOptions {
   project?: string;
   registry?: Registry;
   tools?: ToolCache;
+  /** The user's Encela folder, where the key for seals is kept. The registry's folder when left out. */
+  home?: string;
 }
 
 const envKey = (env: Record<string, string>) => JSON.stringify(Object.entries(env).sort());
@@ -298,9 +302,15 @@ export class Server {
     this.project = opts.project ?? projectDir();
     this.registry = opts.registry ?? new Registry();
     this.tools = opts.tools ?? new ToolCache();
-    this.blueprints = new Blueprints(this.project);
-    this.engine = new Engine(this.project, this.host(), (source, input, vars) =>
-      this.sandbox.run(source, input, vars),
+    // What the user approved, and the runs this server started, count only
+    // with a seal of this computer: the project's own files don't get to say.
+    const seals = new Seals(opts.home ?? this.registry.folder);
+    this.blueprints = new Blueprints(this.project, seals);
+    this.engine = new Engine(
+      this.project,
+      this.host(),
+      (source, input, vars) => this.sandbox.run(source, input, vars),
+      { seals },
     );
   }
 
@@ -321,6 +331,12 @@ export class Server {
         const piece = this.registry.find(id);
         const running = piece && this.open.get(piece.name);
         return running ? running.client.tools().map(knownTool) : null;
+      },
+      remembered: (id, blueprint) => {
+        const piece = this.registry.find(id);
+        if (!piece) return null;
+        const env = this.blueprints.load(blueprint)?.pieces.find((x) => x.piece === piece.id)?.env;
+        return this.tools.load(piece.name, withEnv(piece.config, env));
       },
     };
   }
@@ -512,9 +528,11 @@ export class Server {
     // Only pipelines given for a saved blueprint: change those, keep the rest.
     const patch = !!previous && Array.isArray(given.pipelines) && given.goal === undefined;
     let input: unknown = raw;
+    let ignored: string[] = [];
     if (previous && patch) {
       const changed = (given.pipelines as Json[]).filter((p) => p && typeof p === "object");
       const names = new Set(changed.map((p) => String(p.name ?? "")));
+      ignored = Object.keys(given).filter((k) => k !== "id" && k !== "pipelines");
       input = {
         ...previous,
         pipelines: [
@@ -526,33 +544,55 @@ export class Server {
     const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
     if (!previous) b.id = this.blueprints.freeId(b.id);
     this.blueprints.save(b);
-    const marker = (piece: string, name: string) => this.marks(piece, name);
-    const again =
-      previous && previous.status !== "draft" && b.status === "draft"
-        ? " It was approved before; what changed (the pieces, or a pipeline call that may change things or reach outside) needs the user's approval again."
-        : "";
+    const marker = (piece: string, name: string) => this.marks(piece, name, b);
+    let again = "";
+    if (previous && previous.status !== "draft" && b.status === "draft") {
+      again =
+        " It was approved before; what changed (the pieces, or a pipeline call that may change things or reach outside, or something that feeds such a call) needs the user's approval again.";
+      // An approval that no longer holds doesn't go on making calls.
+      const stopped = this.engine
+        .unfinished()
+        .filter((run) => this.engine.get(run).blueprint === b.id)
+        .filter((run) => {
+          try {
+            return this.engine.cancel(run).status === "cancelled";
+          } catch {
+            return false;
+          }
+        });
+      if (stopped.length) {
+        again += ` Its unfinished run${stopped.length > 1 ? "s" : ""} ${stopped.join(", ")} ${stopped.length > 1 ? "were" : "was"} stopped: once the user has approved, pipeline_resume {run, retry: true} goes on from what was done.`;
+      }
+    }
     if (patch) {
       const shown = b.pipelines
         .filter((p) => (given.pipelines as Json[]).some((g) => g?.name === p.name))
         .flatMap((p) => describe(p, marker));
-      return `${shown.join("\n") || "Removed."}\n\nSaved ${b.id}; it is ${b.status}.${again}${b.status === "draft" ? " Show the user the changed pipelines, then call blueprint_approve." : ""}`;
+      const dropped = ignored.length
+        ? ` Only the pipelines were changed: ${ignored.join(", ")} ${ignored.length > 1 ? "were" : "was"} left as ${ignored.length > 1 ? "they were" : "it was"} (send the whole blueprint, with its goal, to change anything else).`
+        : "";
+      return `${shown.join("\n") || "Removed."}\n\nSaved ${b.id}; it is ${b.status}.${dropped}${again}${b.status === "draft" ? " Show the user the changed pipelines, then call blueprint_approve." : ""}`;
     }
     const next =
       b.status === "draft"
-        ? `Show this blueprint to the user in their language (every piece, its warnings marked with !, every pipeline with its marked calls and their arguments, and the choices), then call blueprint_approve.${again}`
+        ? `Show this blueprint to the user in their language (every piece with what it is started with and its warnings marked with !, every pipeline with its marked calls, their arguments and what feeds them, and the choices), then call blueprint_approve.${again}`
         : `Saved; still ${b.status} (nothing the user approved has changed).`;
     return `${render(b, this.registry, false, this.tools)}\n\n${next}`;
   }
 
-  /** A tool's marks: from the running piece when there is one, else from what it showed last time. */
-  private marks(pieceId: string, name: string) {
+  /**
+   * A tool's marks for a blueprint: from the running piece when it runs the
+   * way that blueprint runs it, else from what it showed the last time it did.
+   */
+  private marks(pieceId: string, name: string, b: Blueprint | null) {
     const piece = this.registry.find(pieceId);
-    const running = piece && this.open.get(piece.name);
-    const known = running
-      ? running.client.tools().map(knownTool)
-      : piece
-        ? this.tools.load(piece.name, piece.config)
-        : null;
+    if (!piece) return marksOf(name, null);
+    const env = b?.pieces.find((x) => x.piece === piece.id)?.env ?? {};
+    const running = this.open.get(piece.name);
+    const known =
+      running && envKey(running.env) === envKey(env)
+        ? running.client.tools().map(knownTool)
+        : this.tools.load(piece.name, withEnv(piece.config, env));
     return marksOf(name, known);
   }
 
@@ -615,31 +655,65 @@ export class Server {
    * A client may say it can ask and still close the question at once
    * (Claude Code does in a run without a terminal). Such a blueprint takes
    * the answer Claude passes on the next call, as a relayed one.
+   *
+   * The question can stay open for a long time. What the user answers is an
+   * answer about the blueprint they were shown: if it was saved anew in the
+   * meantime, the answer isn't applied.
    */
   private async approve(args: Json): Promise<string> {
-    const b = this.blueprints.get(String(args.id ?? ""));
+    const id = String(args.id ?? "");
+    let b = this.blueprints.get(id);
+    /** The blueprint as it is now, if it is still the one the user was shown. */
+    const same = (shown: Blueprint): Blueprint | null => {
+      const now = this.blueprints.load(shown.id);
+      return now && now.updatedAt === shown.updatedAt && now.status === shown.status ? now : null;
+    };
+    const changed = `${id} was changed while the user was looking at it, so their answer wasn't applied. Show them the blueprint as it is now and call blueprint_approve again.`;
+
     if (b.status === "approved" || b.status === "assembled") {
       // An answer that came through Claude doesn't let pipelines make marked
       // calls; the user can still give that answer themselves.
-      if (b.approval === "relayed" && b.approvedCalls.length && this.canAsk) {
-        let reply: Json | null = null;
-        try {
-          reply = await this.decision(
-            b,
-            "You approved this through Claude. Let Encela run its pipelines itself, marked calls included?",
-          );
-        } catch {
-          // The client didn't ask after all.
-        }
-        if (reply?.action === "accept" && (reply.content as Json)?.decision === "approve") {
-          b.approval = "direct";
-          this.blueprints.save(b);
-          return `${b.id} is approved, now by the user directly: its pipelines can run, marked calls included.`;
-        }
-        return `${b.id} is already approved, through you: Encela still won't make the marked calls of its pipelines itself. Call blueprint_assemble, or go on.`;
+      if (b.approval !== "relayed" || !b.approvedCalls.length) {
+        return `${b.id} is already approved. Call blueprint_assemble.`;
       }
-      return `${b.id} is already approved. Call blueprint_assemble.`;
+      const through = `${b.id} is approved through you, not by the user answering Encela directly: Encela won't make the marked calls of its pipelines itself. Make those calls one at a time, or go on with the rest.`;
+      if (!this.canAsk) {
+        return `${through} (Here the user can't be asked directly, so that stays so.)`;
+      }
+      let reply: Json | null = null;
+      try {
+        reply = await this.decision(
+          b,
+          "You approved this through Claude. Let Encela run its pipelines itself, marked calls included?",
+        );
+      } catch {
+        // The client didn't ask after all.
+      }
+      if (reply?.action !== "accept") return through;
+      const now = same(b);
+      if (!now) return changed;
+      b = now;
+      const content = (reply.content as Json) ?? {};
+      const note = String(content.note ?? "").trim();
+      if (content.decision === "approve") {
+        b.approval = "direct";
+        this.blueprints.seal(b);
+        this.blueprints.save(b);
+        return `${b.id} is approved, now by the user directly: its pipelines can run, marked calls included.`;
+      }
+      if (content.decision === "cancel") {
+        b.status = "cancelled";
+        b.approvalNote = note;
+        this.blueprints.save(b);
+        return `The user cancelled this blueprint${note ? `: ${note}` : ""}. Don't go on building it; ask what they want instead.`;
+      }
+      unapprove(b);
+      b.approvalNote = note;
+      b.updatedAt = new Date().toISOString();
+      this.blueprints.save(b);
+      return `The user wants changes${note ? `: ${note}` : " (ask them which)"}. ${b.id} is a draft again: change it, save it with blueprint_save and ask for approval again.`;
     }
+
     const passed = String(args.user_answer ?? "");
     const given = ["approve", "revise", "cancel"].includes(passed);
     const asked = `${b.id}\0${b.updatedAt}`;
@@ -671,10 +745,14 @@ export class Server {
       }
     }
     this.unanswered.delete(asked);
+    const now = same(b);
+    if (!now) return changed;
+    b = now;
     b.approvalNote = note;
     b.updatedAt = new Date().toISOString();
     if (answer === "approve") {
       approve(b, direct ? "direct" : "relayed", this.registry, this.tools);
+      this.blueprints.seal(b);
       this.blueprints.save(b);
       // The user has now seen what each outside piece is and runs.
       this.registry.trust(b.pieces.map((p) => p.piece));
@@ -697,7 +775,7 @@ export class Server {
     const b = this.blueprints.get(id);
     if (b.status !== "approved" && b.status !== "assembled") {
       throw new Error(
-        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing was assembled.`,
+        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing was assembled.${this.foreignNote(b.id)}`,
       );
     }
     const usage = new Map<string, string>();
@@ -706,8 +784,8 @@ export class Server {
     const copies = writeCopies(
       b,
       (pid) => this.registry.find(pid),
-      this.blueprints.buildDir(b.id),
       this.project,
+      this.blueprints.seals,
     );
     for (const entry of b.pieces) {
       const piece = this.registry.find(entry.piece);
@@ -720,7 +798,7 @@ export class Server {
         const copy = copies.find((c) => c.piece.id === piece.id) as Copy;
         usage.set(piece.id, documentUsage(copy));
         out.push(
-          `- ${piece.id}: working copy at ${copy.path}${copy.written ? "" : " (kept the one already there)"}${entry.adapt ? `. To adapt: ${entry.adapt}` : ""}`,
+          `- ${piece.id}: working copy at ${copy.path}${copy.replaced ? " (a file was already there that Encela hadn't written: it was replaced with the piece)" : copy.written ? "" : " (kept the one already there)"}${entry.adapt ? `. To adapt: ${entry.adapt}` : ""}`,
         );
         continue;
       }
@@ -840,13 +918,15 @@ export class Server {
     if (!running) {
       let start = this.starting.get(piece.name);
       if (!start) {
-        const withEnv = { ...config, env: { ...config.env, ...env } };
+        const started = withEnv(config, env) as McpConfig;
         const name = piece.name;
-        start = Client.start(forThisOs(withEnv), this.project, () => {
+        start = Client.start(forThisOs(started), this.project, () => {
           this.send({ jsonrpc: "2.0", method: "notifications/tools/list_changed" });
           // What it says about its tools changed: keep the new list for the next blueprint.
           const now = this.open.get(name);
-          void now?.client.freshTools().then((list) => this.tools.save(name, config, list));
+          void now?.client
+            .freshTools()
+            .then((list) => this.tools.save(name, withEnv(config, now.env), list));
         });
         this.starting.set(piece.name, start);
       }
@@ -862,7 +942,7 @@ export class Server {
       this.open.set(piece.name, running);
       this.changed = true;
       // Kept so that later blueprints can be checked, and their tools marked, before anything starts.
-      this.tools.save(piece.name, config, client.tools());
+      this.tools.save(piece.name, withEnv(config, running.env), client.tools());
     }
     const allow = tools.length ? new Set(tools) : null;
     if (JSON.stringify([...(running.allow ?? [])]) !== JSON.stringify([...(allow ?? [])])) {
@@ -913,6 +993,14 @@ export class Server {
     for (const r of this.open.values()) r.client.close();
     this.open.clear();
     this.sandbox.close();
+    this.engine.close();
+  }
+
+  /** Why a blueprint that says it is approved isn't taken as approved, when that is so. */
+  private foreignNote(id: string): string {
+    return this.blueprints.foreign(id)
+      ? " Its file says it was approved, but not on this computer (it came with the project, the project folder moved, or the file was edited by hand): that doesn't count."
+      : "";
   }
 
   // Pipelines --------------------------------------------------------------
@@ -921,11 +1009,15 @@ export class Server {
    * Makes a pipeline ready to run for its blueprint: the blueprint is
    * approved, its pieces run with the blueprint's own settings, and every
    * call that may change things or reach outside is one the user was shown.
+   *
+   * `current` is false for the pipeline a run was started with, which may
+   * be older than the blueprint's: what it lacks is then the run's problem,
+   * not the blueprint's.
    */
-  private async prepare(b: Blueprint, p: Pipeline) {
+  private async prepare(b: Blueprint, p: Pipeline, current = true) {
     if (!["approved", "assembled", "done"].includes(b.status)) {
       throw new PipelineError(
-        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing ran.`,
+        `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing ran.${this.foreignNote(b.id)}`,
       );
     }
     for (const id of new Set(p.steps.filter((s) => s.kind === "tool").map((s) => s.piece))) {
@@ -934,21 +1026,24 @@ export class Server {
       await this.openPiece(this.registry.get(id), entry.tools, entry.env);
     }
     // With the pieces running, their tools are known as they are now.
-    const marked = markedSteps([p], (piece, name) => this.marks(piece, name));
+    const marked = markedSteps([p], (piece, name) => this.marks(piece, name, b));
     const unseen = marked.filter((m) => !b.approvedCalls.includes(m.print));
+    const names = unseen.map((m) => `${m.step.id} (${m.step.piece} ${m.step.tool})`).join(", ");
+    if (unseen.length && !current) {
+      throw new PipelineError(
+        `Nothing ran. This run was started from an earlier version of the pipeline ${p.name}: ${names} isn't among the calls the user approved for ${b.id} as it is now. pipeline_resume {"retry": true} goes on with the approved version, or start a new run.`,
+      );
+    }
     if (unseen.length) {
-      b.status = "draft";
-      b.approvedAt = null;
-      b.approval = "";
-      b.approvedCalls = [];
+      unapprove(b);
       this.blueprints.save(b);
       throw new PipelineError(
-        `Nothing ran. ${unseen.map((m) => `${m.step.id} (${m.step.piece} ${m.step.tool})`).join(", ")} may change things or reach outside and wasn't among the calls the user approved, or it was changed since. ${b.id} is a draft again: show the user the pipeline and call blueprint_approve.`,
+        `Nothing ran. ${names} may change things or reach outside and wasn't among the calls the user approved, or it, or something that feeds it, was changed since. ${b.id} is a draft again: show the user the pipeline and call blueprint_approve.`,
       );
     }
     if (marked.length && b.approval !== "direct") {
       throw new PipelineError(
-        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), run a pipeline that only reads, or call blueprint_approve again so the user can answer Encela's own question.`,
+        `Nothing ran. The pipeline ${p.name} has calls that may change things or reach outside (${marked.map((m) => m.step.id).join(", ")}), and ${b.id} was approved through you, not by the user answering Encela directly. Encela doesn't make such calls unseen: make them one at a time yourself (the tools are in your list as <piece>__<tool>), or run a pipeline that only reads${this.canAsk ? ", or call blueprint_approve again so the user can answer Encela's own question" : ""}.`,
       );
     }
     for (const s of p.steps) {
@@ -1027,7 +1122,7 @@ export class Server {
         );
       }
       // The steps after an answer may call tools: their pieces must be running, and approved.
-      await this.prepare(b, run.pipeline);
+      await this.prepare(b, run.pipeline, false);
       notes.push(...this.engine.answer(id, answers));
     }
     const report = await this.waitAndReport(id, args.wait, 50, token);
