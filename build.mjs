@@ -198,6 +198,14 @@ if (process.argv.includes("--test")) {
     entryPoints: [join(here, "src", "lib.ts")],
     outfile: join(here, "test", ".build", "lib.js"),
   });
+  // The expression language is tested on its own.
+  if (existsSync(join(here, "src", "jq.ts"))) {
+    await build({
+      ...common,
+      entryPoints: [join(here, "src", "jq.ts")],
+      outfile: join(here, "test", ".build", "jq.js"),
+    });
+  }
 }
 const count = (kinds) => pieces.filter((p) => kinds.includes(p.kind)).length;
 console.log(

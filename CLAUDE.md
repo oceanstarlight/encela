@@ -39,6 +39,12 @@ Run all three before committing. To try it in Claude Code: `node dist/cli.js set
 - Bundled catalog content: only MIT, Apache-2.0, BSD, ISC, Zlib, Unlicense, CC0, at a pinned commit, with `license`/`copyright`/`source_*` frontmatter, the LICENSE text in `catalog/external/<source>/`, and a row in `THIRD_PARTY_NOTICES.md`. No scripts, hooks, ads, telemetry. Pieces the user fetches at run time are not bundled and only get warnings.
 - Do not use "Claude" or "Anthropic" in the product's name or branding.
 
+## Subagents
+
+- Ask the user before running a workflow or spawning subagents.
+- Simple or repetitive work, verification and fact-checking: model `sonnet`. Web research: `sonnet` or `haiku`.
+- Heavy reasoning (design critique, hard implementation): `opus` is fine.
+
 ## Roadmap
 
 1. [x] Pieces, registry, hub
