@@ -831,7 +831,13 @@ test("setup writes the view into the plugin, or leaves it out", () => {
   const hooks = JSON.parse(readFileSync(join(plugin, "hooks", "hooks.json"), "utf8"));
   assert.deepEqual(hooks.modules, ["./view.tsx"]);
   assert.ok(hooks.hooks.UserPromptSubmit);
-  for (const f of ["hooks/view.tsx", "hooks/motion.tsx", "hooks/model.ts", "types/index.d.ts"]) {
+  for (const f of [
+    "hooks/view.tsx",
+    "hooks/motion.tsx",
+    "hooks/model.ts",
+    "hooks/canvas.ts",
+    "types/index.d.ts",
+  ]) {
     assert.ok(existsSync(join(plugin, f)), f);
   }
   // The tests need Claude Code to run: they stay out of the package.
@@ -843,6 +849,7 @@ test("setup writes the view into the plugin, or leaves it out", () => {
   const source = readFileSync(join(plugin, "hooks", "view.tsx"), "utf8");
   assert.deepEqual([...source.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort(), [
     "../types",
+    "./canvas",
     "./model",
     "./model",
     "claude-code",

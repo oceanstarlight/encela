@@ -410,3 +410,101 @@ test("review: an answer doesn't wait for the view's reading, and a look that nev
   expect(await pane.find({ type: "Text", text: /API 구현/, in: "pane" })).toBeDefined();
   await pane.unmount();
 });
+
+test("the pane has two tabs: the work graph and the workflow canvas, with the head kept", async ($, on) => {
+  const clock = mock.clock(on, { now: 1000 });
+  world(on, { text: JSON.stringify(building(2000)) });
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  await $.agent.spawn({
+    prompt: 'Worker "backend": builds the API.\nSteps: api',
+    description: "API",
+    subagentType: "general-purpose",
+  } as never);
+  // The file is read after the call has answered.
+  await clock.advance(10);
+
+  const wrong: string[] = [];
+  for (const surface of SURFACES) {
+    const pane = await $.ui.mount({ ...PANE, surface });
+    const at = within(surface, "pane");
+    const has = async (text: RegExp) =>
+      (await pane.find({ type: "Text", text, ...at })) !== undefined;
+    const say = (ok: boolean, what: string) => {
+      if (!ok) wrong.push(`${surface}: ${what}`);
+    };
+    // The graph first: the steps, no canvas.
+    say((await pane.findAll({ type: "Button", ...at })).length === 2, "two tabs");
+    say(await has(/API 구현/), "graph: the step");
+    say(!(await has(/오케스트레이터/)), "graph: no canvas yet");
+
+    await pane.press({ key: "tab-canvas" });
+    say(await has(/오케스트레이터/), "canvas: the orchestrator");
+    say(await has(/backend/), "canvas: the worker");
+    say(await has(/playwright/), "canvas: a piece");
+    say(await has(/부품 2\/2 조립됨/), "canvas: the pieces line");
+    say(!(await has(/API 구현/)), "canvas: no step list");
+    // The head stays: what is being built, and where the flow stands.
+    say(await has(/할 일 앱 만들기/), "canvas: the goal");
+    say(await has(/● 만들기/), "canvas: the flow");
+    await pane.unmount();
+
+    // The session remembers the tab.
+    const again = await $.ui.mount({ ...PANE, surface });
+    const there = await again.find({ type: "Text", text: /오케스트레이터/, ...at });
+    say(there !== undefined, "the tab is remembered");
+    await again.press({ key: "tab-graph" });
+    const back = await again.find({ type: "Text", text: /API 구현/, ...at });
+    say(back !== undefined, "back to the graph");
+    await again.unmount();
+  }
+  expect(wrong).toEqual([]);
+});
+
+test("packets run along the canvas's lines while a worker is at work, and stop when it is done", async ($, on) => {
+  mock.clock(on, { now: 1000 });
+  world(on, { text: JSON.stringify(building(2000)) });
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  await $.agent.spawn({
+    prompt: 'Worker "backend": builds the API.\nSteps: api',
+    description: "API",
+    subagentType: "general-purpose",
+  } as never);
+  await $.tool.call({
+    tool: "mcp__plugin_encela_encela__playwright__browser_click",
+    agentId: "agent-1",
+  } as never);
+
+  let pane = await $.ui.mount({ ...PANE, surface: "terminal" });
+  await pane.press({ key: "tab-canvas" });
+  const packets = async () =>
+    (await pane.findAll({ type: "Text", text: /^■$/, in: "pane" })).length;
+  const first = await packets();
+  expect(first > 0).toBe(true);
+  await pane.advance(240);
+  expect((await packets()) > 0).toBe(true);
+  // The worker has called the piece: a line joins them.
+  expect(await pane.find({ type: "Text", text: /[┬┴]/, in: "pane" })).toBeDefined();
+  await pane.unmount();
+
+  await $.turn.complete({
+    answer: "done",
+    durationMs: 10,
+    isAborted: false,
+    turnId: "t1",
+    agentId: "agent-1",
+  } as never);
+  await $.turn.complete({
+    answer: "done",
+    durationMs: 10,
+    isAborted: false,
+    turnId: "t0",
+  } as never);
+  pane = await $.ui.mount({ ...PANE, surface: "terminal" });
+  expect(await packets()).toBe(0);
+  await pane.advance(600);
+  expect(await packets()).toBe(0);
+  expect(await pane.find({ type: "Text", text: /✓/, in: "pane" })).toBeDefined();
+  await pane.unmount();
+});
