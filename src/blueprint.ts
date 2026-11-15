@@ -55,6 +55,8 @@ export interface Step {
 }
 
 export interface Choice {
+  /** What the user chose the last time, when the blueprint started from a recipe: a default, asked again. */
+  last?: string;
   question: string;
   options: string[];
   answer: string;
@@ -315,7 +317,12 @@ export function normalizeBlueprint(
     problems.push("steps: the after links go round in a circle");
   }
   const choices: Choice[] = objects(r.choices)
-    .map((c) => ({ question: text(c.question), options: list(c.options), answer: text(c.answer) }))
+    .map((c) => ({
+      question: text(c.question),
+      options: list(c.options),
+      answer: text(c.answer),
+      ...(text(c.last) ? { last: text(c.last) } : {}),
+    }))
     .filter((c) => c.question);
 
   if (problems.length) {
@@ -466,7 +473,9 @@ export function render(b: Blueprint, registry: Registry, brief = false, tools?: 
     out.push("", "## For you to decide");
     for (const c of b.choices) {
       const options = c.options.length ? ` (${c.options.join(" / ")})` : "";
-      out.push(`- ${c.question}${options}${c.answer ? ` → ${c.answer}` : ""}`);
+      const last =
+        !c.answer && typeof c.last === "string" && c.last ? ` (last time: ${c.last})` : "";
+      out.push(`- ${c.question}${options}${c.answer ? ` → ${c.answer}` : last}`);
     }
   }
   return out.join("\n");

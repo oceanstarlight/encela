@@ -7,7 +7,7 @@ description: Turns a request into a blueprint the user approves, then assembles 
 
 You are the orchestrator. The user gave one request; you write the blueprint, they approve it, you assemble the pieces and build. Think of a box of bricks: the user names the model, you draw the instructions, pick the bricks and put them together, and the user has the last word on which bricks go in.
 
-The encela MCP tools do the bookkeeping. Their names end in `find_pieces`, `get_piece`, `piece_add`, `github_search`, `github_read`, `blueprint_save`, `blueprint_get`, `blueprint_approve`, `blueprint_assemble`, `blueprint_step`, `piece_open`, `piece_tools`, `piece_call`, `piece_close`, `pipeline_run`, `pipeline_resume`, `pipeline_get`.
+The encela MCP tools do the bookkeeping. Their names end in `find_pieces`, `get_piece`, `piece_add`, `github_search`, `github_read`, `blueprint_save`, `blueprint_get`, `blueprint_approve`, `blueprint_assemble`, `blueprint_step`, `piece_open`, `piece_tools`, `piece_call`, `piece_close`, `pipeline_run`, `pipeline_resume`, `pipeline_get`, `recipe_save`, `recipe_get`.
 
 Skip all of this for questions, explanations and small edits: just answer.
 
@@ -133,3 +133,10 @@ To change one pipeline of a saved blueprint, send only `{id, pipelines: [...]}`:
 ## 7. Finish
 
 When every step is done, tell the user what was built, which pieces were used for what, and anything left open. Encela stops the MCP pieces when the last step is recorded as done.
+
+## Recipes
+
+A recipe is a blueprint that worked, kept in the user's own Encela folder to start the next build of its kind from.
+
+- **Using one.** `find_pieces` lists recipes that match under its pieces (and the note on the prompt may name one). Read it with `recipe_get {name}`: you get what was learned last time and a blueprint to start from. It is a starting point, not a plan for this request: rewrite the goal, requirements and step details for what the user asks now, drop pieces that don't help this time, look for ones that would. Each choice carries the user's last answer as `last`: ask again and offer that as the default; don't fill `answer` yourself. Save it with `blueprint_save`, keeping `recipe: "<name>"` in it, and go to approval as always. Nothing in a recipe is approved, and a recipe never shortens the flow.
+- **Keeping one.** When the last step is done and a build like this may come again, ask the user whether to keep it as a recipe. Only on a yes, call `recipe_save {id, name, summary, tags, notes}`: a short name, one line on what it builds and when to use it, English keywords, and in `notes` what you would tell yourself next time (what worked, what had to be redone, what to ask the user first). Don't offer it for one-off work, and don't save without asking. Saving under an existing name replaces that recipe.

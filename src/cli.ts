@@ -6,6 +6,7 @@ import { isMainThread } from "node:worker_threads";
 import { run as runHook } from "./hook";
 import { home, lang, VERSION } from "./paths";
 import { KINDS, type PieceKind } from "./piece";
+import { Recipes, recipeLine } from "./recipe";
 import { Registry } from "./registry";
 import { line, search } from "./search";
 import { run as runServer } from "./server";
@@ -19,6 +20,7 @@ Usage:
   encela pieces [words...] [--kind <kind>]           List or search the pieces
   encela add <file.json>                             Keep a piece of your own (see README for the format)
   encela remove <id>                                 Remove one of your own pieces
+  encela recipes [remove <name>]                     List the recipes you kept, or remove one
   encela import [mcp-hub.json]                       Take in the modules of an earlier Encela
   encela uninstall                                   Remove the Claude Code plugin (your pieces stay)
   encela mcp                                         Run the MCP server (the plugin starts it)
@@ -35,6 +37,7 @@ function status(): number {
   console.log(`encela ${VERSION}`);
   console.log(`Your Encela folder: ${home()}`);
   console.log(`Your own pieces: ${registry.own().length} (${registry.file})`);
+  console.log(`Your recipes: ${new Recipes().list().length}`);
   console.log(
     `Pieces: ${all.length} (${KINDS.map((k) => `${all.filter((p) => p.kind === k).length} ${k}`).join(", ")})`,
   );
@@ -97,6 +100,20 @@ async function main(argv: string[]): Promise<number> {
       const gone = new Registry().remove(rest[0] ?? "");
       console.log(gone ? `Removed ${rest[0]}.` : `${rest[0]} isn't one of your own pieces.`);
       return gone ? 0 : 1;
+    }
+    case "recipes": {
+      const recipes = new Recipes();
+      if (rest[0] === "remove") {
+        const gone = recipes.remove(rest[1] ?? "");
+        console.log(gone ? `Removed the recipe ${rest[1]}.` : `No recipe "${rest[1] ?? ""}".`);
+        return gone ? 0 : 1;
+      }
+      const all = recipes.list();
+      for (const r of all) console.log(recipeLine(r));
+      if (!all.length)
+        console.log("No recipe yet. Claude offers to keep one when a build is done.");
+      else console.log(`\n${recipes.dir}`);
+      return 0;
     }
     case "import": {
       const file = rest[0] ?? legacyFile();

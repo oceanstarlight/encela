@@ -366,6 +366,8 @@ const OWN = new Set([
   "pipeline_run",
   "pipeline_resume",
   "pipeline_get",
+  "recipe_save",
+  "recipe_get",
 ]);
 
 const base = (path: unknown) =>
@@ -389,7 +391,8 @@ export function doing(tool: string, input: Record<string, unknown>): string {
       const called = typeof input.tool === "string" && input.tool !== tool ? input.tool : "";
       text = called ? `${piece} · ${called}` : piece || own;
     } else if (OWN.has(own)) {
-      const about = input.pipeline ?? input.step ?? input.run ?? input.repo ?? input.query ?? "";
+      const about =
+        input.pipeline ?? input.step ?? input.run ?? input.repo ?? input.query ?? input.name ?? "";
       text = `${own}${typeof about === "string" && about ? ` ${about}` : ""}`;
     } else {
       // A tool of a running piece: `<piece>__<tool>`.

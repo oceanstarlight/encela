@@ -5,6 +5,7 @@
 // It never stops the prompt: any failure leaves the prompt as it was.
 import { Blueprints, progress } from "./blueprint";
 import { projectDir } from "./paths";
+import { Recipes, recipeLine } from "./recipe";
 import { Registry } from "./registry";
 import { line, search } from "./search";
 
@@ -20,7 +21,12 @@ export function wantsEncela(prompt: string): boolean {
 }
 
 /** The context to add for `prompt`, or null for none. */
-export function hookContext(prompt: string, project: string, registry: Registry): string | null {
+export function hookContext(
+  prompt: string,
+  project: string,
+  registry: Registry,
+  recipes: Recipes = new Recipes(registry.folder),
+): string | null {
   if (!wantsEncela(prompt) || process.env.ENCELA_AUTO === "0") return null;
   const active = new Blueprints(project).active();
   if (active) {
@@ -32,7 +38,16 @@ export function hookContext(prompt: string, project: string, registry: Registry)
   const found = hints.length
     ? `\nPieces whose keywords match (judge them yourself, and search for more):\n${hints.join("\n")}`
     : "";
-  return `[Encela] If this request builds, changes or produces something beyond a quick answer or a small edit, use the encela:orchestrate skill before starting: analyse the request, find pieces (find_pieces), write a blueprint (blueprint_save), get the user's approval (blueprint_approve), assemble (blueprint_assemble), then build. For questions, explanations and small edits, ignore this note.${found}`;
+  let known = "";
+  try {
+    const matches = recipes.search([prompt], 2);
+    if (matches.length) {
+      known = `\nRecipes the user kept from builds like this (recipe_get {name} gives a blueprint to start from):\n${matches.map((m) => recipeLine(m.recipe)).join("\n")}`;
+    }
+  } catch {
+    // No recipes to point at.
+  }
+  return `[Encela] If this request builds, changes or produces something beyond a quick answer or a small edit, use the encela:orchestrate skill before starting: analyse the request, find pieces (find_pieces), write a blueprint (blueprint_save), get the user's approval (blueprint_approve), assemble (blueprint_assemble), then build. For questions, explanations and small edits, ignore this note.${found}${known}`;
 }
 
 async function readStdin(): Promise<string> {

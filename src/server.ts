@@ -12,6 +12,9 @@
 // - Pipelines: pipeline_run, pipeline_resume, pipeline_get. Encela makes a
 //   pipeline's tool calls itself and passes data from piece to piece; only a
 //   short report, and the steps that need judgment, come back to Claude.
+// - Recipes: recipe_save keeps a finished blueprint in the user's Encela
+//   folder, recipe_get hands one back as a draft to adapt. A blueprint made
+//   from a recipe is approved like any other.
 // - The `go` prompt: the whole flow for one request.
 import { createHash } from "node:crypto";
 import { createInterface } from "node:readline";
@@ -35,6 +38,7 @@ import { type Live, LiveWriter, type Phase } from "./live";
 import { lang, projectDir, VERSION } from "./paths";
 import { cautions, isDocument, KINDS, type McpConfig, type Piece, type PieceKind } from "./piece";
 import { describe, markedSteps, marksOf, type Pipeline, PipelineError } from "./pipeline";
+import { Recipes, recipeLine, recipeText } from "./recipe";
 import { Registry } from "./registry";
 import { Sandbox } from "./sandbox";
 import { signature } from "./schema";
@@ -52,12 +56,12 @@ const ASK_TIMEOUT = 30 * 60_000;
 /** How a request goes through Encela; the server's instructions, the `go` prompt and the command use it. */
 export const FLOW = `How to take a request through Encela (the encela:orchestrate skill has the details):
 1. Analyse the request: the goal, the requirements, what is unknown.
-2. Find pieces with find_pieces, several queries of English keywords at once (what the task needs, not the user's words: "an app like Paint" needs frontend design and canvas drawing). Read the promising ones with get_piece. Something needed that Encela lacks can be looked for on GitHub: github_search finds repositories, github_read reads one and drafts a piece, piece_add keeps it.
+2. Find pieces with find_pieces (it also lists recipes, blueprints that worked before for something alike: read one with recipe_get and start from it), several queries of English keywords at once (what the task needs, not the user's words: "an app like Paint" needs frontend design and canvas drawing). Read the promising ones with get_piece. Something needed that Encela lacks can be looked for on GitHub: github_search finds repositories, github_read reads one and drafts a piece, piece_add keeps it.
 3. Write the blueprint with blueprint_save: goal, requirements, the pieces with each one's role and why, workers for parts that can run side by side, ordered steps, and choices the user should make. Keep only pieces that clearly help; a blueprint with no pieces is fine.
 4. Show the blueprint to the user and call blueprint_approve. Never assemble or build before it is approved; when the user wants changes, save the blueprint again and ask again.
 5. Call blueprint_assemble: MCP pieces start (their tools appear as <piece>__<tool>), documents get working copies, and you get a brief for each worker.
 6. Build: adapt the working copies as the blueprint says (encela:assembler subagent), run workers whose steps don't depend on each other as parallel subagents with their briefs, and record each step with blueprint_step. Where one tool runs over many items, or a tool's large output only feeds another tool, put that chain in the blueprint as a pipeline and run it with pipeline_run: Encela makes the calls and you get a short report.
-7. When every step is done, tell the user what was built and with which pieces.`;
+7. When every step is done, tell the user what was built and with which pieces, and offer to keep the blueprint as a recipe (recipe_save) if a build like it may come again.`;
 
 const INSTRUCTIONS = `Encela holds pieces for Claude Code: MCP servers, command line tools, libraries, skills, rules, instructions and subagents. For a request that builds, changes or produces something beyond a quick answer, Encela turns it into a blueprint the user approves, then assembles the pieces. Nothing runs until then.\n${FLOW}`;
 
@@ -176,7 +180,7 @@ function ownTools() {
         blueprint: {
           type: "object",
           description:
-            "id (only when changing one), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, parallel, after; a tool or transform step also retry and onError. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}: nothing else in that call is changed, and {name, remove: true} in the list deletes that pipeline.",
+            "id (only when changing one), recipe (the name of the recipe it started from, if any), request, goal, requirements[], pieces[{piece, role, why, adapt, tools[], env{}}], workers[{name, role}], steps[{id, title, detail, worker, pieces[], after[], pipeline}], choices[{question, options[], answer, last}], pipelines[{name, description, inputs{name: {description, type, default}}, steps[...], output}]. A pipeline step has an id and one of: piece + tool + args (+ each, concurrency, timeout); transform (a jq program, + from); claude (an instruction, + input{}, expect, schema); any step may have when, parallel, after; a tool or transform step also retry and onError. To change only pipelines of a saved blueprint, send just {id, pipelines: [...]}: nothing else in that call is changed, and {name, remove: true} in the list deletes that pipeline.",
         },
       },
       ["blueprint"],
@@ -287,6 +291,31 @@ function ownTools() {
       { destructiveHint: true, openWorldHint: true },
     ),
     tool(
+      "recipe_save",
+      "Keeps a blueprint whose every step is done as a recipe in the user's Encela folder, to start the next build of its kind from. Call it only after the user said yes to keeping it.",
+      {
+        id: blueprint,
+        name: { type: "string", description: "Letters, digits and dashes, e.g. landing-page" },
+        summary: { type: "string", description: "One line: what it builds and when to use it" },
+        tags: { ...strings, description: "English keywords it should be found by" },
+        notes: {
+          type: "string",
+          description:
+            "What was learned: what worked, what had to be redone, what to do differently next time",
+        },
+      },
+      ["id", "name", "summary"],
+      false,
+      { openWorldHint: false },
+    ),
+    tool(
+      "recipe_get",
+      "A recipe in full: what was learned and a blueprint to adapt to the new request and save with blueprint_save. Without a name, the list of recipes.",
+      { name: { type: "string", description: "The recipe's name" } },
+      [],
+      true,
+    ),
+    tool(
       "pipeline_get",
       'A run\'s report (the latest run when `run` is left out), after waiting up to `wait` seconds for it to need you. With `step`: that step\'s output, cut at `max` characters; `query` is a jq expression over the output object {text, json, structured, file, files, items, ...}, e.g. ".json[:5]", ".items[:5] | map(.text)" for an each step, or ".text | split("\\n")[:20]". For a step that waits for you, what it asks.',
       {
@@ -316,6 +345,7 @@ export interface ServerOptions {
   tools?: ToolCache;
   /** What looks things up on GitHub; one that uses the user's own token, when they have set one, otherwise. */
   finder?: Finder;
+  recipes?: Recipes;
   /** The user's Encela folder, where the key for seals is kept. The registry's folder when left out. */
   home?: string;
 }
@@ -338,6 +368,7 @@ export class Server {
   private blueprints: Blueprints;
   private tools: ToolCache;
   private finder: Finder;
+  private recipes: Recipes;
   private sandbox = new Sandbox();
   private engine: Engine;
   private progressed = 0;
@@ -353,6 +384,7 @@ export class Server {
     this.project = opts.project ?? projectDir();
     this.registry = opts.registry ?? new Registry();
     this.tools = opts.tools ?? new ToolCache();
+    this.recipes = opts.recipes ?? new Recipes(opts.home ?? this.registry.folder);
     // The token is sent to GitHub's API alone, and kept nowhere.
     this.finder =
       opts.finder ??
@@ -630,6 +662,10 @@ export class Server {
         }
         case "blueprint_save":
           return text(this.saveBlueprint(args.blueprint));
+        case "recipe_save":
+          return text(this.saveRecipe(args));
+        case "recipe_get":
+          return text(this.getRecipe(typeof args.name === "string" ? args.name : ""));
         case "blueprint_get":
           return text(
             this.getBlueprint(args.id as string | undefined, args.pipeline as string | undefined),
@@ -689,9 +725,46 @@ export class Server {
     this.live.searched = true;
     this.live.note("found", queries.join(", "), String(found.length));
     if (!found.length) {
-      return "No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look on GitHub (github_search, then github_read) and keep what you find with piece_add, or go without.";
+      return `No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look on GitHub (github_search, then github_read) and keep what you find with piece_add, or go without.${this.recipeHints(queries)}`;
     }
-    return `${found.map((m) => line(m.piece)).join("\n")}\n\nThese are keyword matches. Read the ones that look right with get_piece and keep only what clearly helps.`;
+    return `${found.map((m) => line(m.piece)).join("\n")}\n\nThese are keyword matches. Read the ones that look right with get_piece and keep only what clearly helps.${this.recipeHints(queries)}`;
+  }
+
+  /** Recipes that match a search, for Claude to start from. */
+  private recipeHints(queries: string[]): string {
+    try {
+      const found = this.recipes.search(queries);
+      if (!found.length) return "";
+      return `\n\nRecipes (blueprints that worked before, kept by the user) that match:\n${found.map((m) => recipeLine(m.recipe)).join("\n")}\nRead one with recipe_get {name} and start the blueprint from it if it fits.`;
+    } catch {
+      return "";
+    }
+  }
+
+  private saveRecipe(args: Json): string {
+    const b = this.blueprints.get(String(args.id ?? ""));
+    const { recipe, replaced, dropped } = this.recipes.save(b, args);
+    this.live.note("saved", `recipe ${recipe.name}`);
+    return `${replaced ? "Replaced" : "Kept"} the recipe ${recipe.name} (${recipe.steps.length} steps, ${recipe.pieces.length} pieces${recipe.pipelines.length ? `, ${recipe.pipelines.length} pipelines` : ""}) in the user's Encela folder. It will show up in find_pieces for requests like this one.${dropped.length ? `\nValues set for this build were left out (set them again next time): ${dropped.join(", ")}` : ""}`;
+  }
+
+  private getRecipe(name: string): string {
+    if (!name.trim()) {
+      const all = this.recipes.list();
+      return all.length
+        ? `${all.length} recipe${all.length === 1 ? "" : "s"}:\n${all.map(recipeLine).join("\n")}`
+        : "No recipe is saved yet. When a blueprint's every step is done, offer the user to keep it with recipe_save.";
+    }
+    const recipe = this.recipes.get(name);
+    const missing: string[] = [];
+    const unapproved: string[] = [];
+    for (const p of recipe.pieces) {
+      const piece = this.registry.find(p.piece);
+      if (!piece) missing.push(p.piece);
+      else if (!piece.trusted) unapproved.push(piece.id);
+    }
+    this.live.searched = true;
+    return recipeText(recipe, missing, unapproved);
   }
 
   private addPiece(raw: unknown): string {
@@ -723,6 +796,13 @@ export class Server {
     const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
     if (!previous) b.id = this.blueprints.freeId(b.id);
     this.blueprints.save(b);
+    if (!previous && typeof given.recipe === "string") {
+      try {
+        this.recipes.used(given.recipe.trim());
+      } catch {
+        // Counting a use is a convenience.
+      }
+    }
     this.current = b.id;
     this.live.note("saved", b.id, b.status);
     const marker = (piece: string, name: string) => this.marks(piece, name, b);
@@ -1081,7 +1161,7 @@ export class Server {
         if (this.engine.uses(piece.id)) kept.push(piece.id);
         else this.closePiece(piece.name);
       }
-      return `Every step of ${b.id} is done and its MCP pieces are stopped${kept.length ? ` (except ${kept.join(", ")}, which a pipeline run still uses)` : ""}. Tell the user what was built, with which pieces, and anything left open.`;
+      return `Every step of ${b.id} is done and its MCP pieces are stopped${kept.length ? ` (except ${kept.join(", ")}, which a pipeline run still uses)` : ""}. Tell the user what was built, with which pieces, and anything left open. If a build like this may come again, ask the user whether to keep it as a recipe, and on a yes call recipe_save {id: "${b.id}", name, summary, tags, notes}.`;
     }
     const next = ready(b).map((x) => `- ${x.id} (${x.worker}): ${x.title}`);
     return `${s.id} is ${status}. ${progress(b)}.${next.length ? `\nCan start now:\n${next.join("\n")}` : ""}`;
