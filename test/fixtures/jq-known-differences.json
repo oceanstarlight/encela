@@ -68,5 +68,25 @@
     "program": "strftime(\"plain\"), strftime(\"\"), strftime(\"%Q %\"), strftime(\"100%%\")",
     "input": 0,
     "why": "strftime with an empty or unknown directive: jq raises an error, this passes the text through"
+  },
+  {
+    "program": "(. as [$a] ?// $a | $a) | if . == 1 then error(\"z\") else . end",
+    "input": [1],
+    "why": "?//: jq 1.7 also moves on to the next pattern for an error raised after the body, by what takes its outputs; here only errors of the pattern and the body do"
+  },
+  {
+    "program": "[limit(1; .[] as [$a] ?// $a | $a)]",
+    "input": [[1], 2],
+    "why": "?//: in jq 1.7 the break that ends limit is an error that ?// catches, so the next pattern still gives an output; here limit stops"
+  },
+  {
+    "program": "[first(.[] as [$a] ?// $a | $a)]",
+    "input": [[1], 2],
+    "why": "?//: as above, for first"
+  },
+  {
+    "program": "try [path(foreach .[] as $x (0; $x | .a))] catch \"E\"",
+    "input": [{ "a": 1 }],
+    "why": "path expressions: jq checks a value against the tracked path only at the next path operation, so `$x | .a` is a path where $x is the value there; here a variable is a path only as an output"
   }
 ]

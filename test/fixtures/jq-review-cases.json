@@ -1,0 +1,4149 @@
+[
+  {
+    "program": ".[] as [$a] ?// $a | $a",
+    "input": [
+      [1],
+      2,
+      {
+        "x": 3
+      },
+      [[4]]
+    ],
+    "outputs": [
+      1,
+      2,
+      {
+        "x": 3
+      },
+      [4]
+    ]
+  },
+  {
+    "program": ".[] as [$a] ?// {a:$b} | [$a,$b]",
+    "input": [[1], 2],
+    "error": true
+  },
+  {
+    "program": ".[] as {a:$a} ?// [$a] ?// $a | $a",
+    "input": [
+      [1],
+      2,
+      {
+        "x": 3
+      },
+      [[4]]
+    ],
+    "outputs": [1, 2, null, [4]]
+  },
+  {
+    "program": ".[] as [$a] ?// $a | if ($a|type)==\"number\" then error(\"x\") else $a end",
+    "input": [[1], 2],
+    "error": true
+  },
+  {
+    "program": ".[] as [$a] ?// $b | if $a == 1 then error(\"body\") else [$a,$b] end",
+    "input": [
+      [1],
+      2,
+      {
+        "x": 3
+      },
+      [[4]]
+    ],
+    "outputs": [
+      [null, [1]],
+      [null, 2],
+      [
+        null,
+        {
+          "x": 3
+        }
+      ],
+      [[4], null]
+    ]
+  },
+  {
+    "program": "try (.[] as [$a] ?// $a | error(\"e\\($a)\")) catch .",
+    "input": [[1], 2],
+    "outputs": ["e[1]"]
+  },
+  {
+    "program": ".[] as [$a,$b] ?// {x:$b} ?// $c | [$a,$b,$c]",
+    "input": [
+      [1],
+      2,
+      {
+        "x": 3
+      },
+      [[4]]
+    ],
+    "outputs": [[1, null, null], [null, null, 2], [null, 3, null], [[4], null, null]]
+  },
+  {
+    "program": ".[] as [$a] ?// [$b] | [$a, $b]",
+    "input": [[1], 2],
+    "error": true
+  },
+  {
+    "program": "(. as [$a] ?// $a | $a) | if . == 1 then error(\"z\") else . end",
+    "input": [1],
+    "outputs": [[1]]
+  },
+  {
+    "program": ". as [$a] ?// $a | ($a, error(\"e\"))",
+    "input": [1],
+    "error": true
+  },
+  {
+    "program": "error(\"s\") as [$a] ?// $a | $a",
+    "input": [1],
+    "error": true
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | $a] | error(\"after\")",
+    "input": [[1]],
+    "error": true
+  },
+  {
+    "program": "try ((. as [$a] ?// $a | $a) | error(\"z\")) catch .",
+    "input": [1],
+    "outputs": ["z"]
+  },
+  {
+    "program": ". as [$a] ?// $a | $a | error(\"z\")",
+    "input": [1],
+    "error": true
+  },
+  {
+    "program": "[.[] | . as {a:$x} ?// [$x] ?// $x | $x]",
+    "input": [
+      {
+        "a": 1
+      },
+      [2],
+      3,
+      "s",
+      null
+    ],
+    "outputs": [[1, 2, 3, "s", null]]
+  },
+  {
+    "program": ". as [$a, [$b]] ?// {a: {b: $c}} ?// $d | [$a,$b,$c,$d]",
+    "input": {
+      "a": {
+        "b": 5
+      }
+    },
+    "outputs": [[null, null, 5, null]]
+  },
+  {
+    "program": ". as [$a, [$b]] ?// {a: {b: $c}} ?// $d | [$a,$b,$c,$d]",
+    "input": [1, [2]],
+    "outputs": [[1, 2, null, null]]
+  },
+  {
+    "program": ". as [$a, [$b]] ?// {a: {b: $c}} ?// $d | [$a,$b,$c,$d]",
+    "input": [1, 2],
+    "outputs": [[null, null, null, [1, 2]]]
+  },
+  {
+    "program": ". as [$a, [$b]] ?// {a: {b: $c}} ?// $d | [$a,$b,$c,$d]",
+    "input": "x",
+    "outputs": [[null, null, null, "x"]]
+  },
+  {
+    "program": ". as {$a} ?// [$a] | $a",
+    "input": [3],
+    "outputs": [3]
+  },
+  {
+    "program": ". as {$a, b: [$c]} ?// [$a, $c] | [$a, $c]",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "error": true
+  },
+  {
+    "program": ". as {$a, b: [$c]} ?// [$a, $c] | [$a, $c]",
+    "input": {
+      "a": 1,
+      "b": [2]
+    },
+    "outputs": [[1, 2]]
+  },
+  {
+    "program": ". as [$a] ?// $a | $a",
+    "input": [],
+    "outputs": [null]
+  },
+  {
+    "program": ".[] as [$a] ?// $a | label $f | $a, break $f",
+    "input": [[1], 2],
+    "outputs": [1, 2]
+  },
+  {
+    "program": "[limit(1; .[] as [$a] ?// $a | $a)]",
+    "input": [[1], 2],
+    "outputs": [[1, [1]]]
+  },
+  {
+    "program": ". as {(.k): $v} ?// $v | $v",
+    "input": {
+      "k": "z",
+      "z": 4
+    },
+    "outputs": [4]
+  },
+  {
+    "program": ". as {(.k): $v} ?// $v | $v",
+    "input": [1],
+    "outputs": [[1]]
+  },
+  {
+    "program": ". as [$a] ?// $a | [$a] | .[0] | error",
+    "input": [1],
+    "error": true
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | $a | tostring]",
+    "input": [
+      [1],
+      [
+        {
+          "a": 1
+        }
+      ]
+    ],
+    "outputs": [["1", "{\"a\":1}"]]
+  },
+  {
+    "program": ". as [$a] ?// [$a] | $a",
+    "input": 5,
+    "error": true
+  },
+  {
+    "program": "reduce .[] as [$a] ?// $a (0; . + $a)",
+    "input": [[1], 2, [3]],
+    "outputs": [6]
+  },
+  {
+    "program": "[foreach .[] as [$a] ?// $a (0; . + $a)]",
+    "input": [[1], 2, [3]],
+    "outputs": [[1, 3, 6]]
+  },
+  {
+    "program": "[path(. as [$a] ?// $a | .[$a])]",
+    "input": [0],
+    "outputs": [[[[0]]]]
+  },
+  {
+    "program": "def f: . as [$a] ?// $a | $a; [.[] | f]",
+    "input": [[1], 2],
+    "outputs": [[1, 2]]
+  },
+  {
+    "program": ". as [$a] ?// $b | $a",
+    "input": [1],
+    "outputs": [1]
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | $a]",
+    "input": [
+      [1],
+      [[2]],
+      {
+        "a": 3
+      }
+    ],
+    "outputs": [
+      [
+        1,
+        [2],
+        {
+          "a": 3
+        }
+      ]
+    ]
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | $a | if . == 2 then error(\"two\") else . end]?",
+    "input": [[1], [2], 3],
+    "outputs": [[1, [2], 3]]
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | ($a | if type == \"array\" then error(\"arr\") else . end)]",
+    "input": [[[1]], 2],
+    "error": true
+  },
+  {
+    "program": ". as [$a] ?// $a | try error(\"in\") catch $a",
+    "input": [1],
+    "outputs": [1]
+  },
+  {
+    "program": ". as [$a] ?// $a | ($a | error)?",
+    "input": [1],
+    "outputs": []
+  },
+  {
+    "program": "[. as [$a] ?// $a | $a, $a]",
+    "input": [1],
+    "outputs": [[1, 1]]
+  },
+  {
+    "program": ".[] as [$a] ?// $a | $a + 1",
+    "input": [[1], "x"],
+    "error": true
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | $a + 1]",
+    "input": [[1], "x", [2]],
+    "error": true
+  },
+  {
+    "program": ". as $x ?// [$x] | $x",
+    "input": [7],
+    "outputs": [[7]]
+  },
+  {
+    "program": ". as [$x] ?// $x ?// {a:$x} | $x",
+    "input": {
+      "a": 1
+    },
+    "outputs": [
+      {
+        "a": 1
+      }
+    ]
+  },
+  {
+    "program": "[.[] as {a:$a} ?// {b:$a} | $a]",
+    "input": [
+      {
+        "a": 1
+      },
+      {
+        "b": 2
+      },
+      null
+    ],
+    "outputs": [[1, null, null]]
+  },
+  {
+    "program": "[.[] as {a:[$a]} ?// {b:$a} | $a]",
+    "input": [
+      {
+        "a": 1,
+        "b": 2
+      },
+      {
+        "a": [3]
+      }
+    ],
+    "outputs": [[2, 3]]
+  },
+  {
+    "program": ". as [$a] ?// $a | . as [$b] ?// $b | [$a,$b]",
+    "input": [[1]],
+    "outputs": [[[1], [1]]]
+  },
+  {
+    "program": "[1,2] | . as [$a, $b] ?// [$c] | [$a, $b, $c]",
+    "input": null,
+    "outputs": [[1, 2, null]]
+  },
+  {
+    "program": "[range(3) as $i | [$i] | . as [$a] ?// $a | $a + $i]",
+    "input": null,
+    "outputs": [[0, 2, 4]]
+  },
+  {
+    "program": "label $f | . as [$a] ?// $a | ($a, break $f)",
+    "input": [1],
+    "outputs": [1, [1]]
+  },
+  {
+    "program": "[first(.[] as [$a] ?// $a | $a)]",
+    "input": [[1], 2],
+    "outputs": [[1, [1]]]
+  },
+  {
+    "program": "reduce .[] as [$a] ?// $a (0; if ($a|type)==\"array\" then error(\"x\") else . + $a end)",
+    "input": [[1], 2],
+    "outputs": [3]
+  },
+  {
+    "program": "reduce .[] as [$a] ?// $a (0; if ($a|type)==\"number\" then error(\"x\") else . + 1 end)",
+    "input": [[1], 2],
+    "error": true
+  },
+  {
+    "program": "reduce .[] as [$a] ?// $a (0; if $a == 1 then error(\"x\") else [., $a] end)",
+    "input": [[1], [2]],
+    "outputs": [[[null, [1]], 2]]
+  },
+  {
+    "program": "[foreach .[] as [$a] ?// $a (0; if $a == 1 then error(\"x\") else [., $a] end)]",
+    "input": [[1], [2]],
+    "outputs": [[[null, [1]], [[null, [1]], 2]]]
+  },
+  {
+    "program": "[foreach .[] as [$a] ?// $a (0; . + 1; if $a == 1 then error(\"x\") else [., $a] end)]",
+    "input": [[1], [2]],
+    "outputs": [[[2, [1]], [3, 2]]]
+  },
+  {
+    "program": "[foreach .[] as [$a] ?// $a (0; [., $a]; if $a == 1 then error(\"x\") else . end)]",
+    "input": [[1], [2]],
+    "outputs": [[[[0, 1], [1]], [[[0, 1], [1]], 2]]]
+  },
+  {
+    "program": "[. as [$a] ?// $a | $a | try (if . == 1 then error(\"v\") else . end) catch \"c\"]",
+    "input": [1],
+    "outputs": [["c"]]
+  },
+  {
+    "program": ". as [$a] ?// $b | [$a, $b] | if .[0] == 1 then error else . end",
+    "input": [1],
+    "outputs": [[null, [1]]]
+  },
+  {
+    "program": ". as [$a] ?// {$b} ?// $c | [$a, $b, $c]",
+    "input": {
+      "b": 2
+    },
+    "outputs": [[null, 2, null]]
+  },
+  {
+    "program": ". as [$a] ?// {$b} ?// $c | [$a, $b, $c] | if .[1] then error(\"q\") else . end",
+    "input": {
+      "b": 2
+    },
+    "outputs": [
+      [
+        null,
+        null,
+        {
+          "b": 2
+        }
+      ]
+    ]
+  },
+  {
+    "program": "[. as [$a] ?// [[$b]] | [$a, $b]]",
+    "input": [[3]],
+    "outputs": [[[[3], null]]]
+  },
+  {
+    "program": "[. as [$a] ?// [[$b]] | [$a, $b] | if .[0] == [3] then error(\"x\") else . end]",
+    "input": [[3]],
+    "outputs": [[[null, 3]]]
+  },
+  {
+    "program": ". as [$a] ?// $a | $a | .x",
+    "input": [1],
+    "error": true
+  },
+  {
+    "program": ". as {a: $x} ?// $x | $x",
+    "input": [1],
+    "outputs": [[1]]
+  },
+  {
+    "program": ". as {a: $x} ?// $x | $x",
+    "input": null,
+    "outputs": [null]
+  },
+  {
+    "program": ". as [$x] ?// $x | $x",
+    "input": null,
+    "outputs": [null]
+  },
+  {
+    "program": ". as [$x] ?// $x | $x",
+    "input": {
+      "a": 1
+    },
+    "outputs": [
+      {
+        "a": 1
+      }
+    ]
+  },
+  {
+    "program": ". as [$x, $y] ?// $x | [$x, $y]",
+    "input": "s",
+    "outputs": [["s", null]]
+  },
+  {
+    "program": ". as $x ?// $y | [$x, $y]",
+    "input": 1,
+    "outputs": [[1, null]]
+  },
+  {
+    "program": "[.[] as [$a] ?// $a | $a] | length",
+    "input": [[1], 2, [3], [[4]]],
+    "outputs": [4]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2024-03-05",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | mktime",
+    "input": "2024-03-05",
+    "outputs": [1709596800]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2015-03-05T23:51:47Z",
+    "outputs": [[2015, 2, 5, 23, 51, 47, 4, 63]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2015-03-05T23:51:47Z",
+    "outputs": [1425599507]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%S%z\")",
+    "input": "2015-03-05T23:51:47+0100",
+    "outputs": [[2015, 2, 5, 23, 51, 47, 4, 63]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%S%z\") | mktime",
+    "input": "2015-03-05T23:51:47+0100",
+    "outputs": [1425599507]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%S %Z\")",
+    "input": "2015-03-05T23:51:47 UTC",
+    "outputs": [[2015, 2, 5, 23, 51, 47, 4, 63]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%S %Z\")",
+    "input": "2015-03-05T23:51:47 PST",
+    "outputs": [[2015, 2, 5, 23, 51, 47, 4, 63]]
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "1700000000",
+    "outputs": [[2023, 10, 14, 22, 13, 20, 2, 317]]
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "-100",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%j\")",
+    "input": "100",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 99]]
+  },
+  {
+    "program": "strptime(\"%Y %j\")",
+    "input": "2024 100",
+    "outputs": [[2024, 3, 9, 0, 0, 0, 2, 99]]
+  },
+  {
+    "program": "strptime(\"%Y-%j\")",
+    "input": "2023-060",
+    "outputs": [[2023, 2, 1, 0, 0, 0, 3, 59]]
+  },
+  {
+    "program": "strptime(\"%a %b %d %Y\")",
+    "input": "Tue Mar 05 2024",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%A, %B %e, %Y\")",
+    "input": "Tuesday, March  5, 2024",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%A %d %B %Y\")",
+    "input": "Monday 05 March 2024",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 1, 64]]
+  },
+  {
+    "program": "strptime(\"%a %b %d %Y\")",
+    "input": "Mon Mar 05 2024",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 1, 64]]
+  },
+  {
+    "program": "strptime(\"%y-%m-%d\")",
+    "input": "69-01-01",
+    "outputs": [[1969, 0, 1, 0, 0, 0, 3, 0]]
+  },
+  {
+    "program": "strptime(\"%y-%m-%d\")",
+    "input": "68-01-01",
+    "outputs": [[2068, 0, 1, 0, 0, 0, 0, 0]]
+  },
+  {
+    "program": "strptime(\"%y-%m-%d\")",
+    "input": "99-12-31",
+    "outputs": [[1999, 11, 31, 0, 0, 0, 5, 364]]
+  },
+  {
+    "program": "strptime(\"%y-%m-%d\")",
+    "input": "00-02-29",
+    "outputs": [[2000, 1, 29, 0, 0, 0, 2, 59]]
+  },
+  {
+    "program": "strptime(\"%T\")",
+    "input": "12:34:56",
+    "outputs": [[1900, 0, 0, 12, 34, 56, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%D\")",
+    "input": "03/05/24",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%F\")",
+    "input": "2024-03-05",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%R\")",
+    "input": "12:34",
+    "outputs": [[1900, 0, 0, 12, 34, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%F %T\")",
+    "input": "2024-02-29 23:59:60",
+    "outputs": [[2024, 1, 29, 23, 59, 60, 4, 59]]
+  },
+  {
+    "program": "strptime(\"%F %T\")",
+    "input": "2024-02-30 00:00:00",
+    "outputs": [[2024, 1, 30, 0, 0, 0, 5, 60]]
+  },
+  {
+    "program": "strptime(\"%F %T\")",
+    "input": "2024-13-01 00:00:00",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%H:%M\")",
+    "input": "25:00",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "12345",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "-5",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%m\")",
+    "input": "1",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%d\")",
+    "input": "7",
+    "outputs": [[1900, 0, 7, 0, 0, 0, 0, 6]]
+  },
+  {
+    "program": "strptime(\"%d\")",
+    "input": "0",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%b\")",
+    "input": "jan",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%B\")",
+    "input": "FEBRUARY",
+    "outputs": [[1900, 1, 0, 0, 0, 0, 3, 30]]
+  },
+  {
+    "program": "strptime(\"%b\")",
+    "input": "Sept",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%b\")",
+    "input": "September",
+    "outputs": [[1900, 8, 0, 0, 0, 0, 5, 242]]
+  },
+  {
+    "program": "strptime(\"%a\")",
+    "input": "thu",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 4, 367]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2024-03-05 ",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64, " "]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d \")",
+    "input": "2024-03-05",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": " 2024-03-05",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2024-3-5",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2024-03-05x",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "x",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y %m\")",
+    "input": "2024    03",
+    "outputs": [[2024, 2, 0, 0, 0, 0, 4, 59]]
+  },
+  {
+    "program": "strptime(\"%Y%m%d\")",
+    "input": "20240305",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%H:%M:%S\")",
+    "input": "1:2:3",
+    "outputs": [[1900, 0, 0, 1, 2, 3, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%S\")",
+    "input": "1.5",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "1.5",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "+05:30",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "-0800",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "Z",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "+5",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Z\")",
+    "input": "GMT",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%Z\")",
+    "input": "Europe/Paris",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%%Y\")",
+    "input": "%Y",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | todate",
+    "input": "2024-03-05",
+    "outputs": ["2024-03-05T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | mktime | todate",
+    "input": "1900-01-01",
+    "outputs": ["1900-01-01T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | mktime",
+    "input": "1600-02-29",
+    "outputs": [-11670998400]
+  },
+  {
+    "program": "strptime(\"%e\")",
+    "input": " 5",
+    "outputs": [[1900, 0, 5, 0, 0, 0, 5, 4]]
+  },
+  {
+    "program": "strptime(\"%e\")",
+    "input": "5",
+    "outputs": [[1900, 0, 5, 0, 0, 0, 5, 4]]
+  },
+  {
+    "program": "strptime(\"a%Yb\")",
+    "input": "a2024b",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"a%Yb\")",
+    "input": "A2024B",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "20a",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%S.%fZ\")",
+    "input": "2024-01-01T00:00:00.5Z",
+    "error": true
+  },
+  {
+    "program": "strptime(1)",
+    "input": "x",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": 5,
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": null,
+    "error": true
+  },
+  {
+    "program": "[strptime(\"%Y-%m-%d\"), strptime(\"%d.%m.%Y\")]?",
+    "input": "2024-03-05",
+    "outputs": []
+  },
+  {
+    "program": "strptime(\"%d/%m/%Y\")",
+    "input": "31/12/1999",
+    "outputs": [[1999, 11, 31, 0, 0, 0, 5, 364]]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y %H:%M\")",
+    "input": "12/31/99 23:59",
+    "outputs": [[1999, 11, 31, 23, 59, 0, 5, 364]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d %H:%M:%S %z\")",
+    "input": "2024-03-05 10:00:00 -0230",
+    "outputs": [[2024, 2, 5, 10, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%a, %d %b %Y %H:%M:%S %z\")",
+    "input": "Tue, 05 Mar 2024 10:00:00 +0000",
+    "outputs": [[2024, 2, 5, 10, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%a, %d %b %Y %H:%M:%S %Z\")",
+    "input": "Tue, 05 Mar 2024 10:00:00 GMT",
+    "outputs": [[2024, 2, 5, 10, 0, 0, 2, 64]]
+  },
+  {
+    "program": "strptime(\"%j %Y\")",
+    "input": "366 2024",
+    "outputs": [[2024, 11, 31, 0, 0, 0, 2, 365]]
+  },
+  {
+    "program": "strptime(\"%Y %j\")",
+    "input": "2023 366",
+    "outputs": [[2023, 11, 32, 0, 0, 0, 1, 365]]
+  },
+  {
+    "program": "strptime(\"%n%Y\")",
+    "input": "  2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%t%Y\")",
+    "input": "2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\" %Y\")",
+    "input": "2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%Y \")",
+    "input": "2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%M\")",
+    "input": "60",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%S\")",
+    "input": "61",
+    "outputs": [[1900, 0, 0, 0, 0, 61, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%S\")",
+    "input": "62",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%H\")",
+    "input": "24",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%m\")",
+    "input": "0",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%m\")",
+    "input": "13",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%d\")",
+    "input": "32",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%j\")",
+    "input": "0",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%j\")",
+    "input": "367",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "99999999999999999",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "0",
+    "outputs": [[0, 0, 0, 0, 0, 0, 6, -1]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | mktime",
+    "input": "0001-01-01",
+    "outputs": [-62135596800]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2024-02-29",
+    "outputs": [[2024, 1, 29, 0, 0, 0, 4, 59]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2023-02-29",
+    "outputs": [[2023, 1, 29, 0, 0, 0, 3, 59]]
+  },
+  {
+    "program": "strptime(\"%a %Y-%m-%d\")",
+    "input": "Fri 2024-03-05",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 5, 64]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d %a\")",
+    "input": "2024-03-05 Fri",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 5, 64]]
+  },
+  {
+    "program": "strptime(\"%d %b\")",
+    "input": "05 Mar",
+    "outputs": [[1900, 2, 5, 0, 0, 0, 1, 63]]
+  },
+  {
+    "program": "strptime(\"%H\")",
+    "input": "07",
+    "outputs": [[1900, 0, 0, 7, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%s %Y\")",
+    "input": "0 2024",
+    "outputs": [[2024, 0, 1, 0, 0, 0, 1, 0]]
+  },
+  {
+    "program": "strptime(\"%Y %s\")",
+    "input": "2024 0",
+    "outputs": [[1970, 0, 1, 0, 0, 0, 4, 0]]
+  },
+  {
+    "program": "fromdate",
+    "input": "2015-03-05T23:51:47Z",
+    "outputs": [1425599507]
+  },
+  {
+    "program": "todate",
+    "input": 1425599507,
+    "outputs": ["2015-03-05T23:51:47Z"]
+  },
+  {
+    "program": "\"10:30\" | strptime(\"%H:%M\") | mktime",
+    "input": null,
+    "outputs": [-2209037400]
+  },
+  {
+    "program": "strptime(\"%a\")",
+    "input": " Tue",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%A\")",
+    "input": "Tue",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 2, 367]]
+  },
+  {
+    "program": "strptime(\"%a\")",
+    "input": "Tuesday",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 2, 367]]
+  },
+  {
+    "program": "strptime(\"%b\")",
+    "input": " MAR",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%b\")",
+    "input": "Mar.",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "  2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%m/%d\")",
+    "input": "1/2",
+    "outputs": [[1900, 0, 2, 0, 0, 0, 2, 1]]
+  },
+  {
+    "program": "strptime(\"%D\")",
+    "input": "1/2/3",
+    "outputs": [[2003, 0, 2, 0, 0, 0, 4, 1]]
+  },
+  {
+    "program": "strptime(\"%F\")",
+    "input": "2024-1-2",
+    "outputs": [[2024, 0, 2, 0, 0, 0, 2, 1]]
+  },
+  {
+    "program": "strptime(\"%F\")",
+    "input": " 2024 - 1 - 2",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%R\")",
+    "input": " 1:2",
+    "outputs": [[1900, 0, 0, 1, 2, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\")",
+    "input": "2024-03-05\n",
+    "outputs": [[2024, 2, 5, 0, 0, 0, 2, 64, "\n"]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2015-03-05T23:51:47Z\t ",
+    "outputs": [[2015, 2, 5, 23, 51, 47, 4, 63, "\t "]]
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": " 5",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "5 ",
+    "outputs": [[1970, 0, 1, 0, 0, 5, 4, 0, " "]]
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": " +0530",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "+0560",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "+05:3",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%z\")",
+    "input": "+053",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%z %Y\")",
+    "input": "+05 2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%Z%Y\")",
+    "input": "UTC2024",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Z %Y\")",
+    "input": "UTC 2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%Y%Z\")",
+    "input": "2024UTC",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%y\")",
+    "input": "5",
+    "outputs": [[2005, 0, 0, 0, 0, 0, 5, -1]]
+  },
+  {
+    "program": "strptime(\"%y\")",
+    "input": "123",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%j\")",
+    "input": "1",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 0]]
+  },
+  {
+    "program": "strptime(\"%j\")",
+    "input": "001",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 0]]
+  },
+  {
+    "program": "strptime(\"%Y %j\")",
+    "input": "2024 366",
+    "outputs": [[2024, 11, 31, 0, 0, 0, 2, 365]]
+  },
+  {
+    "program": "strptime(\"%Y %j\")",
+    "input": "2024 60",
+    "outputs": [[2024, 1, 29, 0, 0, 0, 4, 59]]
+  },
+  {
+    "program": "strptime(\"%j %m\")",
+    "input": "100 05",
+    "outputs": [[1900, 4, 10, 0, 0, 0, 4, 99]]
+  },
+  {
+    "program": "strptime(\"%j %d\")",
+    "input": "100 05",
+    "outputs": [[1900, 3, 5, 0, 0, 0, 4, 99]]
+  },
+  {
+    "program": "strptime(\"%a %j %Y\")",
+    "input": "Mon 100 2024",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 1, 99]]
+  },
+  {
+    "program": "strptime(\"%d %j %Y\")",
+    "input": "05 100 2024",
+    "outputs": [[2024, 3, 5, 0, 0, 0, 5, 99]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d %H:%M:%S\")",
+    "input": "2024-03-05 24:00:00",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%S\")",
+    "input": "60",
+    "outputs": [[1900, 0, 0, 0, 0, 60, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%M\")",
+    "input": "5",
+    "outputs": [[1900, 0, 0, 0, 5, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%H%M\")",
+    "input": "1234",
+    "outputs": [[1900, 0, 0, 12, 34, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%H%M\")",
+    "input": "123",
+    "outputs": [[1900, 0, 0, 12, 3, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"%Y%m\")",
+    "input": "202403",
+    "outputs": [[2024, 2, 0, 0, 0, 0, 4, 59]]
+  },
+  {
+    "program": "strptime(\"%Y%m\")",
+    "input": "20243",
+    "outputs": [[2024, 2, 0, 0, 0, 0, 4, 59]]
+  },
+  {
+    "program": "strptime(\"%m%d\")",
+    "input": "1231",
+    "outputs": [[1900, 11, 31, 0, 0, 0, 1, 364]]
+  },
+  {
+    "program": "strptime(\"%m%d\")",
+    "input": "131",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%d%m\")",
+    "input": "311",
+    "outputs": [[1900, 0, 31, 0, 0, 0, 3, 30]]
+  },
+  {
+    "program": "strptime(\"%e%m\")",
+    "input": " 312",
+    "outputs": [[1900, 1, 31, 0, 0, 0, 6, 61]]
+  },
+  {
+    "program": "strptime(\"%Y\")",
+    "input": "02024",
+    "error": true
+  },
+  {
+    "program": "strptime(\"x\")",
+    "input": "x",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"\")",
+    "input": "",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367]]
+  },
+  {
+    "program": "strptime(\"\")",
+    "input": " ",
+    "outputs": [[1900, 0, 0, 0, 0, 0, 8, 367, " "]]
+  },
+  {
+    "program": "strptime(\"\")",
+    "input": "a",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%\")",
+    "input": "%",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y-%\")",
+    "input": "2024-",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Q\")",
+    "input": "x",
+    "error": true
+  },
+  {
+    "program": "strptime(\"%Y %s\")",
+    "input": "2024 1700000000",
+    "outputs": [[2023, 10, 14, 22, 13, 20, 2, 317]]
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "0",
+    "outputs": [[1970, 0, 1, 0, 0, 0, 4, 0]]
+  },
+  {
+    "program": "strptime(\"%s\")",
+    "input": "253402300800",
+    "outputs": [[10000, 0, 1, 0, 0, 0, 6, 0]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | mktime",
+    "input": "9999-12-31",
+    "outputs": [253402214400]
+  },
+  {
+    "program": "strptime(\"%y %Y\")",
+    "input": "24 1999",
+    "outputs": [[1999, 0, 0, 0, 0, 0, 4, -1]]
+  },
+  {
+    "program": "strptime(\"%Y %y\")",
+    "input": "1999 24",
+    "outputs": [[2024, 0, 0, 0, 0, 0, 0, -1]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%d\") | strftime(\"%A %j\")",
+    "input": "2024-03-05",
+    "outputs": ["Tuesday 065"]
+  },
+  {
+    "program": "[.[] | strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime]",
+    "input": ["2015-03-05T23:51:47Z", "1970-01-01T00:00:00Z"],
+    "outputs": [[1425599507, 0]]
+  },
+  {
+    "program": "fromdate",
+    "input": "2015-03-05T23:51:47Z ",
+    "outputs": [1425599507]
+  },
+  {
+    "program": "fromdate",
+    "input": " 2015-03-05T23:51:47Z",
+    "outputs": [1425599507]
+  },
+  {
+    "program": "fromdate",
+    "input": "2015-3-5T1:2:3Z",
+    "outputs": [1425517323]
+  },
+  {
+    "program": "fromdate",
+    "input": "2015-03-05T23:51:47",
+    "error": true
+  },
+  {
+    "program": "fromdate",
+    "input": "2015-03-05T23:51:60Z",
+    "outputs": [1425599520]
+  },
+  {
+    "program": "fromdate",
+    "input": "2015-03-05T23:51:61Z",
+    "outputs": [1425599521]
+  },
+  {
+    "program": "fromdateiso8601",
+    "input": "2015-02-31T00:00:00Z",
+    "outputs": [1425340800]
+  },
+  {
+    "program": "strptime(\"%d\")",
+    "input": "31",
+    "outputs": [[1900, 0, 31, 0, 0, 0, 3, 30]]
+  },
+  {
+    "program": "strptime(\"%B %d\")",
+    "input": "February 31",
+    "outputs": [[1900, 1, 31, 0, 0, 0, 6, 61]]
+  },
+  {
+    "program": "try [path(.[] |= .)] catch \"ERR\"",
+    "input": [1, 2],
+    "outputs": ["ERR"]
+  },
+  {
+    "program": "[path(reduce .[] as $x (.; .a))]",
+    "input": [1, 2],
+    "error": true
+  },
+  {
+    "program": "[path(reduce .[] as $x (.; .a))]",
+    "input": {
+      "a": {
+        "a": {
+          "a": 1
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "program": "try [path(reduce .[] as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": {
+          "a": 1
+        }
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce empty as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(reduce 1 as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce (1,2) as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce (1,2) as $x (.a; .b))] catch \"E\"",
+    "input": {
+      "a": {
+        "b": {
+          "b": 1
+        }
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .a as $x (.; .b))] catch \"E\"",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce (\"a\",\"b\") as $x (.; .[$x]))] catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach (1,2) as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach (1,2) as $x (.; .a; .b))] catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1,
+        "a": {
+          "b": 2
+        }
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach empty as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[]]
+  },
+  {
+    "program": "try [path(foreach (\"a\",\"b\") as $x (.; .[$x]))] catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [paths(reduce 1 as $x (.; .))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [paths(type == \"number\")] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try del(reduce (\"a\",\"b\") as $x (.; .[$x])) catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try del(foreach (\"a\",\"b\") as $x (.; .[$x])) catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try (reduce (\"a\",\"b\") as $x (.; .[$x]) |= 5) catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try (foreach (\"a\",\"b\") as $x (.; .[$x]) |= 5) catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try (reduce (\"a\",\"b\") as $x (.; .[$x]) = 5) catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try (reduce (\"a\",\"b\") as $x (.; .[$x]) += 5) catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "1 as $x | [path(.a //= .a)]?",
+    "input": {
+      "a": 1
+    },
+    "outputs": []
+  },
+  {
+    "program": "try [path(.a //= .a)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a = 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a = 1)] catch \"E\"",
+    "input": null,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a |= 1)] catch \"E\"",
+    "input": null,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a += 1)] catch \"E\"",
+    "input": null,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a += 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(empty |= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(empty = 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(empty += 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. = 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. |= .)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. += 0)] catch \"E\"",
+    "input": 1,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path((.a = 1) | .b)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path((.a |= 1) | .b)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a = 1)] catch \"E\"",
+    "input": {
+      "a": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a = .a)] catch \"E\"",
+    "input": {
+      "a": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a |= .)] catch \"E\"",
+    "input": {
+      "a": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.[] = 1)] catch \"E\"",
+    "input": [1],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.[] = 1)] catch \"E\"",
+    "input": [],
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(. as [$a] | .)] catch \"E\"",
+    "input": [0],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. as [$a] | .[$a])] catch \"E\"",
+    "input": [0],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. as {a: $a} | .[$a])] catch \"E\"",
+    "input": {
+      "a": "a"
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. as $a | .[0])] catch \"E\"",
+    "input": [0],
+    "outputs": [[[0]]]
+  },
+  {
+    "program": "try [path(.[] as $a | .[0])] catch \"E\"",
+    "input": [0],
+    "outputs": [[[0]]]
+  },
+  {
+    "program": "try [path(.[0] as [$a] | .)] catch \"E\"",
+    "input": [[0]],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.[0] as $a | .)] catch \"E\"",
+    "input": [[0]],
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(. as [$a] ?// $a | .[$a])] catch \"E\"",
+    "input": [0],
+    "outputs": [[[[0]]]]
+  },
+  {
+    "program": "try [path(reduce .[] as [$a] (.; .[$a]))] catch \"E\"",
+    "input": [[0]],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a as [$a] | .b)] catch \"E\"",
+    "input": {
+      "a": [1],
+      "b": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(limit(1; .[]))] catch \"E\"",
+    "input": [1, 2],
+    "outputs": [[[0]]]
+  },
+  {
+    "program": "try [path(first(.[]))] catch \"E\"",
+    "input": [1, 2],
+    "outputs": [[[0]]]
+  },
+  {
+    "program": "try [path(.. |= .)] catch \"E\"",
+    "input": [1],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(getpath([\"a\"]) |= 1)] catch \"E\"",
+    "input": {},
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(to_entries)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a // .b)] catch \"E\"",
+    "input": {
+      "b": 1
+    },
+    "outputs": [[["b"]]]
+  },
+  {
+    "program": "try [path(if .a then .b else .c end)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["b"]]]
+  },
+  {
+    "program": "try [path(.a | select(. == 1))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(label $f | .a, break $f)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(def f: .a; f)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(.a as $x | $x)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(1 as $x | .)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(try .a catch \"E\"b)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "error": true
+  },
+  {
+    "program": "try [path(try error(\"x\") catch \"E\")] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a?)] catch \"E\"",
+    "input": 1,
+    "outputs": [[]]
+  },
+  {
+    "program": "try [path(.a[]?)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[]]
+  },
+  {
+    "program": "try [path(recurse)] catch \"E\"",
+    "input": [[1]],
+    "outputs": [[[], [0], [0, 0]]]
+  },
+  {
+    "program": "try [path(..)] catch \"E\"",
+    "input": [[1]],
+    "outputs": [[[], [0], [0, 0]]]
+  },
+  {
+    "program": "try [path(empty)] catch \"E\"",
+    "input": null,
+    "outputs": [[]]
+  },
+  {
+    "program": "try [path(error)] catch \"E\"",
+    "input": "e",
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(null)] catch \"E\"",
+    "input": null,
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(reduce .[] as $x (.; .))] catch \"E\"",
+    "input": [1, 2],
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(reduce .[] as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": {
+          "a": 1
+        }
+      },
+      "b": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .a as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .a.a as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce range(2) as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce range(2) as $x (.a; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": {
+          "a": 1
+        }
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach range(2) as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach range(2) as $x (.; .a; .))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach .a as $x (.; .a))] catch \"E\"",
+    "input": {
+      "a": {
+        "a": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a |= empty)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a += empty)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[]]
+  },
+  {
+    "program": "try [path(.a = empty)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[]]
+  },
+  {
+    "program": "try [path(.a = (1,2))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a //= 1)] catch \"E\"",
+    "input": {
+      "b": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a //= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a //= .a)] catch \"E\"",
+    "input": {
+      "a": null
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .[] as $x (.a; .))] catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .a[] as $x (.a; .))] catch \"E\"",
+    "input": {
+      "a": {
+        "b": 1
+      }
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. = .)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(. as [$a, $b] | .)] catch \"E\"",
+    "input": [1, 2],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. as [$a] | $a)] catch \"E\"",
+    "input": [1, 2],
+    "outputs": [[[0]]]
+  },
+  {
+    "program": "try [path(. as [[$a]] | $a)] catch \"E\"",
+    "input": [[1], 2],
+    "outputs": [[[0, 0]]]
+  },
+  {
+    "program": "try [path(. as {a: $a} | $a)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(. as {$a} | $a)] catch \"E\"",
+    "input": {
+      "a": [1]
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(. as {a: [$a]} | $a)] catch \"E\"",
+    "input": {
+      "a": [1]
+    },
+    "outputs": [[["a", 0]]]
+  },
+  {
+    "program": "try [path(. as [$a] | .)] catch \"E\"",
+    "input": [[1]],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a as [$a] | $a)] catch \"E\"",
+    "input": {
+      "a": [1]
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(1 as [$a] | .)] catch \"E\"",
+    "input": [1],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(. as {(\"a\",\"b\"): $a} | $a)] catch \"E\"",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "outputs": [[["a"], ["b"]]]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (0; . + 1; $x))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": [[[0], [1]]]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (0; . + 1))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (.; .))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (.; $x))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": [[[0], [1]]]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (.; .; $x))] catch \"E\"",
+    "input": [[5], 6],
+    "outputs": [[[0], [1]]]
+  },
+  {
+    "program": "try [path(foreach .[] as [$x] (.; .; $x))] catch \"E\"",
+    "input": [[5], [6]],
+    "outputs": [[[0, 0], [1, 0]]]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (0; $x))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": [[[0], [1]]]
+  },
+  {
+    "program": "try [path(foreach .[] as $x (0; $x | .a))] catch \"E\"",
+    "input": [
+      {
+        "a": 1
+      }
+    ],
+    "outputs": [[[0, "a"]]]
+  },
+  {
+    "program": "try [path(reduce .[] as $x (0; $x))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .[] as $x (.; $x))] catch \"E\"",
+    "input": [5, 6],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce .[] as $x (.[0]; $x))] catch \"E\"",
+    "input": [5],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(reduce empty as $x (.a; .))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(reduce empty as $x (1; .))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(foreach (1,2) as $x (.; .))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[], []]]
+  },
+  {
+    "program": "try [path(foreach (1,2) as $x (.; .; .a))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"], ["a"]]]
+  },
+  {
+    "program": "try [path(foreach (1,2) as $x (.a; .))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"], ["a"]]]
+  },
+  {
+    "program": "try [path(foreach (1,2) as $x (.a; .; .))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"], ["a"]]]
+  },
+  {
+    "program": "try [path(.[] as [$a] | .)] catch \"E\"",
+    "input": [[1]],
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.[] | . as [$a] | $a)] catch \"E\"",
+    "input": [[1]],
+    "outputs": [[[0, 0]]]
+  },
+  {
+    "program": "try [path(first(.[] | select(. > 1)))] catch \"E\"",
+    "input": [1, 2, 3],
+    "outputs": [[[1]]]
+  },
+  {
+    "program": "try [path(limit(2; .[]))] catch \"E\"",
+    "input": [1, 2, 3],
+    "outputs": [[[0], [1]]]
+  },
+  {
+    "program": "try [path(until(true; .a))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(.. |= 1)] catch \"E\"",
+    "input": 1,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.[]? |= 1)] catch \"E\"",
+    "input": 1,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(empty //= 1)] catch \"E\"",
+    "input": 1,
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a = 1, .b)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.b, (.a |= 1))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a[] |= .)] catch \"E\"",
+    "input": {
+      "a": []
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a -= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a *= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a /= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a %= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a |= empty)] catch \"E\"",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path((.a,.b) |= empty)] catch \"E\"",
+    "input": {
+      "a": 1,
+      "b": 2
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [path(.a += (1,2))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try del(.a |= 1) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try del(.a += 1) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try del(.a = 1) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try del(empty = 1) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [null]
+  },
+  {
+    "program": "try ((.a |= 1) |= 2) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try ((.a = 1) |= 2) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try ((.a = 1) = 2) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try ((empty = 1) = 2) catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [2]
+  },
+  {
+    "program": "try [paths(.a |= 1)] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [paths(.. |= 1)] catch \"E\"",
+    "input": {
+      "a": [1]
+    },
+    "outputs": ["E"]
+  },
+  {
+    "program": "try [paths(. = 1)] catch \"E\"",
+    "input": {
+      "a": [1]
+    },
+    "outputs": [[["a"], ["a", 0]]]
+  },
+  {
+    "program": "try [path(getpath([\"a\"]))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[["a"]]]
+  },
+  {
+    "program": "try [path(select(.a = 1))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try [path(select(.a |= 1))] catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [[[]]]
+  },
+  {
+    "program": "try to_entries catch \"E\"",
+    "input": {
+      "a": 1
+    },
+    "outputs": [
+      [
+        {
+          "key": "a",
+          "value": 1
+        }
+      ]
+    ]
+  },
+  {
+    "program": "1 as $x | [path(.[0] //= . // 9)]?",
+    "input": [3, 1, 2, 1],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[0]?.a? *= . // 9)]?",
+    "input": {
+      "a": [1, null, 3],
+      "b": null
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[] *= $x)]?",
+    "input": [3, 1, 2, 1],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[] //= type)]?",
+    "input": [[1, 2], [3], []],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[] | select(. == 1) += not)]?",
+    "input": {
+      "a": [1, null, 3],
+      "b": null
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[] | select(. == 1) //= [.])]?",
+    "input": {
+      "a": 1,
+      "b": [1, 2],
+      "c": {
+        "d": "x"
+      }
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[]? += null)]?",
+    "input": [1, 2, 3],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.[]? //= . // 9)]?",
+    "input": {
+      "x": [
+        {
+          "y": 1
+        },
+        {
+          "y": [2, 3]
+        }
+      ]
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.a //= .a)]?",
+    "input": {
+      "a": 1,
+      "b": [1, 2],
+      "c": {
+        "d": "x"
+      }
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.a? *= . // 9)]?",
+    "input": [3, 1, 2, 1],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.a? *= .)]?",
+    "input": [3, 1, 2, 1],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.a? -= [.])]?",
+    "input": [
+      {
+        "a": 1,
+        "b": "x"
+      },
+      {
+        "a": 2
+      },
+      {
+        "a": null,
+        "b": "y"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(.a? //= [.])]?",
+    "input": {
+      "a": 1,
+      "b": [1, 2],
+      "c": {
+        "d": "x"
+      }
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty %= type)]?",
+    "input": {
+      "x": [
+        {
+          "y": 1
+        },
+        {
+          "y": [2, 3]
+        }
+      ]
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty *= $x)]?",
+    "input": null,
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty += 1)]?",
+    "input": [
+      {
+        "a": 1,
+        "b": "x"
+      },
+      {
+        "a": 2
+      },
+      {
+        "a": null,
+        "b": "y"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty -= null)]?",
+    "input": [
+      {
+        "a": 1,
+        "b": "x"
+      },
+      {
+        "a": 2
+      },
+      {
+        "a": null,
+        "b": "y"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty //= \"z\")]?",
+    "input": [[1, 2], [3], []],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty //= {})]?",
+    "input": {
+      "a": [1, null, 3],
+      "b": null
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(empty |= tostring)]?",
+    "input": null,
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(first(.[]) //= [.])]?",
+    "input": {
+      "a": {
+        "b": {
+          "c": 1
+        }
+      }
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(first(.[]) //= length)]?",
+    "input": [3, 1, 2, 1],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(first(.[]) |= .)]?",
+    "input": [
+      {
+        "a": 1,
+        "b": "x"
+      },
+      {
+        "a": 2
+      },
+      {
+        "a": null,
+        "b": "y"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(paths as $p | getpath($p) //= length)]?",
+    "input": [3, 1, 2, 1],
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(recurse //= 1)]?",
+    "input": {
+      "a": 1,
+      "b": [1, 2],
+      "c": {
+        "d": "x"
+      }
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(recurse //= tostring)]?",
+    "input": {
+      "x": [
+        {
+          "y": 1
+        },
+        {
+          "y": [2, 3]
+        }
+      ]
+    },
+    "outputs": []
+  },
+  {
+    "program": "1 as $x | [path(select(.a) += $x)]?",
+    "input": null,
+    "outputs": []
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2066-01-27T00:20:12Z",
+    "outputs": [[2066, 0, 27, 0, 20, 12, 3, 26]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2066-01-27T00:20:12Z",
+    "outputs": [3031777212]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "27 January 2066 00:20:12",
+    "outputs": [[2066, 0, 27, 0, 20, 12, 3, 26]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2066 132",
+    "outputs": [[2066, 4, 12, 0, 0, 0, 3, 131], 3040848000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/27/66",
+    "outputs": [[2066, 0, 27, 0, 0, 0, 3, 26], "2066-01-27T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2146-01-14T08:00:36Z",
+    "outputs": [[2146, 0, 14, 8, 0, 36, 5, 13]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2146-01-14T08:00:36Z",
+    "outputs": [5555203236]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "14 January 2146 08:00:36",
+    "outputs": [[2146, 0, 14, 8, 0, 36, 5, 13]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2146 065",
+    "outputs": [[2146, 2, 6, 0, 0, 0, 0, 64], 5559580800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/14/46",
+    "outputs": [[2046, 0, 14, 0, 0, 0, 0, 13], "2046-01-14T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2010-01-14T16:12:27Z",
+    "outputs": [[2010, 0, 14, 16, 12, 27, 4, 13]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2010-01-14T16:12:27Z",
+    "outputs": [1263485547]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "14 January 2010 16:12:27",
+    "outputs": [[2010, 0, 14, 16, 12, 27, 4, 13]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2010 031",
+    "outputs": [[2010, 0, 31, 0, 0, 0, 0, 30], 1264896000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/14/10",
+    "outputs": [[2010, 0, 14, 0, 0, 0, 4, 13], "2010-01-14T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1878-05-05T00:48:39Z",
+    "outputs": [[1878, 4, 5, 0, 48, 39, 0, 124]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1878-05-05T00:48:39Z",
+    "outputs": [-2892496281]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "5 May 1878 00:48:39",
+    "outputs": [[1878, 4, 5, 0, 48, 39, 0, 124]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1878 319",
+    "outputs": [[1878, 10, 15, 0, 0, 0, 5, 318], -2875737600]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/05/78",
+    "outputs": [[1978, 4, 5, 0, 0, 0, 5, 124], "1978-05-05T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1994-05-04T08:24:04Z",
+    "outputs": [[1994, 4, 4, 8, 24, 4, 3, 123]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1994-05-04T08:24:04Z",
+    "outputs": [768039844]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "4 May 1994 08:24:04",
+    "outputs": [[1994, 4, 4, 8, 24, 4, 3, 123]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1994 285",
+    "outputs": [[1994, 9, 12, 0, 0, 0, 3, 284], 781920000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/04/94",
+    "outputs": [[1994, 4, 4, 0, 0, 0, 3, 123], "1994-05-04T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2062-09-19T16:52:35Z",
+    "outputs": [[2062, 8, 19, 16, 52, 35, 2, 261]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2062-09-19T16:52:35Z",
+    "outputs": [2925910355]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "19 September 2062 16:52:35",
+    "outputs": [[2062, 8, 19, 16, 52, 35, 2, 261]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2062 079",
+    "outputs": [[2062, 2, 20, 0, 0, 0, 1, 78], 2910038400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/19/62",
+    "outputs": [[2062, 8, 19, 0, 0, 0, 2, 261], "2062-09-19T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1910-05-17T08:48:01Z",
+    "outputs": [[1910, 4, 17, 8, 48, 1, 2, 136]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1910-05-17T08:48:01Z",
+    "outputs": [-1881673919]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "17 May 1910 08:48:01",
+    "outputs": [[1910, 4, 17, 8, 48, 1, 2, 136]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1910 279",
+    "outputs": [[1910, 9, 6, 0, 0, 0, 4, 278], -1869436800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/17/10",
+    "outputs": [[2010, 4, 17, 0, 0, 0, 1, 136], "2010-05-17T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2126-01-26T16:52:60Z",
+    "outputs": [[2126, 0, 26, 16, 52, 60, 6, 25]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2126-01-26T16:52:60Z",
+    "outputs": [4925119980]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "26 January 2126 16:52:60",
+    "outputs": [[2126, 0, 26, 16, 52, 60, 6, 25]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2126 131",
+    "outputs": [[2126, 4, 11, 0, 0, 0, 6, 130], 4934131200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/26/26",
+    "outputs": [[2026, 0, 26, 0, 0, 0, 1, 25], "2026-01-26T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2030-05-03T08:12:46Z",
+    "outputs": [[2030, 4, 3, 8, 12, 46, 5, 122]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2030-05-03T08:12:46Z",
+    "outputs": [1904026366]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "3 May 2030 08:12:46",
+    "outputs": [[2030, 4, 3, 8, 12, 46, 5, 122]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2030 046",
+    "outputs": [[2030, 1, 15, 0, 0, 0, 5, 45], 1897344000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/03/30",
+    "outputs": [[2030, 4, 3, 0, 0, 0, 5, 122], "2030-05-03T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2110-05-06T16:56:30Z",
+    "outputs": [[2110, 4, 6, 16, 56, 30, 2, 125]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2110-05-06T16:56:30Z",
+    "outputs": [4428838590]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "6 May 2110 16:56:30",
+    "outputs": [[2110, 4, 6, 16, 56, 30, 2, 125]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2110 268",
+    "outputs": [[2110, 8, 25, 0, 0, 0, 4, 267], 4441046400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/06/10",
+    "outputs": [[2010, 4, 6, 0, 0, 0, 4, 125], "2010-05-06T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2146-01-05T00:20:04Z",
+    "outputs": [[2146, 0, 5, 0, 20, 4, 3, 4]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2146-01-05T00:20:04Z",
+    "outputs": [5554398004]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "5 January 2146 00:20:04",
+    "outputs": [[2146, 0, 5, 0, 20, 4, 3, 4]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2146 276",
+    "outputs": [[2146, 9, 3, 0, 0, 0, 1, 275], 5577811200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/05/46",
+    "outputs": [[2046, 0, 5, 0, 0, 0, 5, 4], "2046-01-05T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1930-05-03T00:00:27Z",
+    "outputs": [[1930, 4, 3, 0, 0, 27, 6, 122]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1930-05-03T00:00:27Z",
+    "outputs": [-1251763173]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "3 May 1930 00:00:27",
+    "outputs": [[1930, 4, 3, 0, 0, 27, 6, 122]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1930 362",
+    "outputs": [[1930, 11, 28, 0, 0, 0, 0, 361], -1231113600]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1854-01-23T00:04:41Z",
+    "outputs": [[1854, 0, 23, 0, 4, 41, 1, 22]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1854-01-23T00:04:41Z",
+    "outputs": [-3658694119]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "23 January 1854 00:04:41",
+    "outputs": [[1854, 0, 23, 0, 4, 41, 1, 22]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1854 043",
+    "outputs": [[1854, 1, 12, 0, 0, 0, 0, 42], -3656966400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/23/54",
+    "outputs": [[2054, 0, 23, 0, 0, 0, 5, 22], "2054-01-23T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1958-09-05T16:56:51Z",
+    "outputs": [[1958, 8, 5, 16, 56, 51, 5, 247]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1958-09-05T16:56:51Z",
+    "outputs": [-357289389]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "5 September 1958 16:56:51",
+    "outputs": [[1958, 8, 5, 16, 56, 51, 5, 247]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1958 321",
+    "outputs": [[1958, 10, 17, 0, 0, 0, 1, 320], -351043200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/05/58",
+    "outputs": [[2058, 8, 5, 0, 0, 0, 4, 247], "2058-09-05T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2078-05-04T00:44:38Z",
+    "outputs": [[2078, 4, 4, 0, 44, 38, 3, 123]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2078-05-04T00:44:38Z",
+    "outputs": [3418850678]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "4 May 2078 00:44:38",
+    "outputs": [[2078, 4, 4, 0, 44, 38, 3, 123]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2078 343",
+    "outputs": [[2078, 11, 9, 0, 0, 0, 5, 342], 3437769600]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/04/78",
+    "outputs": [[1978, 4, 4, 0, 0, 0, 4, 123], "1978-05-04T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2131-01-28T16:40:08Z",
+    "outputs": [[2131, 0, 28, 16, 40, 8, 0, 27]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2131-01-28T16:40:08Z",
+    "outputs": [5083058408]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "28 January 2131 16:40:08",
+    "outputs": [[2131, 0, 28, 16, 40, 8, 0, 27]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2131 348",
+    "outputs": [[2131, 11, 14, 0, 0, 0, 5, 347], 5110646400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/28/31",
+    "outputs": [[2031, 0, 28, 0, 0, 0, 2, 27], "2031-01-28T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1962-09-29T16:08:20Z",
+    "outputs": [[1962, 8, 29, 16, 8, 20, 6, 271]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1962-09-29T16:08:20Z",
+    "outputs": [-228988300]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "29 September 1962 16:08:20",
+    "outputs": [[1962, 8, 29, 16, 8, 20, 6, 271]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1962 198",
+    "outputs": [[1962, 6, 17, 0, 0, 0, 2, 197], -235440000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/29/62",
+    "outputs": [[2062, 8, 29, 0, 0, 0, 5, 271], "2062-09-29T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1986-09-24T00:52:35Z",
+    "outputs": [[1986, 8, 24, 0, 52, 35, 3, 266]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1986-09-24T00:52:35Z",
+    "outputs": [527907155]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "24 September 1986 00:52:35",
+    "outputs": [[1986, 8, 24, 0, 52, 35, 3, 266]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1986 067",
+    "outputs": [[1986, 2, 8, 0, 0, 0, 6, 66], 510624000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/24/86",
+    "outputs": [[1986, 8, 24, 0, 0, 0, 3, 266], "1986-09-24T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2014-01-30T16:36:20Z",
+    "outputs": [[2014, 0, 30, 16, 36, 20, 4, 29]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2014-01-30T16:36:20Z",
+    "outputs": [1391099780]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "30 January 2014 16:36:20",
+    "outputs": [[2014, 0, 30, 16, 36, 20, 4, 29]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2014 066",
+    "outputs": [[2014, 2, 7, 0, 0, 0, 5, 65], 1394150400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/30/14",
+    "outputs": [[2014, 0, 30, 0, 0, 0, 4, 29], "2014-01-30T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1958-09-24T08:20:04Z",
+    "outputs": [[1958, 8, 24, 8, 20, 4, 3, 266]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1958-09-24T08:20:04Z",
+    "outputs": [-355678796]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "24 September 1958 08:20:04",
+    "outputs": [[1958, 8, 24, 8, 20, 4, 3, 266]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1958 131",
+    "outputs": [[1958, 4, 11, 0, 0, 0, 0, 130], -367459200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/24/58",
+    "outputs": [[2058, 8, 24, 0, 0, 0, 2, 266], "2058-09-24T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2094-05-08T16:52:02Z",
+    "outputs": [[2094, 4, 8, 16, 52, 2, 6, 127]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2094-05-08T16:52:02Z",
+    "outputs": [3924175922]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "8 May 2094 16:52:02",
+    "outputs": [[2094, 4, 8, 16, 52, 2, 6, 127]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2094 016",
+    "outputs": [[2094, 0, 16, 0, 0, 0, 6, 15], 3914438400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/08/94",
+    "outputs": [[1994, 4, 8, 0, 0, 0, 0, 127], "1994-05-08T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2102-01-15T00:24:25Z",
+    "outputs": [[2102, 0, 15, 0, 24, 25, 0, 14]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2102-01-15T00:24:25Z",
+    "outputs": [4166727865]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "15 January 2102 00:24:25",
+    "outputs": [[2102, 0, 15, 0, 24, 25, 0, 14]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2102 107",
+    "outputs": [[2102, 3, 17, 0, 0, 0, 1, 106], 4174675200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/15/02",
+    "outputs": [[2002, 0, 15, 0, 0, 0, 2, 14], "2002-01-15T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1914-01-14T08:00:28Z",
+    "outputs": [[1914, 0, 14, 8, 0, 28, 3, 13]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1914-01-14T08:00:28Z",
+    "outputs": [-1766073572]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "14 January 1914 08:00:28",
+    "outputs": [[1914, 0, 14, 8, 0, 28, 3, 13]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1914 191",
+    "outputs": [[1914, 6, 10, 0, 0, 0, 5, 190], -1750809600]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/14/14",
+    "outputs": [[2014, 0, 14, 0, 0, 0, 2, 13], "2014-01-14T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2034-09-02T00:32:47Z",
+    "outputs": [[2034, 8, 2, 0, 32, 47, 6, 244]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2034-09-02T00:32:47Z",
+    "outputs": [2040769967]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "2 September 2034 00:32:47",
+    "outputs": [[2034, 8, 2, 0, 32, 47, 6, 244]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2034 170",
+    "outputs": [[2034, 5, 19, 0, 0, 0, 1, 169], 2034288000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/02/34",
+    "outputs": [[2034, 8, 2, 0, 0, 0, 6, 244], "2034-09-02T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1902-05-02T16:08:26Z",
+    "outputs": [[1902, 4, 2, 16, 8, 26, 5, 121]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1902-05-02T16:08:26Z",
+    "outputs": [-2135404294]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "2 May 1902 16:08:26",
+    "outputs": [[1902, 4, 2, 16, 8, 26, 5, 121]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1902 295",
+    "outputs": [[1902, 9, 22, 0, 0, 0, 3, 294], -2120515200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/02/02",
+    "outputs": [[2002, 4, 2, 0, 0, 0, 4, 121], "2002-05-02T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2094-05-27T00:36:27Z",
+    "outputs": [[2094, 4, 27, 0, 36, 27, 4, 146]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2094-05-27T00:36:27Z",
+    "outputs": [3925758987]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "27 May 2094 00:36:27",
+    "outputs": [[2094, 4, 27, 0, 36, 27, 4, 146]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2094 095",
+    "outputs": [[2094, 3, 5, 0, 0, 0, 1, 94], 3921264000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/27/94",
+    "outputs": [[1994, 4, 27, 0, 0, 0, 5, 146], "1994-05-27T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1854-09-18T00:08:31Z",
+    "outputs": [[1854, 8, 18, 0, 8, 31, 1, 260]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1854-09-18T00:08:31Z",
+    "outputs": [-3638130689]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "18 September 1854 00:08:31",
+    "outputs": [[1854, 8, 18, 0, 8, 31, 1, 260]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1854 324",
+    "outputs": [[1854, 10, 20, 0, 0, 0, 1, 323], -3632688000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/18/54",
+    "outputs": [[2054, 8, 18, 0, 0, 0, 5, 260], "2054-09-18T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1994-09-29T00:44:58Z",
+    "outputs": [[1994, 8, 29, 0, 44, 58, 4, 271]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1994-09-29T00:44:58Z",
+    "outputs": [780799498]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "29 September 1994 00:44:58",
+    "outputs": [[1994, 8, 29, 0, 44, 58, 4, 271]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1994 093",
+    "outputs": [[1994, 3, 3, 0, 0, 0, 0, 92], 765331200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/29/94",
+    "outputs": [[1994, 8, 29, 0, 0, 0, 4, 271], "1994-09-29T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1866-01-10T08:12:49Z",
+    "outputs": [[1866, 0, 10, 8, 12, 49, 3, 9]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1866-01-10T08:12:49Z",
+    "outputs": [-3281096831]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "10 January 1866 08:12:49",
+    "outputs": [[1866, 0, 10, 8, 12, 49, 3, 9]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1866 179",
+    "outputs": [[1866, 5, 28, 0, 0, 0, 4, 178], -3266524800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/10/66",
+    "outputs": [[2066, 0, 10, 0, 0, 0, 0, 9], "2066-01-10T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1974-09-19T16:16:56Z",
+    "outputs": [[1974, 8, 19, 16, 16, 56, 4, 261]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1974-09-19T16:16:56Z",
+    "outputs": [148839416]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "19 September 1974 16:16:56",
+    "outputs": [[1974, 8, 19, 16, 16, 56, 4, 261]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1974 257",
+    "outputs": [[1974, 8, 14, 0, 0, 0, 6, 256], 148348800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/19/74",
+    "outputs": [[1974, 8, 19, 0, 0, 0, 4, 261], "1974-09-19T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2003-09-16T08:04:35Z",
+    "outputs": [[2003, 8, 16, 8, 4, 35, 2, 258]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2003-09-16T08:04:35Z",
+    "outputs": [1063699475]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "16 September 2003 08:04:35",
+    "outputs": [[2003, 8, 16, 8, 4, 35, 2, 258]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2003 275",
+    "outputs": [[2003, 9, 2, 0, 0, 0, 4, 274], 1065052800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/16/03",
+    "outputs": [[2003, 8, 16, 0, 0, 0, 2, 258], "2003-09-16T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1986-09-24T16:32:07Z",
+    "outputs": [[1986, 8, 24, 16, 32, 7, 3, 266]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1986-09-24T16:32:07Z",
+    "outputs": [527963527]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "24 September 1986 16:32:07",
+    "outputs": [[1986, 8, 24, 16, 32, 7, 3, 266]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1986 365",
+    "outputs": [[1986, 11, 31, 0, 0, 0, 3, 364], 536371200]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1950-09-18T08:20:10Z",
+    "outputs": [[1950, 8, 18, 8, 20, 10, 1, 260]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1950-09-18T08:20:10Z",
+    "outputs": [-608657990]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "18 September 1950 08:20:10",
+    "outputs": [[1950, 8, 18, 8, 20, 10, 1, 260]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1950 204",
+    "outputs": [[1950, 6, 23, 0, 0, 0, 0, 203], -613612800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/18/50",
+    "outputs": [[2050, 8, 18, 0, 0, 0, 0, 260], "2050-09-18T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1998-09-11T16:08:43Z",
+    "outputs": [[1998, 8, 11, 16, 8, 43, 5, 253]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1998-09-11T16:08:43Z",
+    "outputs": [905530123]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "11 September 1998 16:08:43",
+    "outputs": [[1998, 8, 11, 16, 8, 43, 5, 253]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1998 213",
+    "outputs": [[1998, 7, 1, 0, 0, 0, 6, 212], 901929600]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/11/98",
+    "outputs": [[1998, 8, 11, 0, 0, 0, 5, 253], "1998-09-11T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2126-09-26T16:08:34Z",
+    "outputs": [[2126, 8, 26, 16, 8, 34, 4, 268]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2126-09-26T16:08:34Z",
+    "outputs": [4946112514]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "26 September 2126 16:08:34",
+    "outputs": [[2126, 8, 26, 16, 8, 34, 4, 268]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2126 214",
+    "outputs": [[2126, 7, 2, 0, 0, 0, 5, 213], 4941302400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/26/26",
+    "outputs": [[2026, 8, 26, 0, 0, 0, 6, 268], "2026-09-26T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1942-05-26T08:48:10Z",
+    "outputs": [[1942, 4, 26, 8, 48, 10, 2, 145]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1942-05-26T08:48:10Z",
+    "outputs": [-871053110]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "26 May 1942 08:48:10",
+    "outputs": [[1942, 4, 26, 8, 48, 10, 2, 145]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1942 355",
+    "outputs": [[1942, 11, 21, 0, 0, 0, 1, 354], -853027200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/26/42",
+    "outputs": [[2042, 4, 26, 0, 0, 0, 1, 145], "2042-05-26T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1954-09-28T00:24:04Z",
+    "outputs": [[1954, 8, 28, 0, 24, 4, 2, 270]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1954-09-28T00:24:04Z",
+    "outputs": [-481592156]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "28 September 1954 00:24:04",
+    "outputs": [[1954, 8, 28, 0, 24, 4, 2, 270]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1954 102",
+    "outputs": [[1954, 3, 12, 0, 0, 0, 1, 101], -496195200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/28/54",
+    "outputs": [[2054, 8, 28, 0, 0, 0, 1, 270], "2054-09-28T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1938-05-06T08:24:52Z",
+    "outputs": [[1938, 4, 6, 8, 24, 52, 5, 125]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1938-05-06T08:24:52Z",
+    "outputs": [-999012908]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "6 May 1938 08:24:52",
+    "outputs": [[1938, 4, 6, 8, 24, 52, 5, 125]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1938 207",
+    "outputs": [[1938, 6, 26, 0, 0, 0, 2, 206], -992044800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/06/38",
+    "outputs": [[2038, 4, 6, 0, 0, 0, 4, 125], "2038-05-06T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1986-05-31T00:28:24Z",
+    "outputs": [[1986, 4, 31, 0, 28, 24, 6, 150]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1986-05-31T00:28:24Z",
+    "outputs": [517883304]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "31 May 1986 00:28:24",
+    "outputs": [[1986, 4, 31, 0, 28, 24, 6, 150]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1986 309",
+    "outputs": [[1986, 10, 5, 0, 0, 0, 3, 308], 531532800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/31/86",
+    "outputs": [[1986, 4, 31, 0, 0, 0, 6, 150], "1986-05-31T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1942-05-29T00:00:47Z",
+    "outputs": [[1942, 4, 29, 0, 0, 47, 5, 148]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1942-05-29T00:00:47Z",
+    "outputs": [-870825553]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "29 May 1942 00:00:47",
+    "outputs": [[1942, 4, 29, 0, 0, 47, 5, 148]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1942 303",
+    "outputs": [[1942, 9, 30, 0, 0, 0, 5, 302], -857520000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/29/42",
+    "outputs": [[2042, 4, 29, 0, 0, 0, 4, 148], "2042-05-29T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1902-05-28T08:12:20Z",
+    "outputs": [[1902, 4, 28, 8, 12, 20, 3, 147]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1902-05-28T08:12:20Z",
+    "outputs": [-2133186460]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "28 May 1902 08:12:20",
+    "outputs": [[1902, 4, 28, 8, 12, 20, 3, 147]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1902 007",
+    "outputs": [[1902, 0, 7, 0, 0, 0, 2, 6], -2145398400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/28/02",
+    "outputs": [[2002, 4, 28, 0, 0, 0, 2, 147], "2002-05-28T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1910-09-07T08:20:44Z",
+    "outputs": [[1910, 8, 7, 8, 20, 44, 3, 249]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1910-09-07T08:20:44Z",
+    "outputs": [-1871912356]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "7 September 1910 08:20:44",
+    "outputs": [[1910, 8, 7, 8, 20, 44, 3, 249]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1910 050",
+    "outputs": [[1910, 1, 19, 0, 0, 0, 6, 49], -1889222400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/07/10",
+    "outputs": [[2010, 8, 7, 0, 0, 0, 2, 249], "2010-09-07T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1930-05-11T16:20:40Z",
+    "outputs": [[1930, 4, 11, 16, 20, 40, 0, 130]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1930-05-11T16:20:40Z",
+    "outputs": [-1251013160]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "11 May 1930 16:20:40",
+    "outputs": [[1930, 4, 11, 16, 20, 40, 0, 130]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1930 239",
+    "outputs": [[1930, 7, 27, 0, 0, 0, 3, 238], -1241740800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/11/30",
+    "outputs": [[2030, 4, 11, 0, 0, 0, 6, 130], "2030-05-11T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1962-01-22T16:24:60Z",
+    "outputs": [[1962, 0, 22, 16, 24, 60, 1, 21]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1962-01-22T16:24:60Z",
+    "outputs": [-250587300]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "22 January 1962 16:24:60",
+    "outputs": [[1962, 0, 22, 16, 24, 60, 1, 21]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1962 342",
+    "outputs": [[1962, 11, 8, 0, 0, 0, 6, 341], -222998400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/22/62",
+    "outputs": [[2062, 0, 22, 0, 0, 0, 0, 21], "2062-01-22T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2106-09-28T00:36:16Z",
+    "outputs": [[2106, 8, 28, 0, 36, 16, 2, 270]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2106-09-28T00:36:16Z",
+    "outputs": [4315077376]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "28 September 2106 00:36:16",
+    "outputs": [[2106, 8, 28, 0, 36, 16, 2, 270]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2106 024",
+    "outputs": [[2106, 0, 24, 0, 0, 0, 0, 23], 4293734400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/28/06",
+    "outputs": [[2006, 8, 28, 0, 0, 0, 4, 270], "2006-09-28T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1942-09-08T16:40:24Z",
+    "outputs": [[1942, 8, 8, 16, 40, 24, 2, 250]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1942-09-08T16:40:24Z",
+    "outputs": [-861952776]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "8 September 1942 16:40:24",
+    "outputs": [[1942, 8, 8, 16, 40, 24, 2, 250]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1942 035",
+    "outputs": [[1942, 1, 4, 0, 0, 0, 3, 34], -880675200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/08/42",
+    "outputs": [[2042, 8, 8, 0, 0, 0, 1, 250], "2042-09-08T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1958-05-02T16:44:27Z",
+    "outputs": [[1958, 4, 2, 16, 44, 27, 5, 121]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1958-05-02T16:44:27Z",
+    "outputs": [-368176533]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "2 May 1958 16:44:27",
+    "outputs": [[1958, 4, 2, 16, 44, 27, 5, 121]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1958 024",
+    "outputs": [[1958, 0, 24, 0, 0, 0, 5, 23], -376704000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/02/58",
+    "outputs": [[2058, 4, 2, 0, 0, 0, 4, 121], "2058-05-02T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1854-09-21T08:00:10Z",
+    "outputs": [[1854, 8, 21, 8, 0, 10, 4, 263]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1854-09-21T08:00:10Z",
+    "outputs": [-3637843190]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "21 September 1854 08:00:10",
+    "outputs": [[1854, 8, 21, 8, 0, 10, 4, 263]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1854 284",
+    "outputs": [[1854, 9, 11, 0, 0, 0, 3, 283], -3636144000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/21/54",
+    "outputs": [[2054, 8, 21, 0, 0, 0, 1, 263], "2054-09-21T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1990-09-09T08:20:55Z",
+    "outputs": [[1990, 8, 9, 8, 20, 55, 0, 251]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1990-09-09T08:20:55Z",
+    "outputs": [652868455]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "9 September 1990 08:20:55",
+    "outputs": [[1990, 8, 9, 8, 20, 55, 0, 251]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1990 101",
+    "outputs": [[1990, 3, 11, 0, 0, 0, 3, 100], 639792000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/09/90",
+    "outputs": [[1990, 8, 9, 0, 0, 0, 0, 251], "1990-09-09T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2006-01-31T08:12:55Z",
+    "outputs": [[2006, 0, 31, 8, 12, 55, 2, 30]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2006-01-31T08:12:55Z",
+    "outputs": [1138695175]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "31 January 2006 08:12:55",
+    "outputs": [[2006, 0, 31, 8, 12, 55, 2, 30]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2006 289",
+    "outputs": [[2006, 9, 16, 0, 0, 0, 1, 288], 1160956800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/31/06",
+    "outputs": [[2006, 0, 31, 0, 0, 0, 2, 30], "2006-01-31T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2130-09-16T00:56:34Z",
+    "outputs": [[2130, 8, 16, 0, 56, 34, 6, 258]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2130-09-16T00:56:34Z",
+    "outputs": [5071424194]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "16 September 2130 00:56:34",
+    "outputs": [[2130, 8, 16, 0, 56, 34, 6, 258]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2130 163",
+    "outputs": [[2130, 5, 12, 0, 0, 0, 1, 162], 5063126400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/16/30",
+    "outputs": [[2030, 8, 16, 0, 0, 0, 1, 258], "2030-09-16T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2146-05-06T08:16:08Z",
+    "outputs": [[2146, 4, 6, 8, 16, 8, 5, 125]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2146-05-06T08:16:08Z",
+    "outputs": [5564880968]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "6 May 2146 08:16:08",
+    "outputs": [[2146, 4, 6, 8, 16, 8, 5, 125]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2146 223",
+    "outputs": [[2146, 7, 11, 0, 0, 0, 4, 222], 5573232000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/06/46",
+    "outputs": [[2046, 4, 6, 0, 0, 0, 0, 125], "2046-05-06T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2066-05-09T08:12:18Z",
+    "outputs": [[2066, 4, 9, 8, 12, 18, 0, 128]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2066-05-09T08:12:18Z",
+    "outputs": [3040618338]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "9 May 2066 08:12:18",
+    "outputs": [[2066, 4, 9, 8, 12, 18, 0, 128]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2066 169",
+    "outputs": [[2066, 5, 18, 0, 0, 0, 5, 168], 3044044800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/09/66",
+    "outputs": [[2066, 4, 9, 0, 0, 0, 0, 128], "2066-05-09T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2082-01-11T08:24:42Z",
+    "outputs": [[2082, 0, 11, 8, 24, 42, 0, 10]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2082-01-11T08:24:42Z",
+    "outputs": [3535345482]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "11 January 2082 08:24:42",
+    "outputs": [[2082, 0, 11, 8, 24, 42, 0, 10]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2082 029",
+    "outputs": [[2082, 0, 29, 0, 0, 0, 4, 28], 3536870400]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/11/82",
+    "outputs": [[1982, 0, 11, 0, 0, 0, 1, 10], "1982-01-11T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1994-05-26T08:40:53Z",
+    "outputs": [[1994, 4, 26, 8, 40, 53, 4, 145]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1994-05-26T08:40:53Z",
+    "outputs": [769941653]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "26 May 1994 08:40:53",
+    "outputs": [[1994, 4, 26, 8, 40, 53, 4, 145]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1994 307",
+    "outputs": [[1994, 10, 3, 0, 0, 0, 4, 306], 783820800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/26/94",
+    "outputs": [[1994, 4, 26, 0, 0, 0, 4, 145], "1994-05-26T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2006-01-12T00:04:13Z",
+    "outputs": [[2006, 0, 12, 0, 4, 13, 4, 11]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2006-01-12T00:04:13Z",
+    "outputs": [1137024253]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "12 January 2006 00:04:13",
+    "outputs": [[2006, 0, 12, 0, 4, 13, 4, 11]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2006 350",
+    "outputs": [[2006, 11, 16, 0, 0, 0, 6, 349], 1166227200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/12/06",
+    "outputs": [[2006, 0, 12, 0, 0, 0, 4, 11], "2006-01-12T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2086-09-06T00:36:35Z",
+    "outputs": [[2086, 8, 6, 0, 36, 35, 5, 248]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2086-09-06T00:36:35Z",
+    "outputs": [3682110995]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "6 September 2086 00:36:35",
+    "outputs": [[2086, 8, 6, 0, 36, 35, 5, 248]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2086 130",
+    "outputs": [[2086, 4, 10, 0, 0, 0, 5, 129], 3671827200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "09/06/86",
+    "outputs": [[1986, 8, 6, 0, 0, 0, 6, 248], "1986-09-06T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1898-05-06T16:16:60Z",
+    "outputs": [[1898, 4, 6, 16, 16, 60, 5, 125]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1898-05-06T16:16:60Z",
+    "outputs": [-2261202180]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "6 May 1898 16:16:60",
+    "outputs": [[1898, 4, 6, 16, 16, 60, 5, 125]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1898 118",
+    "outputs": [[1898, 3, 28, 0, 0, 0, 4, 117], -2261952000]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/06/98",
+    "outputs": [[1998, 4, 6, 0, 0, 0, 3, 125], "1998-05-06T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "2018-05-14T00:12:33Z",
+    "outputs": [[2018, 4, 14, 0, 12, 33, 1, 133]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "2018-05-14T00:12:33Z",
+    "outputs": [1526256753]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "14 May 2018 00:12:33",
+    "outputs": [[2018, 4, 14, 0, 12, 33, 1, 133]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "2018 091",
+    "outputs": [[2018, 3, 1, 0, 0, 0, 0, 90], 1522540800]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "05/14/18",
+    "outputs": [[2018, 4, 14, 0, 0, 0, 1, 133], "2018-05-14T00:00:00Z"]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\")",
+    "input": "1950-01-04T00:08:46Z",
+    "outputs": [[1950, 0, 4, 0, 8, 46, 3, 3]]
+  },
+  {
+    "program": "strptime(\"%Y-%m-%dT%H:%M:%SZ\") | mktime",
+    "input": "1950-01-04T00:08:46Z",
+    "outputs": [-630892274]
+  },
+  {
+    "program": "strptime(\"%d %B %Y %T\")",
+    "input": "4 January 1950 00:08:46",
+    "outputs": [[1950, 0, 4, 0, 8, 46, 3, 3]]
+  },
+  {
+    "program": "strptime(\"%Y %j\") | ., mktime",
+    "input": "1950 003",
+    "outputs": [[1950, 0, 3, 0, 0, 0, 2, 2], -630979200]
+  },
+  {
+    "program": "strptime(\"%m/%d/%y\") | ., todate",
+    "input": "01/04/50",
+    "outputs": [[2050, 0, 4, 0, 0, 0, 2, 3], "2050-01-04T00:00:00Z"]
+  }
+]
