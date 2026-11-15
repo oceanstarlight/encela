@@ -91,7 +91,7 @@ export interface Blueprint {
   approval: "" | "direct" | "relayed";
   /** Fingerprints of the pipeline steps the user saw marked (may change things, may reach outside) when approving. */
   approvedCalls: string[];
-  /** This computer's seal over the blueprint as it stood when its last step was done; a recipe is made only from such a one. */
+  /** This computer's seal over the build as far as it saw it (state, steps, text); a recipe is made only from one it saw to its end. */
   done?: string;
   /**
    * This computer's seal over the approval (src/seal.ts). Without it the
@@ -352,6 +352,7 @@ export function normalizeBlueprint(
     approval: previous?.approval ?? "",
     approvedCalls: previous?.approvedCalls ?? [],
     seal: previous?.seal ?? "",
+    ...(previous?.done ? { done: previous.done } : {}),
   };
   // The user approved certain pieces, tools and settings, and certain marked
   // pipeline calls with their arguments. Anything else: ask again.
@@ -525,17 +526,25 @@ export class Blueprints {
         ]),
       )
       .digest("hex");
-    return ["done", place(this.project), b.id, content];
+    return ["built", place(this.project), b.id, b.status, content];
   }
 
-  /** Records that this computer saw every step of `b` done, as `b` is now. */
-  sealDone(b: Blueprint) {
+  /**
+   * Records that this computer saw the build of `b` as far as it has come:
+   * its state and every step's, with the text as it is now.
+   */
+  sealBuild(b: Blueprint) {
     b.done = this.seals ? this.seals.sign(...this.doneFacts(b)) : "";
+  }
+
+  /** Whether the build of `b`, exactly as the file has it, is one this computer saw. */
+  building(b: Blueprint): boolean {
+    return !this.seals || this.seals.matches(b.done ?? "", ...this.doneFacts(b));
   }
 
   /** Whether `b`, exactly as it is, was built to its end on this computer. */
   builtHere(b: Blueprint): boolean {
-    return b.status === "done" && (!this.seals || this.seals.matches(b.done, ...this.doneFacts(b)));
+    return b.status === "done" && this.building(b);
   }
 
   /** Seals the approval just recorded in `b`. */

@@ -76,8 +76,9 @@ function withoutDefaults(p: Record<string, unknown>): Record<string, unknown> {
     inputs: Object.fromEntries(
       Object.entries(inputs as Record<string, unknown>).map(([k, v]) => {
         if (!v || typeof v !== "object" || Array.isArray(v)) return [k, {}];
+        // An input that could be left out still can: only its value goes.
         const { default: _, ...rest } = v as Record<string, unknown>;
-        return [k, rest];
+        return [k, rest.required === true ? rest : { ...rest, default: null }];
       }),
     ),
   };
@@ -245,7 +246,12 @@ export class Recipes {
         Object.entries(
           p.inputs && typeof p.inputs === "object" ? (p.inputs as Record<string, unknown>) : {},
         )
-          .filter(([, v]) => !!v && typeof v === "object" && "default" in (v as object))
+          .filter(
+            ([, v]) =>
+              !!v &&
+              typeof v === "object" &&
+              ((v as { default?: unknown }).default ?? null) !== null,
+          )
           .map(([k]) => `pipeline ${text(p.name, 80)}: the default of ${k}`),
       ),
     ];

@@ -376,7 +376,9 @@ test("review: a recipe keeps no request text and no pipeline input values, and s
   assert.doesNotMatch(text, /ghp_SECRET|\/home\/alice/);
   const inputs = JSON.parse(text).pipelines[0].inputs;
   assert.equal(inputs.token.description, "The token");
-  assert.equal("default" in inputs.token, false);
+  // The value is gone; the input can still be left out.
+  assert.equal(inputs.token.default, null);
+  assert.notEqual(inputs.token.required, true);
   assert.doesNotMatch(
     said(await s.server.call("recipe_get", { name: "deploy" })),
     /ghp_SECRET|\/home\/alice/,
@@ -423,4 +425,115 @@ test("review: recipes are found by whole words, keep the newest answer, and go b
   assert.equal(recipes.get("website").choices[0].last, "cool");
   assert.equal(recipes.remove("Web Site"), false);
   assert.equal(recipes.remove(" WEBSITE "), true);
+});
+
+test("review 3: a build is a recipe only if this computer saw it from assembly to its end", async () => {
+  // A file edited to say done is not sealed by recording a step.
+  const s = start();
+  await s.ready;
+  await s.server.call("blueprint_save", { blueprint: plan });
+  const id = new Blueprints(s.project).list()[0].id;
+  await s.server.call("blueprint_approve", { id, user_answer: "approve" });
+  const file = join(s.project, ".encela", "blueprints", `${id}.json`);
+  const b = JSON.parse(readFileSync(file, "utf8"));
+  const edited = (status) =>
+    JSON.stringify({
+      ...b,
+      status,
+      goal: "EDITED goal never built",
+      steps: b.steps.map((x) => ({ ...x, status: "done", detail: "EVIL" })),
+    });
+  for (const status of ["done", "assembled"]) {
+    writeFileSync(file, edited(status));
+    await s.server.call("blueprint_step", { id, step: "check", status: "done" });
+    const forged = await s.server.call("recipe_save", { id, name: "forged", summary: "x" });
+    assert.equal(forged.isError, true, status);
+  }
+  // Nor by assembling a file whose steps already say done.
+  writeFileSync(file, edited("approved"));
+  await s.server.call("blueprint_assemble", { id });
+  await s.server.call("blueprint_step", { id, step: "check", status: "done" });
+  assert.equal(
+    (await s.server.call("recipe_save", { id, name: "forged", summary: "x" })).isError,
+    true,
+  );
+  assert.deepEqual(new Recipes(s.home).list(), []);
+
+  // A finished build saved again with other text is not sealed again by repeating a step.
+  const t = start();
+  const done = await built(t);
+  await t.server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      id: done.id,
+      goal: "Something else entirely",
+      steps: [
+        ...plan.steps.map((x) => ({ ...x, status: "done" })),
+        { id: "extra", title: "Never done", status: "done" },
+      ],
+    },
+  });
+  await t.server.call("blueprint_step", { id: done.id, step: "check", status: "done" });
+  assert.equal(
+    (await t.server.call("recipe_save", { id: done.id, name: "resaved", summary: "x" })).isError,
+    true,
+  );
+
+  // Saved again as it was, it is still the build that was seen.
+  const u = start();
+  const same = await built(u);
+  const again = await u.server.call("blueprint_save", {
+    blueprint: { ...plan, id: same.id, steps: plan.steps.map((x) => ({ ...x, status: "done" })) },
+  });
+  assert.equal(again.isError, false, said(again));
+  const kept = await u.server.call("recipe_save", { id: same.id, name: "same", summary: "x" });
+  assert.equal(kept.isError, false, said(kept));
+
+  // A note written into the blueprint while it is being built doesn't cost the recipe.
+  const v = start();
+  await v.ready;
+  await v.server.call("blueprint_save", { blueprint: plan });
+  const vid = new Blueprints(v.project).list()[0].id;
+  await v.server.call("blueprint_approve", { id: vid, user_answer: "approve" });
+  await v.server.call("blueprint_assemble", { id: vid });
+  await v.server.call("blueprint_step", { id: vid, step: "layout", status: "done" });
+  await v.server.call("blueprint_save", {
+    blueprint: { ...plan, id: vid, requirements: [...plan.requirements, "Dark mode too"] },
+  });
+  assert.equal(new Blueprints(v.project).get(vid).status, "assembled");
+  await v.server.call("blueprint_step", { id: vid, step: "check", status: "done" });
+  const late = await v.server.call("recipe_save", { id: vid, name: "noted", summary: "x" });
+  assert.equal(late.isError, false, said(late));
+});
+
+test("review 3: a recipe names only the input values it really left out, and optional stays optional", async () => {
+  const s = start();
+  const { id } = await built(s, {
+    ...plan,
+    steps: [{ id: "run", title: "Run it", pipeline: "sizes" }],
+    pipelines: [
+      {
+        name: "sizes",
+        inputs: { who: { type: "string" }, opt: { default: "x" } },
+        steps: [{ id: "list", piece: "mcp:echo", tool: "list", args: { n: 2 } }],
+      },
+    ],
+  });
+  const kept = said(await s.server.call("recipe_save", { id, name: "inputs", summary: "x" }));
+  assert.match(kept, /the default of opt/);
+  assert.doesNotMatch(kept, /the default of who/);
+  // A blueprint started from the recipe reads the inputs as they were.
+  const recipe = JSON.parse(readFileSync(join(s.home, "recipes", "inputs.json"), "utf8"));
+  const next = await s.server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      steps: [{ id: "run", title: "Run it", pipeline: "sizes" }],
+      pipelines: recipe.pipelines,
+    },
+  });
+  assert.equal(next.isError, false, said(next));
+  const made = new Blueprints(s.project).list().find((x) => x.id !== id);
+  const inputs = new Blueprints(s.project).get(made.id).pipelines[0].inputs;
+  assert.equal(inputs.who.required, true);
+  assert.equal(inputs.opt.required, false);
 });
