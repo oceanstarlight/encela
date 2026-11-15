@@ -10,7 +10,7 @@ import { join } from "node:path";
 import type { Blueprint } from "./blueprint";
 import { home } from "./paths";
 import { writeJson } from "./registry";
-import { words } from "./search";
+import { mentions, words } from "./search";
 
 const NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** Characters a recipe's file may hold, and recipes a person may keep. */
@@ -34,7 +34,6 @@ export interface Recipe {
   tags: string[];
   /** What was learned in the build it comes from: what to do the same, what to do differently. */
   notes: string;
-  request: string;
   goal: string;
   requirements: string[];
   pieces: RecipePiece[];
@@ -67,6 +66,22 @@ const things = (v: unknown) =>
   (Array.isArray(v) ? v : []).filter(
     (x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x),
   );
+
+/** A pipeline without the values its inputs were given for one build. */
+function withoutDefaults(p: Record<string, unknown>): Record<string, unknown> {
+  const inputs = p.inputs;
+  if (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) return p;
+  return {
+    ...p,
+    inputs: Object.fromEntries(
+      Object.entries(inputs as Record<string, unknown>).map(([k, v]) => {
+        if (!v || typeof v !== "object" || Array.isArray(v)) return [k, {}];
+        const { default: _, ...rest } = v as Record<string, unknown>;
+        return [k, rest];
+      }),
+    ),
+  };
+}
 
 export function recipeName(given: unknown): string {
   const name = text(given, 200)
@@ -103,7 +118,6 @@ function shaped(raw: unknown): Recipe | null {
     summary: text(r.summary, 400),
     tags: texts(r.tags, 12).map((t) => t.toLowerCase()),
     notes: text(r.notes),
-    request: text(r.request),
     goal,
     requirements: texts(r.requirements),
     pieces: things(r.pieces)
@@ -135,10 +149,11 @@ function shaped(raw: unknown): Recipe | null {
       .map((c) => ({
         question: text(c.question, 400),
         options: texts(c.options, 20),
-        last: text(c.last ?? c.answer, 400),
+        // What was chosen in the build it is made from; a recipe read back has only `last`.
+        last: text(c.answer, 400) || text(c.last, 400),
       }))
       .filter((c) => c.question),
-    pipelines: things(r.pipelines),
+    pipelines: things(r.pipelines).map(withoutDefaults),
     savedAt: text(r.savedAt, 40),
     uses: Number.isFinite(Number(r.uses)) ? Math.max(0, Math.floor(Number(r.uses))) : 0,
     usedAt: text(r.usedAt, 40),
@@ -220,11 +235,20 @@ export class Recipes {
         `There are ${MAX_RECIPES} recipes already: remove one first (encela recipes)`,
       );
     }
-    const dropped = b.pieces.flatMap((p) =>
-      Object.entries(p.env)
-        .filter(([, v]) => !/^\$\{[A-Za-z0-9_]+\}$/.test(v))
-        .map(([k]) => `${p.piece}: ${k}`),
-    );
+    const dropped = [
+      ...b.pieces.flatMap((p) =>
+        Object.entries(p.env)
+          .filter(([, v]) => !/^\$\{[A-Za-z0-9_]+\}$/.test(v))
+          .map(([k]) => `${p.piece}: ${k}`),
+      ),
+      ...things(b.pipelines).flatMap((p) =>
+        Object.entries(
+          p.inputs && typeof p.inputs === "object" ? (p.inputs as Record<string, unknown>) : {},
+        )
+          .filter(([, v]) => !!v && typeof v === "object" && "default" in (v as object))
+          .map(([k]) => `pipeline ${text(p.name, 80)}: the default of ${k}`),
+      ),
+    ];
     const recipe = shaped({
       ...b,
       name,
@@ -242,7 +266,13 @@ export class Recipes {
   }
 
   /** Notes that a blueprint was started from a recipe. */
-  used(name: string, now = new Date()) {
+  used(given: string, now = new Date()) {
+    let name: string;
+    try {
+      name = recipeName(given);
+    } catch {
+      return;
+    }
     const recipe = this.find(name);
     if (!recipe) return;
     recipe.uses++;
@@ -250,7 +280,13 @@ export class Recipes {
     writeJson(this.file(name), recipe);
   }
 
-  remove(name: string): boolean {
+  remove(given: string): boolean {
+    let name: string;
+    try {
+      name = recipeName(given);
+    } catch {
+      return false;
+    }
     if (!this.find(name)) return false;
     rmSync(this.file(name), { force: true });
     return true;
@@ -264,11 +300,11 @@ export class Recipes {
     for (const recipe of this.list()) {
       const strong = `${recipe.name.replaceAll("-", " ")} ${recipe.tags.join(" ")}`.toLowerCase();
       const weak =
-        `${recipe.summary} ${recipe.goal} ${recipe.request} ${recipe.requirements.join(" ")}`.toLowerCase();
+        `${recipe.summary} ${recipe.goal} ${recipe.requirements.join(" ")}`.toLowerCase();
       let best = 0;
       for (const set of sets) {
         let sum = 0;
-        for (const w of set) sum += strong.includes(w) ? 4 : weak.includes(w) ? 2 : 0;
+        for (const w of set) sum += mentions(strong, w) ? 4 : mentions(weak, w) ? 2 : 0;
         best = Math.max(best, sum);
       }
       if (best >= 4) found.push({ recipe, score: best });
@@ -301,7 +337,7 @@ export function recipeText(r: Recipe, missing: string[], unapproved: string[]): 
   };
   const out = [
     `Recipe ${r.name}: ${r.summary}`,
-    `Saved ${r.savedAt.slice(0, 10) || "?"}${r.uses ? `, used ${r.uses} time${r.uses === 1 ? "" : "s"}` : ""}. It was made for: ${r.request || r.goal}`,
+    `Saved ${r.savedAt.slice(0, 10) || "?"}${r.uses ? `, used ${r.uses} time${r.uses === 1 ? "" : "s"}` : ""}.`,
   ];
   if (r.notes) out.push("", "What was learned:", r.notes);
   if (missing.length) {

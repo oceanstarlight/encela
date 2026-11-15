@@ -39,7 +39,7 @@ import { lang, projectDir, VERSION } from "./paths";
 import { cautions, isDocument, KINDS, type McpConfig, type Piece, type PieceKind } from "./piece";
 import { describe, markedSteps, marksOf, type Pipeline, PipelineError } from "./pipeline";
 import { Recipes, recipeLine, recipeText } from "./recipe";
-import { Registry } from "./registry";
+import { pieceWhat, Registry } from "./registry";
 import { Sandbox } from "./sandbox";
 import { signature } from "./schema";
 import { Seals } from "./seal";
@@ -361,6 +361,8 @@ export class Server {
   private canAsk = false;
   /** Blueprints (as they were) whose approval question the client closed without an answer. */
   private unanswered = new Set<string>();
+  /** The pieces of each blueprint as they were when it was last shown: an answer counts for those, not for what came after. */
+  private shownAs = new Map<string, string>();
   private nextId = 1;
   private asked = new Map<number, (m: Json) => void>();
   private project: string;
@@ -743,9 +745,14 @@ export class Server {
 
   private saveRecipe(args: Json): string {
     const b = this.blueprints.get(String(args.id ?? ""));
+    if (b.status === "done" && !this.blueprints.builtHere(b)) {
+      throw new Error(
+        `${b.id} says it is done, but not as this computer saw it built (it was changed since, or it came with the project): a recipe is made only from a build that was taken to its end here.`,
+      );
+    }
     const { recipe, replaced, dropped } = this.recipes.save(b, args);
     this.live.note("saved", `recipe ${recipe.name}`);
-    return `${replaced ? "Replaced" : "Kept"} the recipe ${recipe.name} (${recipe.steps.length} steps, ${recipe.pieces.length} pieces${recipe.pipelines.length ? `, ${recipe.pipelines.length} pipelines` : ""}) in the user's Encela folder. It will show up in find_pieces for requests like this one.${dropped.length ? `\nValues set for this build were left out (set them again next time): ${dropped.join(", ")}` : ""}`;
+    return `${replaced ? "Replaced" : "Kept"} the recipe ${recipe.name} (${recipe.steps.length} steps, ${recipe.pieces.length} pieces${recipe.pipelines.length ? `, ${recipe.pipelines.length} pipelines` : ""}) in the user's Encela folder. It will show up in find_pieces for requests like this one.${dropped.length ? `\nValues set for this build were left out (set them again next time): ${dropped.join(", ")}` : ""}\nKept as written, and shown again in later projects: the goal, the requirements, each step's title and detail, the pieces' roles, the pipelines with the arguments of their steps, and your notes. Tell the user so; if any of it holds a key, a password or a private path, take it out and save the recipe again (or remove it: encela recipes remove ${recipe.name}).`;
   }
 
   private getRecipe(name: string): string {
@@ -838,7 +845,7 @@ export class Server {
       b.status === "draft"
         ? `Show this blueprint to the user in their language (every piece with what it is started with and its warnings marked with !, every pipeline with its marked calls, their arguments and what feeds them, and the choices), then call blueprint_approve.${again}`
         : `Saved; still ${b.status} (nothing the user approved has changed).`;
-    return `${render(b, this.registry, false, this.tools)}\n\n${next}`;
+    return `${this.show(b, false)}\n\n${next}`;
   }
 
   /**
@@ -875,7 +882,7 @@ export class Server {
       .map((x) => `- ${x.id} (${x.status}, ${progress(x)}): ${x.goal}`);
     const next = ready(b).map((s) => `- ${s.id}: ${s.title}`);
     return [
-      render(b, this.registry, false, this.tools),
+      this.show(b, false),
       next.length && b.status === "assembled" ? `\nCan start now:\n${next.join("\n")}` : "",
       // Pipelines stay out of the data: a save without them keeps them, and one is read with `pipeline`.
       `\nData (without pipelines):\n${JSON.stringify({ ...b, pipelines: undefined })}`,
@@ -886,6 +893,22 @@ export class Server {
   }
 
   /** Asks the user about a blueprint with Encela's own question. */
+  /** What each piece of `b` runs, says and is, as things are now. */
+  private piecesOf(b: Blueprint): string {
+    return JSON.stringify(
+      b.pieces.map((p) => {
+        const piece = this.registry.find(p.piece);
+        return piece ? pieceWhat(piece) : "";
+      }),
+    );
+  }
+
+  /** The blueprint as text for the user, with a note of what its pieces were when it was shown. */
+  private show(b: Blueprint, short: boolean): string {
+    this.shownAs.set(b.id, this.piecesOf(b));
+    return render(b, this.registry, short, this.tools);
+  }
+
   private async decision(b: Blueprint, question: string): Promise<Json> {
     this.current = b.id;
     this.live.asking = true;
@@ -894,7 +917,7 @@ export class Server {
       return await this.ask(
         "elicitation/create",
         {
-          message: `${render(b, this.registry, true, this.tools)}\n\n${question}`,
+          message: `${this.show(b, true)}\n\n${question}`,
           requestedSchema: {
             type: "object",
             properties: {
@@ -938,6 +961,9 @@ export class Server {
       return now && now.updatedAt === shown.updatedAt && now.status === shown.status ? now : null;
     };
     const changed = `${id} was changed while the user was looking at it, so their answer wasn't applied. Show them the blueprint as it is now and call blueprint_approve again.`;
+    /** True when a piece is no longer what it was when the blueprint was shown. */
+    const swapped = (now: Blueprint) => this.shownAs.get(now.id) !== this.piecesOf(now);
+    const pieces = `A piece of ${id} is not what it was when the blueprint was shown (or it was not shown in this session), so the answer wasn't applied. Show the user the blueprint as it is now (blueprint_get) and call blueprint_approve again.`;
 
     if (b.status === "approved" || b.status === "assembled") {
       // An answer that came through Claude doesn't let pipelines make marked
@@ -964,6 +990,7 @@ export class Server {
       b = now;
       const content = (reply.content as Json) ?? {};
       const note = String(content.note ?? "").trim();
+      if (content.decision === "approve" && swapped(b)) return pieces;
       if (content.decision === "approve") {
         b.approval = "direct";
         this.blueprints.seal(b);
@@ -1011,13 +1038,14 @@ export class Server {
     if (!direct) {
       answer = passed;
       if (!given) {
-        return `The user hasn't decided yet. Show them the blueprint, ask with AskUserQuestion (approve / change something / cancel; let them drop or swap pieces), then call blueprint_approve again with user_answer and what they said in note.\n\n${render(b, this.registry, false, this.tools)}`;
+        return `The user hasn't decided yet. Show them the blueprint, ask with AskUserQuestion (approve / change something / cancel; let them drop or swap pieces), then call blueprint_approve again with user_answer and what they said in note.\n\n${this.show(b, false)}`;
       }
     }
     this.unanswered.delete(asked);
     const now = same(b);
     if (!now) return changed;
     b = now;
+    if (answer === "approve" && swapped(b)) return pieces;
     b.approvalNote = note;
     b.updatedAt = new Date().toISOString();
     if (answer === "approve") {
@@ -1166,6 +1194,9 @@ export class Server {
     b.updatedAt = new Date().toISOString();
     const allDone = b.steps.every((x) => x.status === "done");
     b.status = allDone ? "done" : "assembled";
+    // Only a build this computer saw to its end can be kept as a recipe.
+    if (allDone) this.blueprints.sealDone(b);
+    else b.done = "";
     this.blueprints.save(b);
     if (allDone) {
       // The build is over: its MCP pieces aren't needed any more.

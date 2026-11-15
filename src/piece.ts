@@ -229,14 +229,30 @@ export function cautions(p: Piece): string[] {
         ? `Starts a program on this computer: ${[p.config.command, ...p.config.args].join(" ")}`
         : `Connects to ${p.config.url}`,
     );
-    // What it is started with, and which of the user's own values it is handed.
-    const env = Object.entries(p.config.env);
-    const set = env.filter(([, v]) => !/^\$\{[A-Za-z0-9_]+(:-[^}]*)?\}$/.test(v));
-    const handed = env.filter(([k, v]) => !set.some(([n]) => n === k) && v !== "");
-    if (set.length) out.push(`Sets for it: ${set.map(([k, v]) => `${k}=${v}`).join(", ")}`);
-    if (handed.length) {
+    // What it is started with, what it is sent, and which of the user's own
+    // values (named by `${NAME}` anywhere in its config) go to it.
+    const short = (v: string) => (v.length > 60 ? `${v.slice(0, 60)}…` : v);
+    const env = Object.entries(p.config.env).filter(([, v]) => !/^\$\{[A-Za-z0-9_]+\}$/.test(v));
+    if (env.length) out.push(`Sets for it: ${env.map(([k, v]) => `${k}=${short(v)}`).join(", ")}`);
+    const headers = Object.entries(p.config.headers);
+    if (headers.length) {
+      out.push(`Sends the headers: ${headers.map(([k, v]) => `${k}: ${short(v)}`).join(", ")}`);
+    }
+    const handed = new Set<string>();
+    for (const t of [
+      p.config.command,
+      p.config.url,
+      ...p.config.args,
+      ...Object.values(p.config.env),
+      ...Object.values(p.config.headers),
+    ]) {
+      for (const m of t.matchAll(/\$\{([A-Za-z0-9_]+)(?::-[^}]*)?\}/g)) handed.add(m[1] as string);
+    }
+    if (handed.size) {
       out.push(
-        `Is handed your ${handed.map(([k]) => k).join(", ")} from this computer's environment`,
+        p.config.transport === "stdio"
+          ? `Is handed your ${[...handed].join(", ")} from this computer's environment`
+          : `Sends your ${[...handed].join(", ")} from this computer's environment to ${p.config.url}`,
       );
     }
   }

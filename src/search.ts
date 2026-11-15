@@ -21,7 +21,7 @@ export function words(text: string): string[] {
 const has = (list: string[], w: string) => list.some((x) => x.toLowerCase() === w);
 
 /** Whether `text` has the word `w`: whole words for Latin text, anywhere for Korean. */
-function mentions(text: string, w: string): boolean {
+export function mentions(text: string, w: string): boolean {
   if (!/^[a-z0-9+#.]+$/.test(w)) return text.includes(w);
   const escaped = w.replace(/[.+#]/g, "\\$&");
   return new RegExp(`(^|[^a-z0-9])${escaped}(s|es)?([^a-z0-9]|$)`).test(text);

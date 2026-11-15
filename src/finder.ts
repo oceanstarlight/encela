@@ -167,7 +167,13 @@ export function spdxOf(text: string): string {
   if (t.includes("cc0 1.0") || t.includes("creative commons zero")) return "CC0-1.0";
   if (t.includes("creative commons")) return "other";
   // A free license's words with terms added to them are not that license.
-  const whole = text.replace(/\s+/g, " ").toLowerCase();
+  // (Who holds the copyright, however many they are, adds no terms.)
+  const whole = text
+    .split(/\r?\n/)
+    .filter((l) => !/^\s*(copyright\b|\(c\)|©|portions copyright)/i.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
   if (whole.length > 2600 || ADDED_TERMS.test(whole)) return "other";
   if (t.includes("permission to use, copy, modify, and/or distribute this software")) return "ISC";
   if (t.includes("permission is hereby granted, free of charge")) {
@@ -514,10 +520,13 @@ const LOADS_CODE =
   /^(NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|LD_AUDIT|DYLD_.*|PATH|PATHEXT|COMSPEC|PYTHONPATH|PYTHONSTARTUP|PYTHONHOME|PYTHONINSPECT|RUBYOPT|RUBYLIB|GEM_HOME|GEM_PATH|PERL5OPT|PERL5LIB|BASH_ENV|ENV|ZDOTDIR|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS|CLASSPATH|DOTNET_STARTUP_HOOKS|GIT_SSH|GIT_SSH_COMMAND|GIT_EXEC_PATH|NPM_CONFIG_.*|PIP_.*|UV_.*|BUN_INSTALL|DENO_DIR)$/i;
 /** Names that turn off a check or send a program's traffic somewhere else: never taken from a README either. */
 const WEAKENS = /(TLS|SSL|VERIFY|CA_?CERTS?|CA_?BUNDLE|PROXY|REGISTRY|INDEX_URL|INSECURE)/i;
-const INTERPRETER = /^(node|nodejs|python[0-9.]*|deno|bun|ruby|perl|php)(\.exe)?$/i;
+const INTERPRETER = /^(node|nodejs|python[0-9.]*|py|deno|bun|ruby|perl|php)$/;
+/** Programs that only start another one. */
+const WRAPPER = /^(env|nohup|nice|time|command|exec|sudo|cmd|start|stdbuf|timeout)$/;
+// Code given on the command line (`-e`, also in a group of short flags such as `-pe`), or loaded before the program.
 const INLINE =
-  /^(-c|-e|-p|-r|-m|--eval|--print|--require|--import|--loader|--experimental-loader)(=|$)/;
-const SHELL = /^(sh|bash|zsh|fish|cmd|cmd\.exe|powershell|pwsh)$/i;
+  /^(-[A-Za-z]*[cepr]|--eval|--print|--require|--import|--loader|--experimental-loader)(=.*)?$/;
+const SHELL = /^(sh|bash|zsh|fish|dash|ksh|cmd|powershell|pwsh)$/;
 
 // --- the finder
 
@@ -823,12 +832,27 @@ export class Finder {
    * command takes whatever is newest.
    */
   private async command(r: Reading, command: string, args: string[], whose: string) {
-    if (SHELL.test(command) || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
+    // The program that really runs: without its folder and suffix, and past
+    // the wrappers that only start another program.
+    const bare = (c: string) =>
+      c
+        .replace(/^.*[\\/]/, "")
+        .replace(/\.(exe|cmd|bat)$/i, "")
+        .toLowerCase();
+    let program = bare(command);
+    let rest = args;
+    for (let i = 0; i < 4 && WRAPPER.test(program); i++) {
+      const at = rest.findIndex((a) => !/^[-/]/.test(a) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(a));
+      if (at < 0) break;
+      program = bare(rest[at] as string);
+      rest = rest.slice(at + 1);
+    }
+    if (SHELL.test(program) || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
       r.cautions.push("Starts through a shell or downloads as it starts: read the command");
     }
     if (
-      (INTERPRETER.test(command) && args.some((a) => INLINE.test(a))) ||
-      (/^(npx|bunx)(\.cmd|\.exe)?$/i.test(command) && args.some((a) => /^(-c|--call)$/.test(a)))
+      (INTERPRETER.test(program) && rest.some((a) => INLINE.test(a))) ||
+      (/^(npx|bunx|npm)$/.test(program) && rest.some((a) => /^(-c|--call)(=|$)/.test(a)))
     ) {
       r.cautions.push("The start command carries code of its own to run: read it");
     }
@@ -837,12 +861,12 @@ export class Finder {
         "An argument holds characters a Windows command line treats specially (& | ^ < > %): read the command",
       );
     }
-    if (/^docker$/i.test(command)) {
+    if (/^(docker|podman|nerdctl)$/.test(program)) {
       r.cautions.push("Runs a container image that is fetched when it starts");
     }
     const spec = packageOf(command, args);
     if (!spec) {
-      if (/^(npx|bunx|uvx|pipx|pnpm|yarn|uv)(\.cmd|\.exe)?$/i.test(command)) {
+      if (/^(npx|bunx|npm|uvx|pipx|pnpm|yarn|uv)$/.test(program)) {
         r.cautions.push(
           "The start command fetches code that Encela could not check against npm or PyPI (a path, a URL, another name for a package, or options it doesn't read)",
         );
