@@ -8,11 +8,16 @@
 // called, and notes the tool calls of the main loop and of the subagents as
 // they pass. Nothing here changes a call, and a session that never calls an
 // Encela tool pays one check per call and nothing else.
-import type { EngineInterface, Register } from "claude-code";
+//
+// Where the surface can redraw a region by itself, the lines are handed to
+// `motion.tsx`, which moves them (a spinner on what is in progress, a pulse
+// on the phase the flow stands at, a flash on what just changed); elsewhere
+// they are drawn as they stand.
+import type { Elements, EngineInterface, Register } from "claude-code";
 import { atom, read, update } from "claude-code";
 import type { Agent, Live } from "../types";
-import type { Line, Seg, Tone } from "./model";
-import { doing, encelaTool, ended, frame, moving, parse, seen, workerOf } from "./model";
+import type { Line, Seg } from "./model";
+import { doing, encelaTool, ended, frame, look, moving, parse, seen, workerOf } from "./model";
 
 const PANE = "encela";
 const TITLE = "Encela";
@@ -33,15 +38,8 @@ const agents = atom({ plugin: "encela", key: "agents" } as const, [] as Agent[],
 });
 const since = atom({ plugin: "encela", key: "since" } as const, 0, { shape: "since-1" });
 
-const STYLE: Record<Tone, { color?: string; dimColor?: boolean; bold?: boolean }> = {
-  plain: {},
-  dim: { dimColor: true },
-  strong: { bold: true },
-  good: { color: "success" },
-  bad: { color: "error" },
-  busy: { color: "suggestion" },
-  wait: { color: "warning" },
-};
+/** The surfaces that can redraw a region by themselves: there the lines move. */
+const moves = (surface: string) => surface === "terminal" || surface === "desktop";
 
 const slashes = (path: string) => path.replaceAll("\\", "/").replace(/\/+$/, "");
 
@@ -220,7 +218,6 @@ export const register: Register = (on) => {
   });
 
   on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
-    const { Box, Text, Progress } = $.ui.resolve(e);
     const [state, loops, from, now] = await Promise.all([
       read($, live),
       read($, agents),
@@ -234,12 +231,25 @@ export const register: Register = (on) => {
       lang: guess(),
       started: from > 0,
     });
-    const run = (segs: Seg[]) => segs.map((s) => <Text {...STYLE[s.tone]}>{s.text}</Text>);
     // The small form: the one line, or the first of the pane.
-    if (e.props.placement === "widget") {
-      const first = view.band.length ? view.band : (view.lines[0]?.left ?? []);
-      return <Text wrap="truncate-end">{run(first)}</Text>;
+    const lines: Line[] =
+      e.props.placement === "widget"
+        ? [{ left: view.band.length ? view.band : (view.lines[0]?.left ?? []) }]
+        : view.lines;
+    const table = $.ui.resolve(e);
+    if (moves(e.surface)) {
+      const { Client } = table as Elements["terminal"];
+      return (
+        <Client
+          key="pane"
+          module="./motion.tsx"
+          props={{ lines, columns: e.props.bodyColumns }}
+          width="100%"
+        />
+      );
     }
+    const { Box, Text, Progress } = table;
+    const run = (segs: Seg[]) => segs.map((s) => <Text {...look(s)}>{s.text}</Text>);
     const row = (line: Line) => {
       if (line.bar) {
         return (
@@ -262,7 +272,7 @@ export const register: Register = (on) => {
         </Box>
       );
     };
-    return <Box flexDirection="column">{view.lines.map(row)}</Box>;
+    return <Box flexDirection="column">{lines.map(row)}</Box>;
   });
 
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
@@ -278,11 +288,23 @@ export const register: Register = (on) => {
       started: from > 0,
     });
     if (!band.length) return next(e);
-    const { Text } = $.ui.resolve(e);
+    const table = $.ui.resolve(e);
+    if (moves(e.surface)) {
+      const { Client } = table as Elements["terminal"];
+      return (
+        <Client
+          key="band"
+          module="./motion.tsx"
+          props={{ lines: [{ left: band }], columns: e.props.bodyColumns }}
+          width="100%"
+        />
+      );
+    }
+    const { Text } = table;
     return (
       <Text wrap="truncate-end">
         {band.map((s) => (
-          <Text {...STYLE[s.tone]}>{s.text}</Text>
+          <Text {...look(s)}>{s.text}</Text>
         ))}
       </Text>
     );

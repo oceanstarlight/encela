@@ -1,7 +1,8 @@
 // What the view shows, worked out from the state alone: no drawing here, so
 // it is tested without Claude Code. `frame` turns Encela's live state and
 // what the subagents are doing into lines of styled text; `view.tsx` draws
-// them.
+// them, and where the surface can redraw by itself `motion.tsx` moves them:
+// `meet`, `tickOn` and `paint` say how a line looks at each moment.
 import type { Agent, Live, LiveEvent, LiveRun, LiveStep, Phase } from "../types";
 
 export type Tone = "plain" | "dim" | "strong" | "good" | "bad" | "busy" | "wait";
@@ -9,6 +10,13 @@ export type Tone = "plain" | "dim" | "strong" | "good" | "bad" | "busy" | "wait"
 export interface Seg {
   text: string;
   tone: Tone;
+  /**
+   * How it moves while work is going on: `spin` turns its first character (a
+   * marker such as ●) into a spinner, `pulse` swells and fades the whole of it.
+   */
+  fx?: "spin" | "pulse";
+  /** One of a few colours that tell the workers apart; over `tone`'s. */
+  hue?: number;
 }
 
 export interface Line {
@@ -17,8 +25,11 @@ export interface Line {
   right?: Seg[];
   /** Cells of indent. */
   indent?: number;
-  /** Drawn as a progress bar labelled with `left`; takes two rows. */
-  bar?: { done: number; total: number };
+  /** Drawn as a progress bar labelled with `left`. `live` while work is going on: a light runs along it. */
+  bar?: { done: number; total: number; live?: boolean };
+  /** Names the line from one frame to the next, and `sig` says what state it shows: a line whose `sig` changes is lit for a moment. */
+  key?: string;
+  sig?: string;
 }
 
 export interface Frame {
@@ -144,6 +155,8 @@ const DOCUMENTS = ["skill", "rule", "instruction", "subagent"];
 const EVENT_KINDS = Object.keys(WORDS.en.event) as LiveEvent["kind"][];
 /** How long the line above the prompt stays once a build is done. */
 const DONE_FOR = 120_000;
+/** The colours that tell workers apart. */
+const HUES = 5;
 
 const seg = (text: string, tone: Tone = "plain"): Seg => ({ text, tone });
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -412,15 +425,16 @@ const GLYPH: Record<LiveStep["status"], Seg> = {
   todo: seg("○", "dim"),
 };
 
-function runLine(run: LiveRun): Seg[] {
+function runLine(run: LiveRun, working: boolean): Seg[] {
   const out: Seg[] = [];
   run.steps.forEach((s, i) => {
-    if (i) out.push(seg(" ", "dim"));
+    if (i) out.push(seg(" › ", "dim"));
     const each = s.items ? `(${s.itemsDone}/${s.items})` : "";
     if (s.state === "done") out.push(seg(`✓${s.id}`, "good"));
     else if (s.state === "skipped") out.push(seg(`-${s.id}`, "dim"));
-    else if (s.state === "running") out.push(seg(`●${s.id}${each}`, "busy"));
-    else if (s.state === "waiting") out.push(seg(`◆${s.id}`, "wait"));
+    else if (s.state === "running") {
+      out.push({ ...seg(`●${s.id}${each}`, "busy"), ...(working ? { fx: "spin" as const } : {}) });
+    } else if (s.state === "waiting") out.push({ ...seg(`◆${s.id}`, "wait"), fx: "pulse" });
     else if (s.state === "failed") out.push(seg(`✗${s.id}${each}`, "bad"));
     else out.push(seg(`○${s.id}`, "dim"));
   });
@@ -471,23 +485,38 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   }
   const b = live.blueprint;
   const active = agents.filter((a) => !a.done);
+  // Motion says that something is going on, so nothing moves once Claude's
+  // turn is over and no run or call is out: a step left "doing" then stands still.
+  const working = active.some((a) => a.doing !== "") || moving(live);
+  const spin = (s: Seg): Seg => (working ? { ...s, fx: "spin" } : s);
+  const hueOf = (worker: string) => {
+    const i = b?.workers.indexOf(worker) ?? -1;
+    return i < 0 ? undefined : i % HUES;
+  };
 
   // --- the head: what is being built, and where the flow stands
   const head: Line[] = [];
   if (b) head.push({ left: [seg(oneLine(b.goal), "strong")] });
   const at = live.phase === "done" ? ORDER.length : ORDER.indexOf(live.phase);
   const strip: Seg[] = [];
+  // The phase the flow stands at swells and fades: while Claude works, and while the user is asked.
+  const beat = working || live.phase === "approval";
   ORDER.forEach((p, i) => {
     if (i) strip.push(seg(" › ", "dim"));
     const tone: Tone = i < at ? "good" : i === at ? "busy" : "dim";
-    strip.push(seg(`${i < at ? "✓" : i === at ? "●" : "○"} ${w.phases[p]}`, tone));
+    const here = seg(`${i < at ? "✓" : i === at ? "●" : "○"} ${w.phases[p]}`, tone);
+    strip.push(i === at && beat ? { ...here, fx: "pulse" } : here);
   });
   // Too narrow for the whole strip: the phase alone.
-  head.push(
-    width(strip) <= columns
-      ? { left: strip }
-      : { left: [seg(`● ${w.phases[live.phase]}`, live.phase === "done" ? "good" : "busy")] },
-  );
+  const alone = seg(`● ${w.phases[live.phase]}`, live.phase === "done" ? "good" : "busy");
+  head.push({
+    left:
+      width(strip) <= columns
+        ? strip
+        : [live.phase !== "done" && beat ? { ...alone, fx: "pulse" } : alone],
+    key: "flow",
+    sig: live.phase,
+  });
   const saying =
     live.phase === "pieces"
       ? w.finding
@@ -498,7 +527,13 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
           : live.phase === "assemble"
             ? w.assembling
             : "";
-  if (saying) head.push({ left: [seg(saying, live.phase === "approval" ? "wait" : "plain")] });
+  if (saying) {
+    head.push({
+      left: [
+        live.phase === "approval" ? { ...seg(saying, "wait"), fx: "pulse" } : seg(saying, "plain"),
+      ],
+    });
+  }
 
   // --- steps, each with who does it and what that one is doing now
   const steps: Line[][] = [];
@@ -506,18 +541,24 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   const done = b?.steps.filter((s) => s.status === "done").length ?? 0;
   const shown = new Set<string>();
   for (const s of b?.steps ?? []) {
+    const own = !s.worker || s.worker === "main";
+    const hue = own ? undefined : hueOf(s.worker);
     const block: Line[] = [
       {
-        left: [GLYPH[s.status], seg(` ${oneLine(s.title)}`, s.status === "todo" ? "dim" : "plain")],
-        right: s.worker && s.worker !== "main" ? [seg(s.worker, "dim")] : undefined,
+        left: [
+          s.status === "doing" ? spin(GLYPH.doing) : GLYPH[s.status],
+          seg(` ${oneLine(s.title)}`, s.status === "todo" ? "dim" : "plain"),
+        ],
+        right: own ? undefined : [{ ...seg(s.worker, "dim"), hue }],
         indent: 1,
+        key: `step:${s.id}`,
+        sig: s.status,
       },
     ];
     if (s.status === "doing") {
-      const own = !s.worker || s.worker === "main";
       for (const a of active.filter((x) => (own ? x.id === "main" : x.worker === s.worker))) {
         shown.add(a.id);
-        if (a.doing) block.push({ left: [seg(`└ ${a.doing}`, "dim")], indent: 3 });
+        if (a.doing) block.push({ left: [{ ...seg(`└ ${a.doing}`, "dim"), hue }], indent: 3 });
       }
       const run = s.pipeline ? live.runs.find((r) => r.pipeline === s.pipeline) : undefined;
       if (run) {
@@ -533,7 +574,10 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   // --- subagents at work that no step in progress names
   const loose = active.filter((a) => a.id !== "main" && !shown.has(a.id));
   const workers: Line[] = loose.map((a) => ({
-    left: [seg("●", "busy"), seg(` ${a.worker || a.about || a.id}`)],
+    left: [
+      a.doing ? spin(seg("●", "busy")) : seg("●", "busy"),
+      { ...seg(` ${a.worker || a.about || a.id}`), hue: hueOf(a.worker) },
+    ],
     right: a.doing ? [seg(fit(a.doing, Math.max(8, Math.floor(columns / 2))), "dim")] : undefined,
     indent: 1,
   }));
@@ -542,13 +586,17 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   const servers = live.pieces.filter((p) => p.kind === "mcp");
   let pieces: Line[] = servers.map((p) => ({
     left: [
-      seg(p.running ? "●" : "○", p.busy ? "busy" : p.running ? "good" : "dim"),
+      p.busy
+        ? { ...seg("●", "busy"), fx: "spin" as const }
+        : seg(p.running ? "●" : "○", p.running ? "good" : "dim"),
       seg(` ${p.name}`, p.running ? "plain" : "dim"),
     ],
     right: p.calls
       ? [seg(p.busy ? p.last : `${p.last} · ${w.calls(p.calls)}`, p.busy ? "busy" : "dim")]
       : undefined,
     indent: 1,
+    key: `piece:${p.name}`,
+    sig: p.running ? "on" : "off",
   }));
   const documents = live.pieces.filter((p) => DOCUMENTS.includes(p.kind)).length;
   const guides = live.pieces.filter((p) => p.kind === "cli" || p.kind === "library").length;
@@ -573,8 +621,15 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
     runs.push({
       left: [seg(`${w.pipeline} ${r.pipeline}`, "strong")],
       right: [seg(`${finished(r)}/${r.steps.length} · ${w.run[r.status]}`, tone)],
+      key: `run:${r.id}`,
+      sig: r.status,
     });
-    runs.push({ left: runLine(r), indent: 1 });
+    runs.push({
+      left: runLine(r, r.status === "running"),
+      indent: 1,
+      key: `chain:${r.id}`,
+      sig: r.steps.map((s) => s.state[0]).join(""),
+    });
   }
 
   // --- what happened lately, newest first
@@ -636,7 +691,16 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
 
   const lines: Line[] = [...head];
   if (stepLines.length) {
-    lines.push(gap, { left: [seg(w.steps, "strong")], bar: { done, total } }, ...stepLines);
+    lines.push(
+      gap,
+      {
+        left: [seg(w.steps, "strong")],
+        bar: { done, total, ...(working && done < total ? { live: true } : {}) },
+        key: "bar",
+        sig: String(done),
+      },
+      ...stepLines,
+    );
   }
   if (workers.length) lines.push(gap, title(w.workers), ...workers);
   if (pieces.length) lines.push(gap, title(w.pieces), ...pieces);
@@ -648,17 +712,21 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   const waiting = live.runs.flatMap((r) =>
     r.steps.filter((s) => s.state === "waiting").map((s) => s.id),
   );
-  if (live.phase === "approval") band.push(seg(w.asking, "wait"));
+  if (live.phase === "approval") band.push({ ...seg(w.asking, "wait"), fx: "pulse" });
   else if (live.phase === "build" || live.phase === "done") {
     const tone: Tone = live.phase === "done" ? "good" : "plain";
+    if (live.phase === "build" && working) band.push({ ...seg("● ", "busy"), fx: "spin" });
     band.push(seg(`${w.phases[live.phase]} ${done}/${total}`, tone));
-    const working = active.filter((a) => a.id !== "main").length;
-    if (working) band.push(seg(` · ${w.working(working)}`, "busy"));
+    const helpers = active.filter((a) => a.id !== "main").length;
+    if (helpers) band.push(seg(` · ${w.working(helpers)}`, "busy"));
     for (const r of live.runs.filter((x) => x.status === "running" || x.status === "waiting")) {
       band.push(seg(` · ${r.pipeline} ${finished(r)}/${r.steps.length}`, "plain"));
     }
     if (waiting.length) band.push(seg(` · ${w.yourTurn(waiting.join(", "))}`, "wait"));
-  } else band.push(seg(saying || w.phases[live.phase], "plain"));
+  } else {
+    if (working) band.push({ ...seg("● ", "busy"), fx: "spin" });
+    band.push(seg(saying || w.phases[live.phase], "plain"));
+  }
   if (b?.approval === "relayed" && live.phase !== "approval" && live.phase !== "done") {
     band.push(seg(` · ${w.relayed}`, "dim"));
   }
@@ -669,4 +737,174 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
     lines: lines.map((l) => fitLine(l, columns)),
     band: fitLine({ left: band }, columns).left,
   };
+}
+
+// --- motion: how the lines look from one moment to the next
+//
+// Where the surface can redraw a region by itself (`motion.tsx`), a clock
+// ticks while something is going on: markers of what is in progress turn,
+// the phase the flow stands at swells and fades, a light runs along the
+// progress bar, and a line whose state just changed is lit for a moment.
+// When nothing moves the clock asks for no redraw.
+
+/** Milliseconds between two ticks. */
+export const TICK = 120;
+const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+/** Ticks a changed line stays lit; the first few of them at full strength. */
+const LIT = 12;
+const LIT_FULL = 4;
+/** Ticks of a pulse. */
+const BEAT = 10;
+/** Ticks without anything new after which the motion rests (ten minutes): work that stopped without saying so. */
+const STALE = 5000;
+
+export interface Motion {
+  tick: number;
+  /** The state each named line showed last, and the tick at which it last changed. */
+  sigs: Record<string, string>;
+  lit: Record<string, number>;
+  /** What the lines were, and the tick at which they last differed. */
+  digest: string;
+  since: number;
+  /** True when something in the lines moves, and when the next tick has anything to redraw. */
+  fx: boolean;
+  live: boolean;
+}
+
+const alive = (m: Motion) =>
+  (m.fx && m.tick - m.since < STALE) || Object.values(m.lit).some((t) => m.tick - t < LIT);
+
+const said = (segs: Seg[] | undefined) =>
+  (segs ?? []).map((s) => `${s.text}\u0001${s.tone}${s.fx ?? ""}${s.hue ?? ""}`).join("\u0002");
+
+/** The motion for these lines, after `was`: the same object when the lines are the same. */
+export function meet(was: Motion | undefined, lines: readonly Line[]): Motion {
+  const digest = lines
+    .map(
+      (l) =>
+        `${said(l.left)}\u0003${said(l.right)}\u0003${l.sig ?? ""}\u0003${
+          l.bar ? `${l.bar.done}/${l.bar.total}/${l.bar.live ? 1 : 0}` : ""
+        }`,
+    )
+    .join("\n");
+  if (was && was.digest === digest) return was;
+  const tick = was?.tick ?? 0;
+  const sigs: Record<string, string> = {};
+  const lit: Record<string, number> = {};
+  for (const l of lines) {
+    if (!l.key) continue;
+    const sig = l.sig ?? "";
+    sigs[l.key] = sig;
+    const before = was?.sigs[l.key];
+    const at = was?.lit[l.key];
+    // A line that is new is not lit: only one that was there and changed.
+    if (before !== undefined && before !== sig) lit[l.key] = tick;
+    else if (at !== undefined && tick - at < LIT) lit[l.key] = at;
+  }
+  const fx = lines.some(
+    (l) => l.bar?.live || l.left.some((s) => s.fx) || (l.right ?? []).some((s) => s.fx),
+  );
+  const next: Motion = { tick, sigs, lit, digest, since: tick, fx, live: false };
+  next.live = alive(next);
+  return next;
+}
+
+/** The motion one tick later. */
+export function tickOn(m: Motion): Motion {
+  const next = { ...m, tick: m.tick + 1 };
+  next.live = alive(next);
+  return next;
+}
+
+/** A run of text drawn one way. */
+export interface Cell {
+  text: string;
+  tone: Tone;
+  hue?: number;
+  bold?: boolean;
+  dim?: boolean;
+  inverse?: boolean;
+}
+
+const BAR_MIN = 6;
+const BAR_MAX = 28;
+
+/** A line as it looks at this moment: `left` from the left edge (after the indent), `right` at the right edge. */
+export function paint(line: Line, m: Motion, columns: number): { left: Cell[]; right: Cell[] } {
+  const at = line.key === undefined ? undefined : m.lit[line.key];
+  const age = at === undefined ? LIT : m.tick - at;
+  const lit = age < LIT;
+  const right: Cell[] = (line.right ?? []).map((s) => ({ text: s.text, tone: s.tone, hue: s.hue }));
+  if (line.bar) {
+    const { done, total } = line.bar;
+    const label = line.left.map((s) => s.text).join("");
+    const figure = `${done}/${total}`;
+    const room = Math.max(BAR_MIN, Math.min(BAR_MAX, columns - cells(label) - cells(figure) - 2));
+    const filled = total > 0 ? Math.min(room, Math.round((done / total) * room)) : 0;
+    // The light crosses the bar, then stays away for a moment.
+    const light = line.bar.live && m.live ? m.tick % (room + 10) : -1;
+    const full = total > 0 && done >= total;
+    const left: Cell[] = [{ text: `${label} `, tone: "strong" }];
+    for (let i = 0; i < room; i++) {
+      const cell: Cell =
+        i < filled
+          ? { text: i === light ? "▓" : "█", tone: full ? "good" : "busy", bold: lit }
+          : { text: i === light ? "▒" : "░", tone: i === light ? "busy" : "dim" };
+      const last = left[left.length - 1] as Cell;
+      // Cells drawn alike are one run.
+      if (left.length > 1 && last.tone === cell.tone && last.bold === cell.bold) {
+        last.text += cell.text;
+      } else left.push(cell);
+    }
+    left.push({ text: ` ${figure}`, tone: lit ? "strong" : "dim" });
+    return { left, right };
+  }
+  const beat = m.tick % BEAT;
+  const left: Cell[] = line.left.map((s) => {
+    const cell: Cell = { text: s.text, tone: s.tone, hue: s.hue };
+    if (s.fx === "spin" && m.live) {
+      const [, ...rest] = s.text;
+      cell.text = `${SPIN[m.tick % SPIN.length]}${rest.join("")}`;
+    }
+    if (s.fx === "pulse" && m.live) {
+      if (beat < 3) cell.bold = true;
+      else if (beat >= 5 && beat < 8) cell.dim = true;
+    }
+    if (lit && s.text.trim() !== "") {
+      if (age < LIT_FULL) cell.inverse = true;
+      else cell.bold = true;
+    }
+    return cell;
+  });
+  return { left, right };
+}
+
+const TONE_COLOR: Record<Tone, string | undefined> = {
+  plain: undefined,
+  dim: undefined,
+  strong: undefined,
+  good: "success",
+  bad: "error",
+  busy: "suggestion",
+  wait: "warning",
+};
+const HUE_COLOR = ["permission", "planMode", "autoAccept", "merged", "remember"];
+
+/** How a run of text is drawn, in the words Claude Code's Text takes: a colour of the theme, dim, bold, inverse. */
+export function look(cell: {
+  tone: Tone;
+  hue?: number;
+  bold?: boolean;
+  dim?: boolean;
+  inverse?: boolean;
+}): { color?: string; dimColor?: boolean; bold?: boolean; inverse?: boolean } {
+  const color = cell.hue === undefined ? TONE_COLOR[cell.tone] : HUE_COLOR[cell.hue % HUES];
+  const out: { color?: string; dimColor?: boolean; bold?: boolean; inverse?: boolean } = {};
+  if (color) out.color = color;
+  if (cell.dim || (cell.tone === "dim" && !cell.bold && !cell.inverse && cell.hue === undefined)) {
+    out.dimColor = true;
+  }
+  if (cell.bold || cell.tone === "strong") out.bold = true;
+  if (cell.inverse) out.inverse = true;
+  return out;
 }

@@ -15,9 +15,14 @@ import {
   ended,
   fit,
   frame,
+  look,
+  meet,
   moving,
+  paint,
   parse,
   seen,
+  TICK,
+  tickOn,
   workerOf,
 } from "./.build/view.js";
 
@@ -116,7 +121,9 @@ test("the frame: the flow, the steps with who does them, the pieces, what happen
     " API 구현: 시작",
     " 조립 완료 (부품 4개)",
   ]);
-  assert.equal(band(view), "Encela ▸ 만들기 1/4 · 작업자 2");
+  assert.equal(band(view), "Encela ▸ ● 만들기 1/4 · 작업자 2");
+  // With no one at work the marker is left out: nothing claims to be going on.
+  assert.equal(band(frame(state(), [], opts())), "Encela ▸ 만들기 1/4");
   // The tones carry the look: done is good, in progress is busy.
   const api = view.lines.find((l) => l.left.some((s) => s.text.includes("API 구현")));
   assert.deepEqual(
@@ -178,7 +185,7 @@ test("the frame: pipeline runs, a step a pipeline does, a subagent no step names
   const lines = shown(view);
   assert.ok(lines.includes("   └ exports 2/5"));
   assert.ok(lines.includes("파이프라인 exports\t2/5 · 대기"));
-  assert.ok(lines.includes(" ✓pack -grep ●names(3/8) ◆pick ○save"));
+  assert.ok(lines.includes(" ✓pack › -grep › ●names(3/8) › ◆pick › ○save"));
   assert.ok(lines.includes("작업자"));
   assert.ok(lines.includes(" ● review the diff\tRead a.ts"));
   assert.equal(
@@ -186,7 +193,7 @@ test("the frame: pipeline runs, a step a pipeline does, a subagent no step names
     "Encela ▸ 만들기 1/4 · 작업자 1 · exports 2/5 · Claude 차례 (pick)",
   );
   // Cut where the line above the prompt ends.
-  assert.equal(band(view), "Encela ▸ 만들기 1/4 · 작업자 1 · exports 2/5 · Claude 차례 …");
+  assert.equal(band(view), "Encela ▸ ● 만들기 1/4 · 작업자 1 · exports 2/5 · Claude 차…");
   assert.equal(moving(live), false);
   live.runs[0].status = "running";
   assert.equal(moving(live), true);
@@ -362,6 +369,228 @@ test("the model loops: who is who, what each did last, when a turn ends", () => 
   assert.equal(seen(list, "x19", { doing: "Read", done: false }).at(-1).done, false);
 });
 
+// Motion ----------------------------------------------------------------------
+
+const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const lineOf = (view, text) => view.lines.find((l) => l.left.some((s) => s.text.includes(text)));
+/** A line as drawn at a moment: each run of text with how it is drawn. */
+const drawn = (line, motion, columns = 60) =>
+  paint(line, motion, columns).left.map((c) => [
+    c.text,
+    [c.bold && "bold", c.dim && "dim", c.inverse && "inverse"].filter(Boolean).join("+"),
+  ]);
+const later = (motion, ticks) => {
+  let m = motion;
+  for (let i = 0; i < ticks; i++) m = tickOn(m);
+  return m;
+};
+
+test("motion is marked only where work is going on", () => {
+  const fx = (view) =>
+    view.lines.flatMap((l) => [
+      ...l.left.filter((s) => s.fx).map((s) => `${s.fx}:${s.text.trim()}`),
+      ...(l.bar?.live ? ["bar"] : []),
+    ]);
+  const busy = frame(
+    state({
+      pieces: [piece("playwright", "mcp", { running: true, busy: 1, calls: 2, last: "click" })],
+    }),
+    [agent("a1", { worker: "backend", doing: "Edit routes.ts" })],
+    opts(),
+  );
+  assert.deepEqual(fx(busy), ["pulse:● 만들기", "bar", "spin:●", "spin:●", "spin:●"]);
+  assert.deepEqual(
+    busy.band.filter((s) => s.fx).map((s) => s.fx),
+    ["spin"],
+  );
+  // Claude's turn is over and no call is out: steps left "doing" stand still.
+  const still = frame(
+    state(),
+    [agent("main"), agent("a1", { worker: "backend", done: true })],
+    opts(),
+  );
+  assert.deepEqual(fx(still), []);
+  assert.deepEqual(
+    still.band.filter((s) => s.fx),
+    [],
+  );
+  // The user is asked: that pulses, whoever works.
+  const asking = frame(state({ phase: "approval" }), [], opts());
+  assert.deepEqual(fx(asking), ["pulse:● 승인", "pulse:승인을 기다리는 중"]);
+  assert.equal(asking.band[1].fx, "pulse");
+  // A run that is going moves by itself; a step waiting for Claude pulses.
+  const run = {
+    id: "r-1",
+    pipeline: "exports",
+    status: "running",
+    steps: [
+      { id: "names", kind: "tool", state: "running", items: 8, itemsDone: 3 },
+      { id: "pick", kind: "claude", state: "waiting", items: 0, itemsDone: 0 },
+    ],
+  };
+  assert.deepEqual(fx(frame(state({ runs: [run] }), [], opts())).slice(-2), [
+    "spin:●names(3/8)",
+    "pulse:◆pick",
+  ]);
+
+  // Workers are told apart by colour, the same for a worker's name and what it is doing.
+  const api = lineOf(busy, "API 구현");
+  const ui = lineOf(busy, "화면 구현");
+  assert.deepEqual([api.right[0].hue, ui.right[0].hue], [0, 1]);
+  assert.equal(lineOf(busy, "Edit routes.ts").left[0].hue, 0);
+  assert.equal(lineOf(busy, "테스트").right, undefined);
+});
+
+test("motion: markers turn, the phase beats, and the clock rests when nothing moves", () => {
+  assert.equal(TICK, 120);
+  const view = frame(
+    state(),
+    [agent("a1", { worker: "backend", doing: "Edit routes.ts" })],
+    opts(),
+  );
+  const api = lineOf(view, "API 구현");
+  const flow = view.lines[1];
+  const m = meet(undefined, view.lines);
+  assert.equal(m.tick, 0);
+  assert.equal(m.live, true);
+  assert.equal(meet(m, view.lines), m, "the same lines are the same motion");
+  for (const tick of [0, 1, 9, 10, 23]) {
+    assert.equal(drawn(api, later(m, tick))[0][0], SPIN[tick % 10]);
+  }
+  assert.equal(drawn(api, m)[1][0], " API 구현");
+  // The phase the flow stands at swells and fades.
+  const beat = (tick) => drawn(flow, later(m, tick)).find((c) => c[0] === "● 만들기")[1];
+  assert.deepEqual([0, 2, 3, 4, 5, 7, 8, 9, 10].map(beat), [
+    "bold",
+    "bold",
+    "",
+    "",
+    "dim",
+    "dim",
+    "",
+    "",
+    "bold",
+  ]);
+  assert.equal(drawn(flow, m)[0][1], "", "phases that are done don't move");
+
+  // Nothing at work: nothing to redraw for, and the marker is the plain one.
+  const rest = frame(state(), [], opts());
+  const quiet = meet(m, rest.lines);
+  assert.equal(quiet.live, false);
+  assert.equal(drawn(lineOf(rest, "API 구현"), quiet)[0][0], "●");
+  assert.equal(tickOn(quiet).live, false);
+  // Work that went on without a word for ten minutes is taken to have stopped.
+  const stale = later(m, 5000);
+  assert.equal(stale.live, false);
+  assert.equal(drawn(api, stale)[0][0], "●");
+  assert.equal(later(m, 4999).live, true);
+  // Anything new and it moves again.
+  const more = frame(state(), [agent("a1", { worker: "backend", doing: "Bash" })], opts());
+  assert.equal(meet(stale, more.lines).live, true);
+});
+
+test("motion: a line whose state just changed is lit for a moment", () => {
+  const who = [agent("a1", { worker: "backend", doing: "Edit routes.ts" })];
+  const before = frame(state(), who, opts());
+  let m = later(meet(undefined, before.lines), 7);
+  const next = state();
+  next.blueprint.steps[1].status = "done";
+  const view = frame(next, who, opts());
+  m = meet(m, view.lines);
+  assert.deepEqual(Object.keys(m.lit).sort(), ["bar", "step:api"]);
+  const api = lineOf(view, "API 구현");
+  assert.deepEqual(drawn(api, m), [
+    ["✓", "inverse"],
+    [" API 구현", "inverse"],
+  ]);
+  assert.deepEqual(drawn(api, later(m, 3))[0], ["✓", "inverse"]);
+  assert.deepEqual(drawn(api, later(m, 4))[0], ["✓", "bold"]);
+  assert.deepEqual(drawn(api, later(m, 11))[0], ["✓", "bold"]);
+  assert.deepEqual(drawn(api, later(m, 12))[0], ["✓", ""]);
+  // Other lines are as they were, and a line that is new is not lit.
+  assert.deepEqual(drawn(lineOf(view, "데이터 모델"), m)[0], ["✓", ""]);
+  const grown = state();
+  grown.blueprint.steps.push(step("more", "하나 더", "todo"));
+  assert.deepEqual(
+    meet(later(meet(undefined, before.lines), 3), frame(grown, who, opts()).lines).lit,
+    {},
+  );
+  // Being lit keeps the clock going even when nothing else moves, and then it rests.
+  const calm = frame(next, [], opts());
+  let c = meet(m, calm.lines);
+  assert.equal(c.fx, false);
+  assert.equal(c.live, true);
+  c = later(c, 12);
+  assert.equal(c.live, false);
+  assert.deepEqual(drawn(lineOf(calm, "API 구현"), c)[0], ["✓", ""]);
+});
+
+test("motion: the bar fills with what is done, and a light runs along it while work goes on", () => {
+  const who = [agent("a1", { worker: "backend", doing: "Edit routes.ts" })];
+  const view = frame(state(), who, opts({ columns: 40 }));
+  const bar = view.lines.find((l) => l.bar);
+  assert.deepEqual(bar.bar, { done: 1, total: 4, live: true });
+  const m = meet(undefined, view.lines);
+  const text = (motion) =>
+    paint(bar, motion, 40)
+      .left.map((c) => c.text)
+      .join("");
+  // 40 cells: the label, the bar (28 at most), the figure.
+  assert.equal(text(later(m, 30)), `단계 ${"█".repeat(7)}${"░".repeat(21)} 1/4`);
+  assert.equal(text(m), `단계 ▓${"█".repeat(6)}${"░".repeat(21)} 1/4`);
+  assert.equal(text(later(m, 6)), `단계 ${"█".repeat(6)}▓${"░".repeat(21)} 1/4`);
+  assert.equal(text(later(m, 7)), `단계 ${"█".repeat(7)}▒${"░".repeat(20)} 1/4`);
+  assert.equal(text(later(m, 38)), text(m), "the light comes round again");
+  assert.ok(cells(text(m)) <= 40);
+  // A narrow pane keeps a short bar.
+  assert.equal(
+    paint(bar, m, 14)
+      .left.map((c) => c.text)
+      .join("").length,
+    "단계 ".length + 6 + " 1/4".length,
+  );
+  // Done: full, in the colour of what is done, and still.
+  const done = state({ phase: "done" });
+  for (const s of done.blueprint.steps) s.status = "done";
+  const full = frame(done, [], opts({ columns: 40 }));
+  const end = full.lines.find((l) => l.bar);
+  assert.equal(end.bar.live, undefined);
+  const cellsOf = paint(end, meet(undefined, full.lines), 40).left;
+  assert.deepEqual(
+    cellsOf.map((c) => [c.text, c.tone]),
+    [
+      ["단계 ", "strong"],
+      ["█".repeat(28), "good"],
+      [" 4/4", "dim"],
+    ],
+  );
+  // Nothing to do yet: an empty track, no division by zero.
+  const none = { left: [{ text: "Steps", tone: "strong" }], bar: { done: 0, total: 0 } };
+  assert.equal(
+    paint(none, meet(undefined, [none]), 30)
+      .left.map((c) => c.text)
+      .join(""),
+    `Steps ${"░".repeat(20)} 0/0`,
+  );
+});
+
+test("how a run of text is drawn: the theme's colours, never raw ones", () => {
+  assert.deepEqual(look({ tone: "plain" }), {});
+  assert.deepEqual(look({ tone: "dim" }), { dimColor: true });
+  assert.deepEqual(look({ tone: "strong" }), { bold: true });
+  assert.deepEqual(look({ tone: "good" }), { color: "success" });
+  assert.deepEqual(look({ tone: "bad" }), { color: "error" });
+  assert.deepEqual(look({ tone: "busy", bold: true }), { color: "suggestion", bold: true });
+  assert.deepEqual(look({ tone: "wait", dim: true }), { color: "warning", dimColor: true });
+  assert.deepEqual(look({ tone: "good", inverse: true }), { color: "success", inverse: true });
+  // A worker's colour stands in for the tone's; it comes round after five workers.
+  assert.deepEqual(look({ tone: "dim", hue: 0 }), { color: "permission" });
+  assert.equal(look({ tone: "dim", hue: 5 }).color, "permission");
+  assert.notEqual(look({ tone: "dim", hue: 1 }).color, look({ tone: "dim", hue: 2 }).color);
+  // What was dim and is lit is no longer dim.
+  assert.deepEqual(look({ tone: "dim", bold: true }), { bold: true });
+});
+
 // The server's side -----------------------------------------------------------
 
 const echo = {
@@ -507,7 +736,7 @@ test("the server keeps the view's file up to date, written before each answer", 
   // The view draws it.
   const lines = shown(frame(now, [], opts({ lang: "en" })));
   assert.ok(lines.includes("Try the view"));
-  assert.ok(lines.some((l) => l.includes("✓list ✓total")));
+  assert.ok(lines.some((l) => l.includes("✓list › ✓total")));
 
   // A link where the file goes is not written through.
   const outside = join(temp("outside"), "target.json");
@@ -561,7 +790,7 @@ test("setup writes the view into the plugin, or leaves it out", () => {
   const hooks = JSON.parse(readFileSync(join(plugin, "hooks", "hooks.json"), "utf8"));
   assert.deepEqual(hooks.modules, ["./view.tsx"]);
   assert.ok(hooks.hooks.UserPromptSubmit);
-  for (const f of ["hooks/view.tsx", "hooks/model.ts", "types/index.d.ts"]) {
+  for (const f of ["hooks/view.tsx", "hooks/motion.tsx", "hooks/model.ts", "types/index.d.ts"]) {
     assert.ok(existsSync(join(plugin, f)), f);
   }
   // The tests need Claude Code to run: they stay out of the package.
