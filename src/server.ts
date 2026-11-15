@@ -615,6 +615,9 @@ export class Server {
       kinds,
       limit: Number(args.limit) > 0 ? Number(args.limit) : 15,
     });
+    // A search after a build that is over is a new request: the view stops showing the old one.
+    const before = this.current ? this.blueprints.load(this.current) : null;
+    if (before && (before.status === "done" || before.status === "cancelled")) this.current = "";
     this.live.searched = true;
     this.live.note("found", queries.join(", "), String(found.length));
     if (!found.length) {

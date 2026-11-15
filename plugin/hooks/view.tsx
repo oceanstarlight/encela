@@ -38,6 +38,11 @@ const COMMAND = "encela-view";
 /** How often the file is looked at again while something is going on, and how long nothing may change before the looking stops. */
 const EVERY = 700;
 const QUIET = 170;
+/** How often it is looked at after that, while a run still goes on by itself, and for how many looks. */
+const SLOW = 5000;
+const SLOW_LOOKS = 720;
+/** A file dated later than this from now isn't the server's. */
+const AHEAD = 60_000;
 /** The file is small: anything much larger isn't Encela's. */
 const MAX_BYTES = 512 * 1024;
 
@@ -50,9 +55,14 @@ const agents = atom({ plugin: "encela", key: "agents" } as const, [] as Agent[],
   shape: "agents-1",
 });
 const since = atom({ plugin: "encela", key: "since" } as const, 0, { shape: "since-1" });
+/** The project folder as it was when this session first called Encela: where the server writes. */
+const where = atom({ plugin: "encela", key: "root" } as const, "", { shape: "root-1" });
 
 /** The surfaces that can redraw a region by themselves: there the lines move. */
 const moves = (surface: string) => surface === "terminal" || surface === "desktop";
+
+/** Lines as plain data: a surface module's props hold no missing values. */
+const plain = (lines: Line[]): Line[] => JSON.parse(JSON.stringify(lines)) as Line[];
 
 const slashes = (path: string) => path.replaceAll("\\", "/").replace(/\/+$/, "");
 
@@ -68,40 +78,54 @@ function guess(): "ko" | "en" {
 // What a reload loses is only this: the timer, and what was last read.
 /** When this session first used Encela; undefined until the kept value was read. */
 let armed: number | undefined;
+/** The project folder then: the view reads no other, wherever the session goes. */
+let home = "";
 /** Encela tool calls that haven't answered yet. */
 let inFlight = 0;
+/** The pending look, and when it was asked for. */
 let timer: { cancel: () => void } | undefined;
-/** The file as it was last read, how often it then stood unchanged, and what it said. */
+let timerAt = 0;
+/** The file as it was last read, how often it then stood unchanged with no call out, and what it said. */
 let stamp = "";
 let still = 0;
 let last: Live | null = null;
+/** Looks are numbered as they start: one that started before the one last taken says nothing new. */
+let looks = 0;
+let taken = 0;
 
 /**
  * The server's file, when it is the server's: a plain file where Encela
  * keeps it (a project can ship a `.encela` of its own, with links in it),
- * written since this session first called Encela. Undefined when there is
- * nothing new to read.
+ * written since this session first called Encela and not dated ahead of
+ * now. Undefined when there is nothing new to read.
  */
-async function load($: EngineInterface, from: number): Promise<Live | null | undefined> {
-  const root = await $.session.root();
-  const path = `${root}/.encela/live.json`;
+async function load(
+  $: EngineInterface,
+  from: number,
+): Promise<{ state: Live; mark: string } | undefined> {
   try {
-    const [home, file] = await Promise.all([
-      $.fs.stat(root, { resolve: true }),
+    if (!home) {
+      home = (await read($, where)) || (await $.session.root());
+      const root = home;
+      await update($, where, () => root);
+    }
+    const path = `${home}/.encela/live.json`;
+    const [folder, file, now] = await Promise.all([
+      $.fs.stat(home, { resolve: true }),
       $.fs.stat(path, { resolve: true }),
+      $.clock.now(),
     ]);
-    if (file.kind !== "file" || file.size > MAX_BYTES || !home.realPath || !file.realPath) {
+    if (file.kind !== "file" || file.size > MAX_BYTES || !folder.realPath || !file.realPath) {
       return undefined;
     }
-    if (slashes(file.realPath) !== `${slashes(home.realPath)}/.encela/live.json`) {
+    if (slashes(file.realPath) !== `${slashes(folder.realPath)}/.encela/live.json`) {
       return undefined;
     }
     const mark = `${file.mtimeMs}:${file.size}`;
     if (mark === stamp) return undefined;
     const state = parse(await $.fs.read(path));
-    if (!state || state.at < from - 2000) return undefined;
-    stamp = mark;
-    return state;
+    if (!state || state.at < from - 2000 || state.at > now + AHEAD) return undefined;
+    return { state, mark };
   } catch {
     return undefined;
   }
@@ -111,27 +135,43 @@ async function refresh($: EngineInterface) {
   armed ??= await read($, since);
   const from = armed;
   if (!from) return;
-  const state = await load($, from);
-  if (state === undefined) {
-    still++;
+  const mine = ++looks;
+  const got = await load($, from);
+  if (got === undefined) {
+    // While a call is out the file may well stand: that is no sign of an end.
+    if (inFlight === 0) still++;
     return;
   }
+  if (mine < taken) return;
+  taken = mine;
+  stamp = got.mark;
   still = 0;
-  last = state;
+  last = got.state;
+  const state = got.state;
   await update($, live, () => state);
 }
 
-/** Looks again in a moment, and keeps looking while a call is out or a run is going. */
-function watch($: EngineInterface) {
-  if (timer) return;
+/**
+ * Looks again in a moment, and keeps looking while a call is out or a run is
+ * going: often at first, slowly once nothing has changed for a while.
+ */
+async function watch($: EngineInterface) {
   try {
-    timer = $.clock.after(EVERY, () => {
+    const now = await $.clock.now();
+    if (timer) {
+      // A look that never came (a timer can be refused) doesn't stop the next.
+      if (now - timerAt < 3 * SLOW) return;
+      timer.cancel();
+      timer = undefined;
+    }
+    const going = inFlight > 0 || (moving(last) && still < QUIET + SLOW_LOOKS);
+    if (!going) return;
+    timerAt = now;
+    timer = $.clock.after(inFlight > 0 || still < QUIET ? EVERY : SLOW, () => {
       timer = undefined;
       void refresh($)
         .catch(() => {})
-        .then(() => {
-          if (inFlight > 0 || (moving(last) && still < QUIET)) watch($);
-        });
+        .then(() => watch($));
     });
   } catch {
     // No timer: the view then moves only when a call returns.
@@ -188,7 +228,7 @@ export const register: Register = (on) => {
 
   on("command.run", { command: COMMAND }, async ($) => {
     const opened = await $.ui.open({ id: PANE, title: TITLE });
-    await refresh($);
+    await refresh($).catch(() => {});
     return {
       text: opened.isPlaced
         ? "The Encela view is open."
@@ -207,13 +247,16 @@ export const register: Register = (on) => {
     ).catch(() => false);
     if (!own || !watching) return next(e);
     inFlight++;
-    watch($);
+    void watch($);
     try {
       return await next(e);
     } finally {
       inFlight--;
-      await refresh($).catch(() => {});
-      if (moving(last)) watch($);
+      still = 0;
+      // The answer doesn't wait for the view's reading.
+      void refresh($)
+        .catch(() => {})
+        .then(() => watch($));
     }
   });
 
@@ -261,7 +304,7 @@ export const register: Register = (on) => {
         <Client
           key="pane"
           module="./motion.tsx"
-          props={{ lines, columns: e.props.bodyColumns }}
+          props={{ lines: plain(lines), columns: e.props.bodyColumns }}
           width="100%"
         />
       );
@@ -313,7 +356,7 @@ export const register: Register = (on) => {
         <Client
           key="band"
           module="./motion.tsx"
-          props={{ lines: [{ left: band }], columns: e.props.bodyColumns }}
+          props={{ lines: plain([{ left: band }]), columns: e.props.bodyColumns }}
           width="100%"
         />
       );

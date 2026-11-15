@@ -885,3 +885,227 @@ test("setup writes the view into the plugin, or leaves it out", () => {
     ),
   );
 });
+
+// --- what the review of the view found
+
+test("review: no line holds a key without a value, whatever the build looks like", () => {
+  const holes = (value, at = "") => {
+    if (value === undefined) return [at];
+    if (!value || typeof value !== "object") return [];
+    return Object.entries(value).flatMap(([k, v]) => holes(v, `${at}.${k}`));
+  };
+  const view = frame(
+    state({
+      blueprint: {
+        ...state().blueprint,
+        steps: [
+          step("a", "By the main loop", "doing"),
+          step("b", "By a stranger", "doing", "ghost"),
+        ],
+      },
+      pieces: [piece("fresh", "mcp", { running: true })],
+    }),
+    [
+      agent("main", { doing: "Edit a.ts" }),
+      agent("x1", { worker: "ghost", doing: "Read b.ts" }),
+      agent("x2", { about: "Explore", doing: "Grep foo" }),
+      agent("x3", { about: "Idle one" }),
+    ],
+    opts(),
+  );
+  assert.deepEqual(holes(view), []);
+  const text = shown(view);
+  assert.ok(text.some((l) => l.includes("By the main loop")));
+  assert.ok(text.some((l) => l.includes("└ Read b.ts")));
+  assert.ok(text.some((l) => l.includes("Explore\tGrep foo")));
+});
+
+test("review: short of rows, the step in progress stays and the frame keeps to its rows", () => {
+  const steps = Array.from({ length: 12 }, (_, i) =>
+    step(
+      `s${i}`,
+      `step ${i}`,
+      i < 5 ? "done" : i === 5 ? "doing" : "todo",
+      i === 5 ? "backend" : "main",
+      i === 5 ? "p0" : "",
+    ),
+  );
+  const live = state({
+    blueprint: { ...state().blueprint, steps },
+    runs: [
+      {
+        id: "r0",
+        pipeline: "p0",
+        status: "running",
+        steps: [{ id: "a", kind: "tool", state: "running", items: 0, itemsDone: 0 }],
+      },
+      {
+        id: "r1",
+        pipeline: "p1",
+        status: "done",
+        steps: [{ id: "a", kind: "tool", state: "done", items: 0, itemsDone: 0 }],
+      },
+      {
+        id: "r2",
+        pipeline: "p2",
+        status: "done",
+        steps: [{ id: "a", kind: "tool", state: "done", items: 0, itemsDone: 0 }],
+      },
+    ],
+  });
+  const loops = [
+    ...[1, 2, 3].map((n) => agent(`b${n}`, { worker: "backend", doing: `Edit f${n}.ts` })),
+    ...Array.from({ length: 11 }, (_, n) =>
+      agent(`l${n}`, { about: `loose ${n}`, doing: "Read x" }),
+    ),
+  ];
+  for (const rows of [8, 10, 16, 24]) {
+    const view = frame(live, loops, opts({ rows }));
+    const text = shown(view);
+    assert.ok(view.lines.length <= rows, `${view.lines.length} lines in ${rows} rows`);
+    assert.ok(
+      text.some((l) => l.includes("step 5")),
+      `the step in progress at ${rows} rows`,
+    );
+  }
+  // With some room, what its worker does shows under it, and the run that goes on stays.
+  const text = shown(frame(live, loops, opts({ rows: 24 })));
+  assert.ok(text.some((l) => l.includes("└ Edit f1.ts")));
+  assert.ok(text.some((l) => l.includes("p0")));
+});
+
+test("review: a long chain folds what is over, so what runs stays in sight", () => {
+  const names = [
+    "fetch_pages",
+    "extract",
+    "translate",
+    "summarize",
+    "classify",
+    "store_rows",
+    "notify",
+  ];
+  const run = {
+    id: "r",
+    pipeline: "news",
+    status: "running",
+    steps: names.map((id, i) => ({
+      id,
+      kind: "tool",
+      state: i < 5 ? "done" : i === 5 ? "running" : "pending",
+      items: 0,
+      itemsDone: 0,
+    })),
+  };
+  for (const columns of [60, 30]) {
+    const text = shown(frame(state({ runs: [run] }), [], opts({ columns })));
+    const chain = text.find((l) => l.includes("store_rows"));
+    assert.ok(chain, `the running step at ${columns} columns: ${text.join(" | ")}`);
+    assert.match(chain, /✓5 › ●store_rows/);
+    assert.ok(cells(chain) <= columns);
+  }
+  // With room for all of it, nothing folds.
+  const wide = shown(frame(state({ runs: [run] }), [], opts({ columns: 120 })));
+  assert.ok(wide.some((l) => l.includes("✓fetch_pages › ✓extract")));
+});
+
+test("review: a long right side is cut too, and the left keeps its name", () => {
+  const view = frame(
+    state({
+      blueprint: {
+        ...state().blueprint,
+        steps: [step("a", "Write the thing", "doing", "w".repeat(80))],
+        workers: ["w".repeat(80)],
+      },
+      pieces: [
+        piece("playwright", "mcp", { running: true, calls: 12, last: "browser_take_screenshot" }),
+      ],
+    }),
+    [],
+    opts({ columns: 30 }),
+  );
+  for (const l of view.lines) {
+    const all =
+      (l.indent ?? 0) + [...l.left, ...(l.right ?? [])].reduce((n, s) => n + cells(s.text), 0);
+    assert.ok(all <= 30, `${all} cells: ${l.left.map((s) => s.text).join("")}`);
+  }
+  const text = shown(view);
+  assert.ok(text.some((l) => /Wri/.test(l) && l.includes("\tw")));
+  assert.ok(text.some((l) => /play/.test(l) && l.includes("\tbrowser")));
+});
+
+test("review: a step that waits for Claude stands still once Claude's turn is over", () => {
+  const run = {
+    id: "r",
+    pipeline: "p",
+    status: "waiting",
+    steps: [{ id: "ask", kind: "claude", state: "waiting", items: 0, itemsDone: 0 }],
+  };
+  const fx = (loops) =>
+    frame(state({ runs: [run] }), loops, opts())
+      .lines.flatMap((l) => l.left)
+      .find((s) => s.text === "◆ask")?.fx;
+  assert.equal(fx([agent("main", { doing: "Read x" })]), "pulse");
+  assert.equal(fx([agent("main")]), undefined);
+});
+
+test("review: marks that hide or reorder text are taken out of what is drawn", () => {
+  const hidden = "safe؜goal​hid⁠den͏x᠎y‮z";
+  const text = doing("Bash", { command: hidden });
+  assert.equal(text, "$ safe goal hid den x y z");
+  assert.equal(
+    parse(JSON.stringify(state({ blueprint: { ...state().blueprint, goal: hidden } }))).blueprint
+      .goal,
+    "safe goal hid den x y z",
+  );
+});
+
+test("review: a search after a finished build is a new request", async () => {
+  const small = {
+    ...plan,
+    pipelines: [],
+    steps: [{ id: "look", title: "Look at it", worker: "helper" }],
+  };
+  const { server, project, ready, live } = start();
+  await ready;
+  await server.call("blueprint_save", { blueprint: small });
+  const id = new Blueprints(project).list()[0].id;
+  await server.call("blueprint_approve", { id, user_answer: "approve" });
+  await server.call("blueprint_assemble", { id });
+  await server.call("blueprint_step", { id, step: "look", status: "done" });
+  assert.equal(live().phase, "done");
+  await server.call("find_pieces", { queries: ["something else"] });
+  assert.equal(live().phase, "pieces");
+  assert.equal(live().blueprint, null);
+  server.closeAll();
+});
+
+test("review: a file that only looks like a blueprint is left alone", async () => {
+  const { server, project, ready } = start();
+  await ready;
+  await server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      pipelines: [],
+      steps: [{ id: "look", title: "Look at it", worker: "helper" }],
+    },
+  });
+  const mine = new Blueprints(project).list()[0].id;
+  writeFileSync(
+    join(project, ".encela", "blueprints", "ship.json"),
+    JSON.stringify({
+      id: "ship",
+      status: "draft",
+      goal: "Shipped",
+      steps: [],
+      updatedAt: "2999-01-01T00:00:00Z",
+    }),
+  );
+  const got = await server.call("blueprint_get", {});
+  assert.equal(got.isError, false);
+  assert.match(got.content[0].text, /Try the view/);
+  assert.deepEqual(
+    new Blueprints(project).list().map((b) => b.id),
+    [mine],
+  );
+  server.closeAll();
+});

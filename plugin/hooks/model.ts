@@ -167,7 +167,7 @@ const seg = (text: string, tone: Tone = "plain"): Seg => ({ text, tone });
  */
 export const oneLine = (s: string) =>
   s
-    .replace(/[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069\u200e\u200f\ufeff]/gu, " ")
+    .replace(/[\p{Cc}\p{Cf}\u2028\u2029]|\u034f|\u180e/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -210,19 +210,26 @@ export function fit(text: string, max: number): string {
 
 const width = (segs: Seg[] | undefined) => (segs ?? []).reduce((n, s) => n + cells(s.text), 0);
 
-/** A line's left side cut so the whole line fits `columns`. */
-function fitLine(line: Line, columns: number): Line {
-  if (line.bar) return line;
-  const right = width(line.right);
-  let room = columns - (line.indent ?? 0) - (right ? right + 1 : 0);
-  const left: Seg[] = [];
-  for (const s of line.left) {
+/** `segs` cut to `room` cells. */
+function fitSegs(segs: Seg[], room: number): Seg[] {
+  const out: Seg[] = [];
+  for (const s of segs) {
     if (room <= 0) break;
     const text = fit(s.text, room);
-    left.push({ ...s, text });
+    out.push({ ...s, text });
     room -= cells(text);
   }
-  return { ...line, left };
+  return out;
+}
+
+/** A line cut so the whole of it fits `columns`: the right side to half of them at most, the left to the rest. */
+function fitLine(line: Line, columns: number): Line {
+  if (line.bar) return line;
+  const inside = columns - (line.indent ?? 0);
+  const right = line.right ? fitSegs(line.right, Math.max(6, Math.floor(inside / 2))) : [];
+  const taken = width(right);
+  const left = fitSegs(line.left, inside - (taken ? taken + 1 : 0));
+  return { ...line, left, ...(right.length ? { right } : {}) };
 }
 
 // --- reading what the server wrote: nothing is taken as it comes
@@ -442,20 +449,45 @@ const GLYPH: Record<LiveStep["status"], Seg> = {
   todo: seg("○", "dim"),
 };
 
-function runLine(run: LiveRun, working: boolean): Seg[] {
-  const out: Seg[] = [];
-  run.steps.forEach((s, i) => {
-    if (i) out.push(seg(" › ", "dim"));
+const OVER = ["done", "skipped"];
+const AHEAD = ["running", "waiting", "failed", ...OVER];
+
+/**
+ * A run's steps in a row. `going` is true while the run itself goes on,
+ * `working` while Claude does. Wider than `room`, the steps already over
+ * fold into a count at the front and the ones still to come into one at the
+ * end, so that what runs, waits or failed stays in sight.
+ */
+function runLine(run: LiveRun, going: boolean, working: boolean, room: number): Seg[] {
+  const one = (s: LiveRun["steps"][number]): Seg => {
     const each = s.items ? `(${s.itemsDone}/${s.items})` : "";
-    if (s.state === "done") out.push(seg(`✓${s.id}`, "good"));
-    else if (s.state === "skipped") out.push(seg(`-${s.id}`, "dim"));
-    else if (s.state === "running") {
-      out.push({ ...seg(`●${s.id}${each}`, "busy"), ...(working ? { fx: "spin" as const } : {}) });
-    } else if (s.state === "waiting") out.push({ ...seg(`◆${s.id}`, "wait"), fx: "pulse" });
-    else if (s.state === "failed") out.push(seg(`✗${s.id}${each}`, "bad"));
-    else out.push(seg(`○${s.id}`, "dim"));
-  });
-  return out;
+    if (s.state === "done") return seg(`✓${s.id}`, "good");
+    if (s.state === "skipped") return seg(`-${s.id}`, "dim");
+    if (s.state === "running") {
+      return { ...seg(`●${s.id}${each}`, "busy"), ...(going ? { fx: "spin" as const } : {}) };
+    }
+    if (s.state === "waiting") {
+      return { ...seg(`◆${s.id}`, "wait"), ...(working ? { fx: "pulse" as const } : {}) };
+    }
+    if (s.state === "failed") return seg(`✗${s.id}${each}`, "bad");
+    return seg(`○${s.id}`, "dim");
+  };
+  const row = (parts: Seg[]) => parts.flatMap((p, i) => (i ? [seg(" › ", "dim"), p] : [p]));
+  const whole = row(run.steps.map(one));
+  if (width(whole) <= room) return whole;
+  let lead = 0;
+  while (lead < run.steps.length && OVER.includes(run.steps[lead]?.state ?? "")) lead++;
+  let tail = 0;
+  while (
+    tail < run.steps.length - lead &&
+    !AHEAD.includes(run.steps[run.steps.length - 1 - tail]?.state ?? "")
+  ) {
+    tail++;
+  }
+  const parts = run.steps.slice(lead, run.steps.length - tail).map(one);
+  if (lead) parts.unshift(seg(`✓${lead}`, "good"));
+  if (tail) parts.push(seg(`○${tail}`, "dim"));
+  return row(parts);
 }
 
 const finished = (run: LiveRun) =>
@@ -510,6 +542,8 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
     const i = b?.workers.indexOf(worker) ?? -1;
     return i < 0 ? undefined : i % HUES;
   };
+  // A line holds no key without a value: Claude Code refuses a tree whose props do.
+  const tinted = (s: Seg, hue: number | undefined): Seg => (hue === undefined ? s : { ...s, hue });
 
   // --- the head: what is being built, and where the flow stands
   const head: Line[] = [];
@@ -566,7 +600,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
           s.status === "doing" ? spin(GLYPH.doing) : GLYPH[s.status],
           seg(` ${oneLine(s.title)}`, s.status === "todo" ? "dim" : "plain"),
         ],
-        right: own ? undefined : [{ ...seg(s.worker, "dim"), hue }],
+        ...(own ? {} : { right: [tinted(seg(s.worker, "dim"), hue)] }),
         indent: 1,
         key: `step:${s.id}`,
         sig: s.status,
@@ -575,7 +609,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
     if (s.status === "doing") {
       for (const a of active.filter((x) => (own ? x.id === "main" : x.worker === s.worker))) {
         shown.add(a.id);
-        if (a.doing) block.push({ left: [{ ...seg(`└ ${a.doing}`, "dim"), hue }], indent: 3 });
+        if (a.doing) block.push({ left: [tinted(seg(`└ ${a.doing}`, "dim"), hue)], indent: 3 });
       }
       const run = s.pipeline ? live.runs.find((r) => r.pipeline === s.pipeline) : undefined;
       if (run) {
@@ -590,12 +624,12 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
 
   // --- subagents at work that no step in progress names
   const loose = active.filter((a) => a.id !== "main" && !shown.has(a.id));
-  const workers: Line[] = loose.map((a) => ({
+  let workers: Line[] = loose.map((a) => ({
     left: [
       a.doing ? spin(seg("●", "busy")) : seg("●", "busy"),
-      { ...seg(` ${a.worker || a.about || a.id}`), hue: hueOf(a.worker) },
+      tinted(seg(` ${a.worker || a.about || a.id}`), hueOf(a.worker)),
     ],
-    right: a.doing ? [seg(fit(a.doing, Math.max(8, Math.floor(columns / 2))), "dim")] : undefined,
+    ...(a.doing ? { right: [seg(a.doing, "dim")] } : {}),
     indent: 1,
   }));
 
@@ -608,9 +642,13 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
         : seg(p.running ? "●" : "○", p.running ? "good" : "dim"),
       seg(` ${p.name}`, p.running ? "plain" : "dim"),
     ],
-    right: p.calls
-      ? [seg(p.busy ? p.last : `${p.last} · ${w.calls(p.calls)}`, p.busy ? "busy" : "dim")]
-      : undefined,
+    ...(p.calls
+      ? {
+          right: [
+            seg(p.busy ? p.last : `${p.last} · ${w.calls(p.calls)}`, p.busy ? "busy" : "dim"),
+          ],
+        }
+      : {}),
     indent: 1,
     key: `piece:${p.name}`,
     sig: p.running ? "on" : "off",
@@ -623,7 +661,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   if (others) pieces.push({ left: [seg(`+ ${others}`, "dim")], indent: 1 });
 
   // --- pipeline runs
-  const runs: Line[] = [];
+  let runs: Line[] = [];
   for (const r of live.runs) {
     const tone: Tone =
       r.status === "failed"
@@ -642,7 +680,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
       sig: r.status,
     });
     runs.push({
-      left: runLine(r, r.status === "running"),
+      left: runLine(r, r.status === "running", working, columns - 1),
       indent: 1,
       key: `chain:${r.id}`,
       sig: r.steps.map((s) => s.state[0]).join(""),
@@ -683,15 +721,18 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   }
   let hidden = 0;
   if (size() > rows && b) {
-    // Keep the steps around the first one that isn't done.
+    // The step in progress stays, with as much of what goes on under it as
+    // fits; then the steps after it, then the ones before.
+    const doingAt = b.steps.findIndex((s) => s.status === "doing");
     const first = Math.max(
       0,
-      b.steps.findIndex((s) => s.status !== "done"),
+      doingAt >= 0 ? doingAt : b.steps.findIndex((s) => s.status !== "done"),
     );
     const room = Math.max(3, rows - (size() - count(steps)) - 1);
-    let from = Math.max(0, first - 1);
-    let to = from;
-    let used = 0;
+    const mine = (steps[first] as Line[]).slice(0, room);
+    let used = mine.length;
+    let from = first;
+    let to = first + 1;
     while (to < steps.length && used + (steps[to] as Line[]).length <= room) {
       used += (steps[to] as Line[]).length;
       to++;
@@ -700,8 +741,18 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
       from--;
       used += (steps[from] as Line[]).length;
     }
-    shownSteps = steps.slice(from, Math.max(to, from + 1));
+    shownSteps = [...steps.slice(from, first), mine, ...steps.slice(first + 1, to)];
     hidden = steps.length - shownSteps.length;
+  }
+  if (size() > rows && live.runs.length > 1) {
+    // The runs that go on or wait; the last one when none does.
+    const on = live.runs.filter((r) => r.status === "running" || r.status === "waiting");
+    const keep = new Set((on.length ? on : live.runs.slice(-1)).map((r) => r.id));
+    runs = runs.filter((l) => keep.has((l.key ?? "").replace(/^(run|chain):/, "")));
+  }
+  if (size() > rows && workers.length > 3) {
+    const rest = workers.length - 2;
+    workers = [...workers.slice(0, 2), { left: [seg(w.more(rest), "dim")], indent: 1 }];
   }
   const stepLines = shownSteps.flat();
   if (hidden) stepLines.push({ left: [seg(w.more(hidden), "dim")], indent: 1 });
@@ -728,6 +779,8 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
   if (pieces.length) lines.push(gap, title(w.pieces), ...pieces);
   if (runs.length) lines.push(gap, ...runs);
   if (events.length) lines.push(gap, title(w.recent), ...events);
+  // Whatever is still too much falls off the end.
+  if (lines.length > rows) lines.length = rows;
 
   // --- the one line above the prompt
   let band: Seg[] = [seg("Encela ▸ ", "strong")];

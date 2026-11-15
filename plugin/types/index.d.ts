@@ -102,6 +102,8 @@ declare module "claude-code" {
       agents: Shaped<Agent[]>;
       /** When this session first called an Encela tool; 0 before that. */
       since: Shaped<number>;
+      /** The project folder at that moment: the only one whose file is read. */
+      root: Shaped<string>;
     };
   }
 }

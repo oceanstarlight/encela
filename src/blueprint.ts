@@ -509,6 +509,28 @@ export class Blueprints {
     if (!b || typeof b !== "object" || typeof b.id !== "string" || !Array.isArray(b.steps)) {
       return null;
     }
+    // A file that only looks like a blueprint is left alone: every part is used as what it should be.
+    const texts = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === "string");
+    const things = (v: unknown, ...keys: string[]) =>
+      Array.isArray(v) &&
+      v.every(
+        (x) =>
+          x &&
+          typeof x === "object" &&
+          keys.every((k) => typeof (x as Record<string, unknown>)[k] === "string"),
+      );
+    if (
+      typeof b.goal !== "string" ||
+      typeof b.status !== "string" ||
+      !texts(b.requirements) ||
+      !things(b.workers, "name", "role") ||
+      !things(b.choices, "question") ||
+      !things(b.steps, "id", "title", "worker", "status") ||
+      !b.steps.every((s) => texts(s.after) && texts(s.pieces)) ||
+      (b.pieces !== undefined && !things(b.pieces, "piece", "role"))
+    ) {
+      return null;
+    }
     b.pieces = Array.isArray(b.pieces) ? b.pieces : [];
     b.pipelines = Array.isArray(b.pipelines) ? b.pipelines : [];
     b.approvedCalls = Array.isArray(b.approvedCalls) ? b.approvedCalls : [];

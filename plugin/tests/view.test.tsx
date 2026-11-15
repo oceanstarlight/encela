@@ -83,7 +83,11 @@ function building(at: number): Live {
 }
 
 /** The engine beneath the plugin: a project folder that holds `text` as the server's file, at `realPath`. */
-function world(on: On, file: { text: string; realPath?: string } | null) {
+function world(
+  on: On,
+  file: { text: string; realPath?: string } | null,
+  more: { root?: () => string; stat?: (path: string) => Promise<void> | void } = {},
+) {
   const opened: string[] = [];
   on("command.register", () => ({ value: { command: "encela-view" } }));
   on("ui.open", (_, e) => {
@@ -91,12 +95,13 @@ function world(on: On, file: { text: string; realPath?: string } | null) {
     return { value: { isPlaced: true } };
   });
   on("session.start", (_, e) => ({ cwd: e.cwd }));
-  on("session.root", () => ({ value: ROOT }));
+  on("session.root", () => ({ value: more.root?.() ?? ROOT }));
   on("tool.call", () => ({ result: {} }));
   on("agent.spawn", () => ({ model: "sonnet", agentId: "agent-1" }));
   on("turn.start", (_, e) => ({ turnId: e.turnId }));
   on("turn.complete", (_, e) => ({ text: e.answer }));
-  on("fs.stat", (_, e) => {
+  on("fs.stat", async (_, e) => {
+    await more.stat?.(e.path);
     if (e.path === ROOT) {
       return { value: { kind: "dir", size: 0, mtimeMs: 1, isLink: false, realPath: ROOT } };
     }
@@ -314,4 +319,94 @@ test("the view keeps up while a call is out", async ($, on) => {
   await band.unmount();
   answer?.();
   await call;
+});
+
+// --- what the review of the view found
+
+test("review: a step the main loop does, a helper no step names and a piece not called yet still draw", async ($, on) => {
+  mock.clock(on, { now: 1000 });
+  const state = building(2000);
+  const steps = state.blueprint?.steps ?? [];
+  for (const s of steps) s.worker = "main";
+  for (const p of state.pieces) p.calls = 0;
+  world(on, { text: JSON.stringify(state) });
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  await $.agent.spawn({
+    prompt: "Look around the code",
+    description: "Explore",
+    subagentType: "Explore",
+  } as never);
+  await $.tool.call({ tool: "Grep", pattern: "todo", agentId: "agent-1" } as never);
+  for (const surface of SURFACES) {
+    const pane = await $.ui.mount({ ...PANE, surface });
+    const at = within(surface, "pane");
+    expect(await pane.find({ type: "Text", text: /API 구현/, ...at })).toBeDefined();
+    expect(await pane.find({ type: "Text", text: /Explore/, ...at })).toBeDefined();
+    await pane.unmount();
+  }
+});
+
+test("review: a file dated ahead of now is not the server's", async ($, on) => {
+  mock.clock(on, { now: 1000 });
+  world(on, { text: JSON.stringify(building(9e15)) });
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  const pane = await $.ui.mount({ ...PANE, surface: "terminal" });
+  expect(await pane.find({ text: /할 일 앱/, in: "pane" })).toBeUndefined();
+  await pane.unmount();
+});
+
+test("review: the folder read is the one of the first Encela call, wherever the session goes", async ($, on) => {
+  mock.clock(on, { now: 1000 });
+  let root = ROOT;
+  const asked: string[] = [];
+  world(
+    on,
+    { text: JSON.stringify(building(2000)) },
+    {
+      root: () => root,
+      stat: (path) => {
+        asked.push(path);
+      },
+    },
+  );
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  root = "/work/other";
+  await $.tool.call(STEP);
+  expect(asked.filter((p) => p.startsWith("/work/other"))).toEqual([]);
+});
+
+test("review: an answer doesn't wait for the view's reading, and a look that never came doesn't stop the next", async ($, on) => {
+  const clock = mock.clock(on, { now: 1000 });
+  const waiting: (() => void)[] = [];
+  let held = false;
+  world(
+    on,
+    { text: JSON.stringify(building(2000)) },
+    {
+      stat: async () => {
+        if (!held) return;
+        await new Promise<void>((resolve) => {
+          waiting.push(resolve);
+        });
+      },
+    },
+  );
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  await clock.advance(10);
+  held = true;
+  // The file can't be looked at, and the call still answers.
+  const answered = await $.tool.call(STEP);
+  expect(answered).toBeDefined();
+  expect(waiting.length > 0).toBe(true);
+  held = false;
+  for (const go of waiting) go();
+  await clock.advance(20_000);
+  await $.tool.call(STEP);
+  const pane = await $.ui.mount({ ...PANE, surface: "terminal" });
+  expect(await pane.find({ type: "Text", text: /API 구현/, in: "pane" })).toBeDefined();
+  await pane.unmount();
 });
