@@ -34,6 +34,46 @@
 - **MCP 부품은 필요할 때만 시작해요.** 도구는 `<부품>__<도구>` 이름으로 나타나고, 설계도에서 쓸 도구를 제한할 수 있어요.
 - **문서 부품은 사본을 고쳐 써요.** `.encela/build/<설계도>/` 아래 사본을 이번 작업에 맞게 고치고(`encela:assembler` 서브에이전트), 원본 부품은 바꾸지 않아요. 사본에는 출처와 라이선스가 남아요.
 
+## 작업 화면
+
+엔셀라가 일하는 동안 Claude Code 안에 패널이 하나 뜨고, 프롬프트 위에 한 줄 요약이 보여요. 따로 창을 띄우지 않아요.
+
+```
+할 일 앱 만들기
+✓ 부품 › ✓ 설계도 › ✓ 승인 › ✓ 조립 › ● 만들기
+
+단계 1/4  ▓▓▓▓░░░░░░░░░░░░
+ ✓ 데이터 모델                          backend
+ ● API 구현                             backend
+   └ Edit routes.ts
+ ● 화면 구현                           frontend
+   └ playwright · browser_click
+ ○ 테스트
+
+부품
+ ● playwright              browser_click · 12회
+ ○ context7
+ + 문서 1 · 도구 안내 1
+
+파이프라인 exports                 2/5 · 실행 중
+ ✓pack -grep ●names(3/8) ◆pick ○save
+
+최근
+ API 구현: 시작
+ 조립 완료 (부품 4개)
+```
+
+```
+Encela ▸ 만들기 1/4 · 작업자 2 · exports 2/5
+```
+
+- **흐름**: 부품 찾기 → 설계도 → 승인 → 조립 → 만들기 중 어디인지.
+- **단계**: 끝남 ✓, 하는 중 ●, 실패 ✗, 아직 ○. 오른쪽은 맡은 작업자, 아래 줄은 그 작업자(서브에이전트)가 지금 하는 일.
+- **부품**: 켜져 있는 MCP 부품, 마지막으로 부른 도구와 횟수.
+- **파이프라인**: 단계별 상태. ◆는 Claude 차례, `(3/8)`은 여러 개 중 몇 개 끝났는지.
+- 패널은 엔셀라 도구가 처음 불릴 때 자리가 있으면 저절로 열리고, `/encela-view`로 언제든 열 수 있어요. 터미널이 좁으면 프롬프트 위에 작게 떠요.
+- 화면은 **보기만** 해요. 도구 호출을 막거나 바꾸지 않고, 엔셀라를 쓰지 않는 세션에서는 아무것도 하지 않아요. 필요 없으면 `encela setup --no-view`.
+
 ## 파이프라인
 
 보통은 Claude가 도구를 부르고, 결과를 읽고, 그 일부를 다음 도구의 인자로 다시 써요. 결과가 크거나 같은 호출이 수십 번 반복되면 그게 전부 Claude의 컨텍스트를 지나가요. 파이프라인은 그 연결을 설계도에 한 번 적어 두는 거예요. 엔셀라가 도구를 직접 부르고 데이터를 넘기고, Claude는 짧은 보고서와 파일 경로만 받아요.
@@ -94,7 +134,7 @@ node dist/cli.js setup     # 플러그인을 ~/.encela/claude-plugin 에 쓰고 
 
 | 명령 | 하는 일 |
 |---|---|
-| `encela setup [--no-auto] [--no-claude]` | 플러그인 설치. `--no-auto`는 프롬프트마다 붙는 안내를 끔 |
+| `encela setup [--no-auto] [--no-view] [--no-claude]` | 플러그인 설치. `--no-auto`는 프롬프트마다 붙는 안내를, `--no-view`는 작업 화면을 끔 |
 | `encela status` | 부품 수와 저장 위치 |
 | `encela pieces [단어…] [--kind <종류>]` | 부품 목록·검색 |
 | `encela add <file.json>` / `encela remove <id>` | 내 부품 추가·삭제 |
@@ -142,12 +182,13 @@ node dist/cli.js setup     # 플러그인을 ~/.encela/claude-plugin 에 쓰고 
 pnpm lint        # Biome
 pnpm typecheck
 pnpm test        # 빌드 후 node --test
+pnpm check:view  # 작업 화면을 Claude Code로 검사 (claude 명령이 있을 때만)
 ```
 
 | 경로 | 내용 |
 |---|---|
 | `src/` | 부품·레지스트리·검색, 설계도·조립, 파이프라인(정의·엔진·jq·워커), MCP 서버와 허브, hook, 설치 |
-| `plugin/` | 오케스트레이터 skill, 조립·파이프라인 서브에이전트 |
+| `plugin/` | 오케스트레이터 skill, 조립·파이프라인 서브에이전트, 작업 화면(`hooks/view.tsx`, `hooks/model.ts`) |
 | `catalog/` | 번들 부품과 라이선스 |
 | `docs/` | 파이프라인 설계 문서 |
 
