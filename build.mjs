@@ -208,6 +208,11 @@ if (process.argv.includes("--test")) {
     entryPoints: [join(here, "plugin", "hooks", "model.ts")],
     outfile: join(here, "test", ".build", "view.js"),
   });
+  await build({
+    ...common,
+    entryPoints: [join(here, "plugin", "hooks", "canvas.ts")],
+    outfile: join(here, "test", ".build", "canvas.js"),
+  });
   // The expression language is tested on its own.
   if (existsSync(join(here, "src", "jq.ts"))) {
     await build({

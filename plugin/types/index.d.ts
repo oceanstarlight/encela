@@ -93,6 +93,25 @@ export interface Agent {
   done: boolean;
 }
 
+/**
+ * Something a model loop reached for that the canvas draws a line to: a
+ * piece of the build, the web, another MCP server, a skill.
+ */
+export interface Act {
+  /** Who and what, as one key. */
+  id: string;
+  /** The loop that called: `main` or a subagent's id. */
+  from: string;
+  kind: "piece" | "web" | "mcp" | "skill";
+  name: string;
+  /** Calls in flight, and calls made. */
+  busy: number;
+  calls: number;
+}
+
+/** The pane's two pictures of one build. */
+export type Tab = "graph" | "canvas";
+
 declare module "claude-code" {
   interface PluginState {
     encela: {
@@ -100,6 +119,10 @@ declare module "claude-code" {
       live: Shaped<Live | null>;
       /** The model loops seen at work since Encela was first used. */
       agents: Shaped<Agent[]>;
+      /** What the loops reached for, for the canvas. */
+      acts: Shaped<Act[]>;
+      /** The tab the pane shows. */
+      tab: Shaped<Tab>;
       /** When this session first called an Encela tool; 0 before that. */
       since: Shaped<number>;
       /** The project folder at that moment: the only one whose file is read. */

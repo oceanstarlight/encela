@@ -12,9 +12,12 @@ export interface Seg {
   tone: Tone;
   /**
    * How it moves while work is going on: `spin` turns its first character (a
-   * marker such as ●) into a spinner, `pulse` swells and fades the whole of it.
+   * marker such as ●) into a spinner, `pulse` swells and fades the whole of
+   * it, `flow` shows a packet passing along a line.
    */
-  fx?: "spin" | "pulse";
+  fx?: "spin" | "pulse" | "flow";
+  /** For `flow`, a cell of a line between two nodes: how far along the line it is, in cells. A packet passes it in its turn. */
+  at?: number;
   /** One of a few colours that tell the workers apart; over `tone`'s. */
   hue?: number;
 }
@@ -35,6 +38,8 @@ export interface Line {
 export interface Frame {
   /** The pane's lines, top to bottom. */
   lines: Line[];
+  /** How many of them are the head (what is being built, where the flow stands): it stays whichever tab is shown. */
+  head: number;
   /** One line for above the prompt; empty when there is nothing to say. */
   band: Seg[];
 }
@@ -348,7 +353,7 @@ export function encelaTool(tool: string): string | null {
   return /^mcp__(?:plugin_encela_)?encela__(.+)$/.exec(tool)?.[1] ?? null;
 }
 
-const OWN = new Set([
+export const OWN = new Set([
   "find_pieces",
   "get_piece",
   "piece_add",
@@ -535,7 +540,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
         }
       : null);
   if (!live || live.phase === "idle" || (!live.blueprint && live.phase !== "pieces")) {
-    return { lines: [{ left: [seg(w.idle, "dim")] }], band: [] };
+    return { lines: [{ left: [seg(w.idle, "dim")] }], head: 0, band: [] };
   }
   const b = live.blueprint;
   const active = agents.filter((a) => !a.done);
@@ -815,6 +820,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
 
   return {
     lines: lines.map((l) => fitLine(l, columns)),
+    head: Math.min(head.length, lines.length),
     band: fitLine({ left: band }, columns).left,
   };
 }
@@ -833,6 +839,12 @@ const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "�
 /** Ticks a changed line stays lit; the first few of them at full strength. */
 const LIT = 12;
 const LIT_FULL = 4;
+/** A packet moves one cell every so many ticks, and the next follows so many cells behind. */
+const PACKET_TICKS = 2;
+const PACKET_GAP = 6;
+/** Whether a packet is on the cell `at` cells along its line: packets run from the line's start to its end. */
+export const packetAt = (tick: number, at: number) =>
+  (((Math.floor(tick / PACKET_TICKS) - at) % PACKET_GAP) + PACKET_GAP) % PACKET_GAP === 0;
 /** Ticks of a pulse. */
 const BEAT = 10;
 /** Ticks without anything new after which the motion rests (ten minutes): work that stopped without saying so. */
@@ -855,7 +867,9 @@ const alive = (m: Motion) =>
   (m.fx && m.tick - m.since < STALE) || Object.values(m.lit).some((t) => m.tick - t < LIT);
 
 const said = (segs: Seg[] | undefined) =>
-  (segs ?? []).map((s) => `${s.text}\u0001${s.tone}${s.fx ?? ""}${s.hue ?? ""}`).join("\u0002");
+  (segs ?? [])
+    .map((s) => `${s.text}\u0001${s.tone}${s.fx ?? ""}${s.hue ?? ""}\u0001${s.at ?? ""}`)
+    .join("\u0002");
 
 /** The motion for these lines, after `was`: the same object when the lines are the same. */
 export function meet(was: Motion | undefined, lines: readonly Line[]): Motion {
@@ -945,6 +959,10 @@ export function paint(line: Line, m: Motion, columns: number): { left: Cell[]; r
     if (s.fx === "spin" && m.live) {
       const [, ...rest] = s.text;
       cell.text = `${SPIN[m.tick % SPIN.length]}${rest.join("")}`;
+    }
+    if (s.fx === "flow" && m.live && packetAt(m.tick, s.at ?? 0)) {
+      cell.text = "■";
+      cell.bold = true;
     }
     if (s.fx === "pulse" && m.live) {
       if (beat < 3) cell.bold = true;

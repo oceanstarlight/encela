@@ -15,7 +15,8 @@
 // they are drawn as they stand.
 import type { Elements, EngineInterface, Register } from "claude-code";
 import { atom, read, update } from "claude-code";
-import type { Agent, Live } from "../types";
+import type { Act, Agent, Live, Tab } from "../types";
+import { acted, actOf, canvas, settled, tabLabels } from "./canvas";
 import type { Line, Seg } from "./model";
 import {
   began,
@@ -26,6 +27,7 @@ import {
   frame,
   look,
   moving,
+  OWN,
   oneLine,
   parse,
   seen,
@@ -54,6 +56,8 @@ const live = atom({ plugin: "encela", key: "live" } as const, null as Live | nul
 const agents = atom({ plugin: "encela", key: "agents" } as const, [] as Agent[], {
   shape: "agents-1",
 });
+const acts = atom({ plugin: "encela", key: "acts" } as const, [] as Act[], { shape: "acts-1" });
+const shown = atom({ plugin: "encela", key: "tab" } as const, "graph" as Tab, { shape: "tab-1" });
 const since = atom({ plugin: "encela", key: "since" } as const, 0, { shape: "since-1" });
 /** The project folder as it was when this session first called Encela: where the server writes. */
 const where = atom({ plugin: "encela", key: "root" } as const, "", { shape: "root-1" });
@@ -214,7 +218,10 @@ async function met($: EngineInterface, id: string, prompt: string, about: string
 /** A loop's turn began, or ended. */
 async function turn($: EngineInterface, id: string, begins: boolean) {
   armed ??= await read($, since);
-  if (armed) await update($, agents, (list) => (begins ? began(list, id) : ended(list, id)));
+  if (!armed) return;
+  await update($, agents, (list) => (begins ? began(list, id) : ended(list, id)));
+  // Whatever the loop was calling, it isn't any more.
+  if (!begins) await update($, acts, (list) => settled(list, id));
 }
 
 export const register: Register = (on) => {
@@ -237,26 +244,33 @@ export const register: Register = (on) => {
   });
 
   on("tool.call", async ($, e, next) => {
-    const own = encelaTool(e.tool) !== null;
+    const name = encelaTool(e.tool);
+    const own = name !== null;
+    const input = e as unknown as Record<string, unknown>;
     // Watching never stands in a call's way: whatever fails here, the call goes on.
-    const watching = await note(
-      $,
-      e.tool,
-      e as unknown as Record<string, unknown>,
-      e.agentId,
-    ).catch(() => false);
-    if (!own || !watching) return next(e);
-    inFlight++;
-    void watch($);
+    const watching = await note($, e.tool, input, e.agentId).catch(() => false);
+    if (!watching) return next(e);
+    // For the canvas: who reaches for what, while the call is out.
+    const from = e.agentId ?? "main";
+    const to = actOf(e.tool, input, name, OWN);
+    if (!own && !to) return next(e);
+    if (to) await update($, acts, (list) => acted(list, from, to, 1)).catch(() => {});
+    if (own) {
+      inFlight++;
+      void watch($);
+    }
     try {
       return await next(e);
     } finally {
-      inFlight--;
-      still = 0;
-      // The answer doesn't wait for the view's reading.
-      void refresh($)
-        .catch(() => {})
-        .then(() => watch($));
+      // The answer waits for neither the canvas nor the view's reading.
+      if (to) void update($, acts, (list) => acted(list, from, to, -1)).catch(() => {});
+      if (own) {
+        inFlight--;
+        still = 0;
+        void refresh($)
+          .catch(() => {})
+          .then(() => watch($));
+      }
     }
   });
 
@@ -278,38 +292,78 @@ export const register: Register = (on) => {
     return next(e);
   });
 
+  // The pane's surface module says which tab was chosen there: kept for the session.
+  on("ui.message", async ($, e, next) => {
+    const tab = (e.data as { tab?: unknown } | null)?.tab;
+    if (e.requestId === PANE && (tab === "graph" || tab === "canvas")) {
+      await update($, shown, () => tab).catch(() => {});
+    }
+    return next(e);
+  });
+
   on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
-    const [state, loops, from, now] = await Promise.all([
+    const [state, loops, reached, tab, from, now] = await Promise.all([
       read($, live),
       read($, agents),
+      read($, acts),
+      read($, shown),
       read($, since),
       $.clock.now(),
     ]);
-    const view = frame(state, loops, {
-      rows: e.props.scroll.bodyRows,
-      columns: e.props.bodyColumns,
-      now,
-      lang: guess(),
-      started: from > 0,
-    });
-    // The small form: the one line, or the first of the pane.
-    const lines: Line[] =
-      e.props.placement === "widget"
-        ? [{ left: view.band.length ? view.band : (view.lines[0]?.left ?? []) }]
-        : view.lines;
+    const lang = state?.lang ?? guess();
+    const columns = e.props.bodyColumns;
+    const widget = e.props.placement === "widget";
+    // One row goes to the tabs.
+    const rows = e.props.scroll.bodyRows - (widget ? 0 : 1);
+    const view = frame(state, loops, { rows, columns, now, lang, started: from > 0 });
     const table = $.ui.resolve(e);
+    if (widget) {
+      // The small form: the one line, or the first of the pane.
+      const one: Line[] = [{ left: view.band.length ? view.band : (view.lines[0]?.left ?? []) }];
+      if (moves(e.surface)) {
+        const { Client } = table as Elements["terminal"];
+        return (
+          <Client
+            key="pane"
+            module="./motion.tsx"
+            props={{ lines: plain(one), columns }}
+            width="100%"
+          />
+        );
+      }
+      const { Text } = table;
+      return (
+        <Text wrap="truncate-end">
+          {(one[0] as Line).left.map((s) => (
+            <Text {...look(s)}>{s.text}</Text>
+          ))}
+        </Text>
+      );
+    }
+    // The canvas keeps the head: what is being built, and where the flow stands.
+    const head = view.lines.slice(0, view.head);
+    const picture: Line[] = [
+      ...head,
+      ...(head.length ? [{ left: [] }] : []),
+      ...canvas(state, loops, reached, {
+        rows: Math.max(3, rows - head.length - (head.length ? 1 : 0)),
+        columns,
+        lang,
+      }),
+    ];
+    const labels = tabLabels(lang, columns);
     if (moves(e.surface)) {
       const { Client } = table as Elements["terminal"];
       return (
         <Client
           key="pane"
           module="./motion.tsx"
-          props={{ lines: plain(lines), columns: e.props.bodyColumns }}
+          props={{ lines: plain(view.lines), canvas: plain(picture), tab, labels, columns }}
           width="100%"
         />
       );
     }
-    const { Box, Text, Progress } = table;
+    const { Box, Text, Progress, Button } = table;
     const run = (segs: Seg[]) => segs.map((s) => <Text {...look(s)}>{s.text}</Text>);
     const row = (line: Line) => {
       if (line.bar) {
@@ -333,7 +387,29 @@ export const register: Register = (on) => {
         </Box>
       );
     };
-    return <Box flexDirection="column">{lines.map(row)}</Box>;
+    const choose = (to: Tab) => () => {
+      void update($, shown, () => to).catch(() => {});
+    };
+    return (
+      <Box flexDirection="column">
+        <Box>
+          <Button
+            key="tab-graph"
+            label={labels.graph}
+            variant={tab === "graph" ? "primary" : "secondary"}
+            onPress={choose("graph")}
+          />
+          <Text> </Text>
+          <Button
+            key="tab-canvas"
+            label={labels.canvas}
+            variant={tab === "canvas" ? "primary" : "secondary"}
+            onPress={choose("canvas")}
+          />
+        </Box>
+        {(tab === "canvas" ? picture : view.lines).map(row)}
+      </Box>
+    );
   });
 
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
