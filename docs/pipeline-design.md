@@ -1,6 +1,6 @@
 # Encela pipeline engine: design draft (stage 3)
 
-Status: draft, under critique. `src/pipeline.ts` and `src/engine.ts` are a first draft of it; `src/jq.ts` is being written. This file is the working specification for stage 3 and will be brought in line with the code when the stage is done.
+Status: stage 3 is built, run for real and reviewed. The sections up to "Open questions" are the draft as it was critiqued; what the critique, the first real runs and the review changed is in the sections after them, and where they disagree the later section holds.
 
 ## Context
 
@@ -182,7 +182,7 @@ After a server restart a run that was running is `interrupted`; `pipeline_resume
 - `src/engine.ts`: runs. It is given a small interface (`callTool(piece, tool, args, timeout)`, `tools(piece)`, `ensureOpen(piece)`) so it can be tested without the server.
 - Scheduling: find the steps whose prerequisites are finished; start tool and transform steps (up to the concurrency limit); mark claude steps waiting; the run is `waiting` when nothing is running and some step waits, `done` when every step is finished or skipped, `failed` when a step failed with `onError: stop` (later steps stay todo; `retry` runs it again).
 - Limits: a step's text up to 50 MB; jq evaluation under `src/jq.ts` budgets (steps, outputs, string length).
-- jq runs in the server's thread. A pathological regular expression on hostile text could block the server (JavaScript has no regex timeout). Open question below.
+- In the draft jq ran in the server's thread, where a pathological regular expression on hostile text could block the server (JavaScript has no regex timeout). It was the second open question below, and was decided the other way: see "Expressions run in a worker".
 
 ## Around the engine
 
@@ -257,7 +257,7 @@ Four critics (author ergonomics, engine semantics, security, fit with Claude Cod
 
 ### Expressions run in a worker
 
-- Every jq evaluation of a run happens in a worker thread with a time limit (10 s), started from the same bundled file. JavaScript can't interrupt a regular expression, and one that backtracks without end on unlucky text would otherwise block the whole server. (V8's fallback to its linear engine was tried: it doesn't cover the `i` or `u` flags or lookaheads.) Compiling an expression to check it stays in the server's thread.
+- Every jq evaluation of a run happens in a worker thread with a time limit (10 s), started from the same bundled file. JavaScript can't interrupt a regular expression, and one that backtracks without end on unlucky text would otherwise block the whole server. (V8's fallback to its linear engine was tried: it doesn't cover the `i` or `u` flags or lookaheads.) Compiling an expression to check it stays in the server's thread. The outputs come back from the worker as one JSON text (values JSON has no word for, such as nan and infinite, travel marked), so a value an expression uses many times is not copied once per use. The message of a stopped evaluation names both usual causes: a regular expression that backtracks without end, and work on very large values.
 
 ### Approval
 
@@ -280,7 +280,7 @@ MCP tasks; `each` on claude steps; command line pieces as steps; loading outputs
 
 ### The jq subset
 
-`src/jq.ts` implements jq 1.7's language for these uses: paths, slices, iteration, `..`, `?`, `//`, pipes and commas, arithmetic and comparison with jq's ordering, `if`, `try`/`catch`, `reduce`, `foreach`, `label`/`break`, variables and destructuring, `def`, string interpolation and formats (`@json @csv @tsv @html @uri @sh @base64 @base64d`), assignment operators (`= |= += -= *= /= %= //=`), and the usual builtins (map, select, keys, to_entries, group_by, sort_by, unique, add, any, all, flatten, range, limit, first, last, paths, getpath, setpath, del, walk, test, match, capture, scan, sub, gsub, split, join, ltrimstr, tojson, fromjson, tostring, tonumber, dates, IN, INDEX, error, and so on). Regular expressions are JavaScript's. `$ENV` and `env` are empty; `input`, `import` and the like are refused. Recorded cases from the real jq are in `test/fixtures/jq-cases.json`.
+`src/jq.ts` implements jq 1.7's language for these uses: paths, slices, iteration, `..`, `?`, `//`, pipes and commas, arithmetic and comparison with jq's ordering, `if`, `try`/`catch`, `reduce`, `foreach`, `label`/`break`, variables and destructuring, `def`, string interpolation and formats (`@json @csv @tsv @html @uri @sh @base64 @base64d`), assignment operators (`= |= += -= *= /= %= //=`), and the usual builtins (map, select, keys, to_entries, group_by, sort_by, unique, add, any, all, flatten, range, limit, first, last, paths, getpath, setpath, del, walk, test, match, capture, scan, sub, gsub, split, join, ltrimstr, tojson, fromjson, tostring, tonumber, dates, IN, INDEX, error, and so on). Regular expressions are JavaScript's. Destructuring alternatives (`?//`) work in `as`, `reduce` and `foreach`, and `strptime/1` reads dates as jq 1.7 does, in UTC. `$ENV` and `env` are empty; `input`, `import`, `localtime` and the like are refused. A program may be 100,000 characters long; the outputs of one evaluation, written out, 20,000,000 characters (every string counted each time it occurs) and 2000 levels deep. Recorded cases from the real jq are in `test/fixtures/jq-cases.json` and `jq-review-cases.json`; where this implementation knowingly differs is in `jq-known-differences.json`, each case with its reason.
 
 ## What the first real runs showed
 
@@ -327,10 +327,11 @@ Five reviewers each attacked one side of the engine (the approval gate, failures
 
 ### The expression language
 
-- The outputs of one evaluation are limited by their full size, counted every time a value occurs, and nested depth; the server's thread never receives more than that.
-- A source longer than 100,000 characters is refused before parsing; analysing a long chain of `.[]` is linear.
-- Builtins charge the step budget in proportion to the sizes they work on.
+- The outputs of one evaluation are limited by their full size written out (20,000,000 characters, every string counted each time it occurs) and by their depth (2000 levels). A result that can't be passed to the server's thread settles the step at once instead of leaving it to the time limit, and the worker stays usable.
+- A source longer than 100,000 characters is refused before parsing; analysing a long chain is linear.
+- Builtins charge the step budget in proportion to the sizes they work on (searching in strings and arrays, comparing, sorting, `keys`, `tojson`, base64, and so on), so the budget stops in a second or two what used to run into the time limit.
 - `?//` (destructuring alternatives) and `strptime` are part of the subset. `localtime` and `strflocaltime` stay out: they read the time zone.
-- `path()` refuses what jq 1.7 refuses.
+- `path()` refuses what jq 1.7 refuses: `|=` and the other update operators are errors there.
+- Still different from jq 1.7, and recorded: `?//` doesn't move on to the next pattern for an error raised after the body by whatever takes its outputs, nor for the `break` of `limit` and `first`; inside `foreach`'s update, `$x | .a` is not followed as a path.
 
-Not done: runs on Windows beyond what CI covers, and an interactive session answering Encela's own approval dialog.
+Since the review an interactive session was run as well (Claude Code in a terminal): Encela's own approval dialog was answered there and counted as direct. Not done: runs on Windows beyond what CI covers.
