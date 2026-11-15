@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 
 declare const __VERSION__: string;
 export const VERSION: string = typeof __VERSION__ === "string" ? __VERSION__ : "0.0.0";
+declare const __NAME__: string;
+/** The name this package was built under: what npx fetches it by. */
+export const PACKAGE: string = typeof __NAME__ === "string" ? __NAME__ : "encela";
 
 export type Lang = "ko" | "en";
 export type Text = { ko: string; en: string };

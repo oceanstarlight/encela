@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { asset, home, VERSION } from "./paths";
+import { asset, home, PACKAGE, VERSION } from "./paths";
 import { Registry } from "./registry";
 import { FLOW } from "./server";
 
@@ -32,7 +32,7 @@ function bareLauncher(
 ): { command: string; args: string[] } {
   if (encelaOnPath) return { command: "encela", args: [] };
   // npx runs from a cache folder that can be cleared: point at the registry instead.
-  if (/[\\/]_npx[\\/]/.test(cli)) return { command: "npx", args: ["-y", `encela@${VERSION}`] };
+  if (/[\\/]_npx[\\/]/.test(cli)) return { command: "npx", args: ["-y", `${PACKAGE}@${VERSION}`] };
   return { command: execPath, args: [cli] };
 }
 
