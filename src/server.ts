@@ -1,7 +1,8 @@
 // `encela mcp`: the MCP server the plugin gives Claude Code (stdio).
 //
 // - Pieces: find_pieces, get_piece, piece_add look through and add to the
-//   registry.
+//   registry. github_search and github_read look for more on GitHub and
+//   draft a piece from a repository; they only read.
 // - Blueprints: blueprint_save, blueprint_get, blueprint_approve,
 //   blueprint_assemble, blueprint_step. Nothing is assembled before the user
 //   has approved the blueprint.
@@ -29,6 +30,7 @@ import {
 } from "./blueprint";
 import { Client, forThisOs, supported } from "./client";
 import { type Answer, Engine, type Host } from "./engine";
+import { Finder, foundText, readingText } from "./finder";
 import { type Live, LiveWriter, type Phase } from "./live";
 import { lang, projectDir, VERSION } from "./paths";
 import { cautions, isDocument, KINDS, type McpConfig, type Piece, type PieceKind } from "./piece";
@@ -50,7 +52,7 @@ const ASK_TIMEOUT = 30 * 60_000;
 /** How a request goes through Encela; the server's instructions, the `go` prompt and the command use it. */
 export const FLOW = `How to take a request through Encela (the encela:orchestrate skill has the details):
 1. Analyse the request: the goal, the requirements, what is unknown.
-2. Find pieces with find_pieces, several queries of English keywords at once (what the task needs, not the user's words: "an app like Paint" needs frontend design and canvas drawing). Read the promising ones with get_piece. Something needed that Encela lacks can be found outside and kept with piece_add.
+2. Find pieces with find_pieces, several queries of English keywords at once (what the task needs, not the user's words: "an app like Paint" needs frontend design and canvas drawing). Read the promising ones with get_piece. Something needed that Encela lacks can be looked for on GitHub: github_search finds repositories, github_read reads one and drafts a piece, piece_add keeps it.
 3. Write the blueprint with blueprint_save: goal, requirements, the pieces with each one's role and why, workers for parts that can run side by side, ordered steps, and choices the user should make. Keep only pieces that clearly help; a blueprint with no pieces is fine.
 4. Show the blueprint to the user and call blueprint_approve. Never assemble or build before it is approved; when the user wants changes, save the blueprint again and ask again.
 5. Call blueprint_assemble: MCP pieces start (their tools appear as <piece>__<tool>), documents get working copies, and you get a brief for each worker.
@@ -115,8 +117,13 @@ function ownTools() {
     ),
     tool(
       "piece_add",
-      "Keeps a piece found outside Encela (an MCP server, CLI or library from GitHub, or a skill, rule, instruction or subagent). It can be used once the user approves a blueprint that includes it.",
+      "Keeps a piece found outside Encela (an MCP server, CLI or library from GitHub, or a skill, rule, instruction or subagent). It can be used once the user approves a blueprint that includes it. For a piece drafted by github_read, pass `from` as that tool gave it.",
       {
+        from: {
+          type: "object",
+          description:
+            "{repo, path, commit} as github_read gave it: Encela reads the repository again at that commit and sets source, license and warnings itself, and for a document its body and files",
+        },
         piece: {
           type: "object",
           description:
@@ -125,6 +132,42 @@ function ownTools() {
       },
       ["piece"],
       false,
+    ),
+    tool(
+      "github_search",
+      "Searches GitHub for repositories when Encela's own pieces don't cover a need (an MCP server, a CLI, a library, a skill). Returns repositories with stars, license, last push and what to be wary of. Read a promising one with github_read before keeping anything.",
+      {
+        query: {
+          type: "string",
+          description:
+            'English words, GitHub search syntax allowed, e.g. "postgres mcp server" or "topic:mcp-server notion"',
+        },
+        limit: { type: "number", description: "How many to return (8; at most 20)" },
+      },
+      ["query"],
+      true,
+      { openWorldHint: true },
+    ),
+    tool(
+      "github_read",
+      "Reads a GitHub repository, or a folder or file of it, at a commit, without cloning or running anything: its license, the package registry's record of what its start command fetches, the start of its README, and a draft of a piece to check and keep with piece_add.",
+      {
+        repo: { type: "string", description: "owner/name, or a github.com address" },
+        path: {
+          type: "string",
+          description:
+            "A folder or file inside it, e.g. src/git or skills/pdf/SKILL.md (the root when left out)",
+        },
+        ref: { type: "string", description: "A branch, tag or commit (the default branch)" },
+        kind: {
+          type: "string",
+          enum: [...KINDS],
+          description: "What to read it as, when the files don't say",
+        },
+      },
+      ["repo"],
+      true,
+      { openWorldHint: true },
     ),
     tool(
       "blueprint_save",
@@ -271,6 +314,8 @@ export interface ServerOptions {
   project?: string;
   registry?: Registry;
   tools?: ToolCache;
+  /** What looks things up on GitHub; one that uses the user's own token, when they have set one, otherwise. */
+  finder?: Finder;
   /** The user's Encela folder, where the key for seals is kept. The registry's folder when left out. */
   home?: string;
 }
@@ -292,6 +337,7 @@ export class Server {
   private registry: Registry;
   private blueprints: Blueprints;
   private tools: ToolCache;
+  private finder: Finder;
   private sandbox = new Sandbox();
   private engine: Engine;
   private progressed = 0;
@@ -307,6 +353,10 @@ export class Server {
     this.project = opts.project ?? projectDir();
     this.registry = opts.registry ?? new Registry();
     this.tools = opts.tools ?? new ToolCache();
+    // The token is sent to GitHub's API alone, and kept nowhere.
+    this.finder =
+      opts.finder ??
+      new Finder({ token: (process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim() });
     // What the user approved, and the runs this server started, count only
     // with a seal of this computer: the project's own files don't get to say.
     const seals = new Seals(opts.home ?? this.registry.folder);
@@ -559,7 +609,25 @@ export class Server {
         case "pipeline_get":
           return text(await this.pipelineGet(args, progressToken));
         case "piece_add":
-          return text(this.addPiece(args.piece));
+          return text(
+            this.addPiece(args.from ? await this.finder.fill(args.piece, args.from) : args.piece),
+          );
+        case "github_search": {
+          const query = String(args.query ?? "");
+          const found = await this.finder.search(query, Number(args.limit) || 8);
+          this.live.searched = true;
+          this.live.note("found", `GitHub: ${query}`, String(found.length));
+          return text(foundText(query, found));
+        }
+        case "github_read": {
+          const reading = await this.finder.read(String(args.repo ?? ""), {
+            path: typeof args.path === "string" ? args.path : "",
+            ref: typeof args.ref === "string" ? args.ref : "",
+            kind: typeof args.kind === "string" ? args.kind : "",
+          });
+          this.live.searched = true;
+          return text(readingText(reading));
+        }
         case "blueprint_save":
           return text(this.saveBlueprint(args.blueprint));
         case "blueprint_get":
@@ -615,10 +683,13 @@ export class Server {
       kinds,
       limit: Number(args.limit) > 0 ? Number(args.limit) : 15,
     });
+    // A search after a build that is over is a new request: the view stops showing the old one.
+    const before = this.current ? this.blueprints.load(this.current) : null;
+    if (before && (before.status === "done" || before.status === "cancelled")) this.current = "";
     this.live.searched = true;
     this.live.note("found", queries.join(", "), String(found.length));
     if (!found.length) {
-      return "No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look outside (GitHub) and keep what you find with piece_add, or go without.";
+      return "No piece matches. Try other English keywords for what the task needs; if Encela has nothing, look on GitHub (github_search, then github_read) and keep what you find with piece_add, or go without.";
     }
     return `${found.map((m) => line(m.piece)).join("\n")}\n\nThese are keyword matches. Read the ones that look right with get_piece and keep only what clearly helps.`;
   }

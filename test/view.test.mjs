@@ -9,15 +9,21 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Blueprints, briefs, Registry, Server, ToolCache, writePlugin } from "./.build/lib.js";
 import {
+  began,
   cells,
   doing,
   encelaTool,
   ended,
   fit,
   frame,
+  look,
+  meet,
   moving,
+  paint,
   parse,
   seen,
+  TICK,
+  tickOn,
   workerOf,
 } from "./.build/view.js";
 
@@ -116,7 +122,9 @@ test("the frame: the flow, the steps with who does them, the pieces, what happen
     " API 구현: 시작",
     " 조립 완료 (부품 4개)",
   ]);
-  assert.equal(band(view), "Encela ▸ 만들기 1/4 · 작업자 2");
+  assert.equal(band(view), "Encela ▸ ● 만들기 1/4 · 작업자 2");
+  // With no one at work the marker is left out: nothing claims to be going on.
+  assert.equal(band(frame(state(), [], opts())), "Encela ▸ 만들기 1/4");
   // The tones carry the look: done is good, in progress is busy.
   const api = view.lines.find((l) => l.left.some((s) => s.text.includes("API 구현")));
   assert.deepEqual(
@@ -178,7 +186,7 @@ test("the frame: pipeline runs, a step a pipeline does, a subagent no step names
   const lines = shown(view);
   assert.ok(lines.includes("   └ exports 2/5"));
   assert.ok(lines.includes("파이프라인 exports\t2/5 · 대기"));
-  assert.ok(lines.includes(" ✓pack -grep ●names(3/8) ◆pick ○save"));
+  assert.ok(lines.includes(" ✓pack › -grep › ●names(3/8) › ◆pick › ○save"));
   assert.ok(lines.includes("작업자"));
   assert.ok(lines.includes(" ● review the diff\tRead a.ts"));
   assert.equal(
@@ -186,7 +194,7 @@ test("the frame: pipeline runs, a step a pipeline does, a subagent no step names
     "Encela ▸ 만들기 1/4 · 작업자 1 · exports 2/5 · Claude 차례 (pick)",
   );
   // Cut where the line above the prompt ends.
-  assert.equal(band(view), "Encela ▸ 만들기 1/4 · 작업자 1 · exports 2/5 · Claude 차례 …");
+  assert.equal(band(view), "Encela ▸ ● 만들기 1/4 · 작업자 1 · exports 2/5 · Claude 차…");
   assert.equal(moving(live), false);
   live.runs[0].status = "running";
   assert.equal(moving(live), true);
@@ -307,6 +315,26 @@ test("a tool call in a few words", () => {
     "playwright",
   );
   assert.ok(cells(doing("Bash", { command: "x".repeat(500) })) <= 60);
+  // Nothing that isn't plain text reaches the screen: Claude Code refuses a tree with control characters in it.
+  const plain = /^[^\p{Cc}\u2028\u202a-\u202e\u2066-\u2069]*$/u;
+  const nasty = "a\u001b[31mred\u0007\u0000\tb\r\nc\u202edcba\u2066x\ufeff";
+  assert.equal(doing("Bash", { command: nasty }), "$ a [31mred b c dcba x");
+  assert.match(doing("Edit", { file_path: `/x/${nasty}.ts` }), plain);
+  assert.match(doing(`mcp__srv__${nasty}`, {}), plain);
+  assert.equal(workerOf(`Worker "back\u001bend": role`), "back end");
+  const dirty = parse(
+    JSON.stringify({
+      ...state(),
+      blueprint: { ...state().blueprint, goal: nasty, steps: [step(nasty, nasty, "doing", nasty)] },
+      pieces: [piece(nasty, "mcp", { last: nasty, calls: 1 })],
+      events: [{ at: 1, kind: "step", what: nasty, how: nasty }],
+    }),
+  );
+  const all = frame(dirty, [agent("main", { doing: doing("Bash", { command: nasty }) })], opts());
+  for (const l of all.lines) {
+    for (const s of [...l.left, ...(l.right ?? [])]) assert.match(s.text, plain);
+  }
+  for (const s of all.band) assert.match(s.text, plain);
 });
 
 test("the model loops: who is who, what each did last, when a turn ends", () => {
@@ -352,6 +380,15 @@ test("the model loops: who is who, what each did last, when a turn ends", () => 
   assert.ok(!list.some((a) => a.id === "a1"));
   assert.equal(list.at(-1).id, "x19");
 
+  // A turn that began is at work before its first tool call, and keeps what it was doing.
+  assert.equal(began([], "main")[0].doing, "…");
+  assert.equal(began(list, "x19").at(-1).doing, "…");
+  assert.equal(
+    began(seen(list, "x19", { doing: "Read a.ts", done: true }), "x19").at(-1).doing,
+    "Read a.ts",
+  );
+  assert.equal(began(seen(list, "x19", { done: true }), "x19").at(-1).done, false);
+
   list = ended(ended(list, "x19"), "main");
   assert.equal(list.find((a) => a.id === "x19").done, true);
   assert.deepEqual(
@@ -360,6 +397,239 @@ test("the model loops: who is who, what each did last, when a turn ends", () => 
   );
   // A loop seen again is at work again.
   assert.equal(seen(list, "x19", { doing: "Read", done: false }).at(-1).done, false);
+});
+
+// Motion ----------------------------------------------------------------------
+
+const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const lineOf = (view, text) => view.lines.find((l) => l.left.some((s) => s.text.includes(text)));
+/** A line as drawn at a moment: each run of text with how it is drawn. */
+const drawn = (line, motion, columns = 60) =>
+  paint(line, motion, columns).left.map((c) => [
+    c.text,
+    [c.bold && "bold", c.dim && "dim", c.inverse && "inverse"].filter(Boolean).join("+"),
+  ]);
+const later = (motion, ticks) => {
+  let m = motion;
+  for (let i = 0; i < ticks; i++) m = tickOn(m);
+  return m;
+};
+
+test("motion is marked only where work is going on", () => {
+  const fx = (view) =>
+    view.lines.flatMap((l) => [
+      ...l.left.filter((s) => s.fx).map((s) => `${s.fx}:${s.text.trim()}`),
+      ...(l.bar?.live ? ["bar"] : []),
+    ]);
+  const busy = frame(
+    state({
+      pieces: [piece("playwright", "mcp", { running: true, busy: 1, calls: 2, last: "click" })],
+    }),
+    [agent("a1", { worker: "backend", doing: "Edit routes.ts" })],
+    opts(),
+  );
+  assert.deepEqual(fx(busy), ["pulse:● 만들기", "bar", "spin:●", "spin:●", "spin:●"]);
+  assert.deepEqual(
+    busy.band.filter((s) => s.fx).map((s) => s.fx),
+    ["spin"],
+  );
+  // Claude's turn is over and no call is out: steps left "doing" stand still.
+  const still = frame(
+    state(),
+    [agent("main"), agent("a1", { worker: "backend", done: true })],
+    opts(),
+  );
+  assert.deepEqual(fx(still), []);
+  assert.deepEqual(
+    still.band.filter((s) => s.fx),
+    [],
+  );
+  // The user is asked: that pulses, whoever works.
+  const asking = frame(state({ phase: "approval" }), [], opts());
+  assert.deepEqual(fx(asking), ["pulse:● 승인", "pulse:승인을 기다리는 중"]);
+  assert.equal(asking.band[1].fx, "pulse");
+  // Claude's call is out while the question is open: that is waiting, not work on the build.
+  const held = frame(
+    state({ phase: "approval" }),
+    [agent("main", { doing: "blueprint_approve" })],
+    opts(),
+  );
+  assert.ok(!fx(held).includes("bar"));
+  // A run that is going moves by itself; a step waiting for Claude pulses.
+  const run = {
+    id: "r-1",
+    pipeline: "exports",
+    status: "running",
+    steps: [
+      { id: "names", kind: "tool", state: "running", items: 8, itemsDone: 3 },
+      { id: "pick", kind: "claude", state: "waiting", items: 0, itemsDone: 0 },
+    ],
+  };
+  assert.deepEqual(fx(frame(state({ runs: [run] }), [], opts())).slice(-2), [
+    "spin:●names(3/8)",
+    "pulse:◆pick",
+  ]);
+
+  // Workers are told apart by colour, the same for a worker's name and what it is doing.
+  const api = lineOf(busy, "API 구현");
+  const ui = lineOf(busy, "화면 구현");
+  assert.deepEqual([api.right[0].hue, ui.right[0].hue], [0, 1]);
+  assert.equal(lineOf(busy, "Edit routes.ts").left[0].hue, 0);
+  assert.equal(lineOf(busy, "테스트").right, undefined);
+});
+
+test("motion: markers turn, the phase beats, and the clock rests when nothing moves", () => {
+  assert.equal(TICK, 120);
+  const view = frame(
+    state(),
+    [agent("a1", { worker: "backend", doing: "Edit routes.ts" })],
+    opts(),
+  );
+  const api = lineOf(view, "API 구현");
+  const flow = view.lines[1];
+  const m = meet(undefined, view.lines);
+  assert.equal(m.tick, 0);
+  assert.equal(m.live, true);
+  assert.equal(meet(m, view.lines), m, "the same lines are the same motion");
+  for (const tick of [0, 1, 9, 10, 23]) {
+    assert.equal(drawn(api, later(m, tick))[0][0], SPIN[tick % 10]);
+  }
+  assert.equal(drawn(api, m)[1][0], " API 구현");
+  // The phase the flow stands at swells and fades.
+  const beat = (tick) => drawn(flow, later(m, tick)).find((c) => c[0] === "● 만들기")[1];
+  assert.deepEqual([0, 2, 3, 4, 5, 7, 8, 9, 10].map(beat), [
+    "bold",
+    "bold",
+    "",
+    "",
+    "dim",
+    "dim",
+    "",
+    "",
+    "bold",
+  ]);
+  assert.equal(drawn(flow, m)[0][1], "", "phases that are done don't move");
+
+  // Nothing at work: nothing to redraw for, and the marker is the plain one.
+  const rest = frame(state(), [], opts());
+  const quiet = meet(m, rest.lines);
+  assert.equal(quiet.live, false);
+  assert.equal(drawn(lineOf(rest, "API 구현"), quiet)[0][0], "●");
+  assert.equal(tickOn(quiet).live, false);
+  // Work that went on without a word for ten minutes is taken to have stopped.
+  const stale = later(m, 5000);
+  assert.equal(stale.live, false);
+  assert.equal(drawn(api, stale)[0][0], "●");
+  assert.equal(later(m, 4999).live, true);
+  // Anything new and it moves again.
+  const more = frame(state(), [agent("a1", { worker: "backend", doing: "Bash" })], opts());
+  assert.equal(meet(stale, more.lines).live, true);
+});
+
+test("motion: a line whose state just changed is lit for a moment", () => {
+  const who = [agent("a1", { worker: "backend", doing: "Edit routes.ts" })];
+  const before = frame(state(), who, opts());
+  let m = later(meet(undefined, before.lines), 7);
+  const next = state();
+  next.blueprint.steps[1].status = "done";
+  const view = frame(next, who, opts());
+  m = meet(m, view.lines);
+  assert.deepEqual(Object.keys(m.lit).sort(), ["bar", "step:api"]);
+  const api = lineOf(view, "API 구현");
+  assert.deepEqual(drawn(api, m), [
+    ["✓", "inverse"],
+    [" API 구현", "inverse"],
+  ]);
+  assert.deepEqual(drawn(api, later(m, 3))[0], ["✓", "inverse"]);
+  assert.deepEqual(drawn(api, later(m, 4))[0], ["✓", "bold"]);
+  assert.deepEqual(drawn(api, later(m, 11))[0], ["✓", "bold"]);
+  assert.deepEqual(drawn(api, later(m, 12))[0], ["✓", ""]);
+  // Other lines are as they were, and a line that is new is not lit.
+  assert.deepEqual(drawn(lineOf(view, "데이터 모델"), m)[0], ["✓", ""]);
+  const grown = state();
+  grown.blueprint.steps.push(step("more", "하나 더", "todo"));
+  assert.deepEqual(
+    meet(later(meet(undefined, before.lines), 3), frame(grown, who, opts()).lines).lit,
+    {},
+  );
+  // Being lit keeps the clock going even when nothing else moves, and then it rests.
+  const calm = frame(next, [], opts());
+  let c = meet(m, calm.lines);
+  assert.equal(c.fx, false);
+  assert.equal(c.live, true);
+  c = later(c, 12);
+  assert.equal(c.live, false);
+  assert.deepEqual(drawn(lineOf(calm, "API 구현"), c)[0], ["✓", ""]);
+});
+
+test("motion: the bar fills with what is done, and a light runs along it while work goes on", () => {
+  const who = [agent("a1", { worker: "backend", doing: "Edit routes.ts" })];
+  const view = frame(state(), who, opts({ columns: 40 }));
+  const bar = view.lines.find((l) => l.bar);
+  assert.deepEqual(bar.bar, { done: 1, total: 4, live: true });
+  const m = meet(undefined, view.lines);
+  const text = (motion) =>
+    paint(bar, motion, 40)
+      .left.map((c) => c.text)
+      .join("");
+  // 40 cells: the label, the bar (28 at most), the figure.
+  assert.equal(text(later(m, 30)), `단계 ${"█".repeat(7)}${"░".repeat(21)} 1/4`);
+  assert.equal(text(m), `단계 ▓${"█".repeat(6)}${"░".repeat(21)} 1/4`);
+  assert.equal(text(later(m, 6)), `단계 ${"█".repeat(6)}▓${"░".repeat(21)} 1/4`);
+  assert.equal(text(later(m, 7)), `단계 ${"█".repeat(7)}▒${"░".repeat(20)} 1/4`);
+  assert.equal(text(later(m, 38)), text(m), "the light comes round again");
+  assert.ok(cells(text(m)) <= 40);
+  // A narrow pane keeps a short bar.
+  assert.equal(
+    paint(bar, m, 14)
+      .left.map((c) => c.text)
+      .join("").length,
+    "단계 ".length + 6 + " 1/4".length,
+  );
+  // Done: full, in the colour of what is done, and still.
+  const done = state({ phase: "done" });
+  for (const s of done.blueprint.steps) s.status = "done";
+  const full = frame(done, [], opts({ columns: 40 }));
+  const end = full.lines.find((l) => l.bar);
+  assert.equal(end.bar.live, undefined);
+  const cellsOf = paint(end, meet(undefined, full.lines), 40).left;
+  assert.deepEqual(
+    cellsOf.map((c) => [c.text, c.tone]),
+    [
+      ["단계 ", "strong"],
+      ["█".repeat(28), "good"],
+      [" 4/4", "dim"],
+    ],
+  );
+  // Nothing to do yet: an empty track, no division by zero.
+  const none = { left: [{ text: "Steps", tone: "strong" }], bar: { done: 0, total: 0 } };
+  assert.equal(
+    paint(none, meet(undefined, [none]), 30)
+      .left.map((c) => c.text)
+      .join(""),
+    `Steps ${"░".repeat(20)} 0/0`,
+  );
+});
+
+test("how a run of text is drawn: the theme's colours, never raw ones", () => {
+  assert.deepEqual(look({ tone: "plain" }), {});
+  assert.deepEqual(look({ tone: "dim" }), { dimColor: true });
+  assert.deepEqual(look({ tone: "strong" }), { bold: true });
+  assert.deepEqual(look({ tone: "good" }), { color: "success" });
+  assert.deepEqual(look({ tone: "bad" }), { color: "error" });
+  assert.deepEqual(look({ tone: "busy", bold: true }), { color: "suggestion", bold: true });
+  assert.deepEqual(look({ tone: "wait", dim: true }), { color: "warning", dimColor: true });
+  assert.deepEqual(look({ tone: "good", inverse: true }), { color: "success", inverse: true });
+  // A worker's colour stands in for the tone's, and is none of the colours that say how things stand.
+  assert.deepEqual(look({ tone: "dim", hue: 0 }), { color: "planMode" });
+  const hues = [0, 1, 2].map((hue) => look({ tone: "dim", hue }).color);
+  assert.equal(new Set(hues).size, 3);
+  for (const tone of ["good", "bad", "busy", "wait"]) {
+    assert.ok(!hues.includes(look({ tone }).color), tone);
+  }
+  assert.equal(look({ tone: "dim", hue: 3 }).color, hues[0], "it comes round after three workers");
+  // What was dim and is lit is no longer dim.
+  assert.deepEqual(look({ tone: "dim", bold: true }), { bold: true });
 });
 
 // The server's side -----------------------------------------------------------
@@ -507,7 +777,7 @@ test("the server keeps the view's file up to date, written before each answer", 
   // The view draws it.
   const lines = shown(frame(now, [], opts({ lang: "en" })));
   assert.ok(lines.includes("Try the view"));
-  assert.ok(lines.some((l) => l.includes("✓list ✓total")));
+  assert.ok(lines.some((l) => l.includes("✓list › ✓total")));
 
   // A link where the file goes is not written through.
   const outside = join(temp("outside"), "target.json");
@@ -561,7 +831,7 @@ test("setup writes the view into the plugin, or leaves it out", () => {
   const hooks = JSON.parse(readFileSync(join(plugin, "hooks", "hooks.json"), "utf8"));
   assert.deepEqual(hooks.modules, ["./view.tsx"]);
   assert.ok(hooks.hooks.UserPromptSubmit);
-  for (const f of ["hooks/view.tsx", "hooks/model.ts", "types/index.d.ts"]) {
+  for (const f of ["hooks/view.tsx", "hooks/motion.tsx", "hooks/model.ts", "types/index.d.ts"]) {
     assert.ok(existsSync(join(plugin, f)), f);
   }
   // The tests need Claude Code to run: they stay out of the package.
@@ -614,4 +884,228 @@ test("setup writes the view into the plugin, or leaves it out", () => {
       ),
     ),
   );
+});
+
+// --- what the review of the view found
+
+test("review: no line holds a key without a value, whatever the build looks like", () => {
+  const holes = (value, at = "") => {
+    if (value === undefined) return [at];
+    if (!value || typeof value !== "object") return [];
+    return Object.entries(value).flatMap(([k, v]) => holes(v, `${at}.${k}`));
+  };
+  const view = frame(
+    state({
+      blueprint: {
+        ...state().blueprint,
+        steps: [
+          step("a", "By the main loop", "doing"),
+          step("b", "By a stranger", "doing", "ghost"),
+        ],
+      },
+      pieces: [piece("fresh", "mcp", { running: true })],
+    }),
+    [
+      agent("main", { doing: "Edit a.ts" }),
+      agent("x1", { worker: "ghost", doing: "Read b.ts" }),
+      agent("x2", { about: "Explore", doing: "Grep foo" }),
+      agent("x3", { about: "Idle one" }),
+    ],
+    opts(),
+  );
+  assert.deepEqual(holes(view), []);
+  const text = shown(view);
+  assert.ok(text.some((l) => l.includes("By the main loop")));
+  assert.ok(text.some((l) => l.includes("└ Read b.ts")));
+  assert.ok(text.some((l) => l.includes("Explore\tGrep foo")));
+});
+
+test("review: short of rows, the step in progress stays and the frame keeps to its rows", () => {
+  const steps = Array.from({ length: 12 }, (_, i) =>
+    step(
+      `s${i}`,
+      `step ${i}`,
+      i < 5 ? "done" : i === 5 ? "doing" : "todo",
+      i === 5 ? "backend" : "main",
+      i === 5 ? "p0" : "",
+    ),
+  );
+  const live = state({
+    blueprint: { ...state().blueprint, steps },
+    runs: [
+      {
+        id: "r0",
+        pipeline: "p0",
+        status: "running",
+        steps: [{ id: "a", kind: "tool", state: "running", items: 0, itemsDone: 0 }],
+      },
+      {
+        id: "r1",
+        pipeline: "p1",
+        status: "done",
+        steps: [{ id: "a", kind: "tool", state: "done", items: 0, itemsDone: 0 }],
+      },
+      {
+        id: "r2",
+        pipeline: "p2",
+        status: "done",
+        steps: [{ id: "a", kind: "tool", state: "done", items: 0, itemsDone: 0 }],
+      },
+    ],
+  });
+  const loops = [
+    ...[1, 2, 3].map((n) => agent(`b${n}`, { worker: "backend", doing: `Edit f${n}.ts` })),
+    ...Array.from({ length: 11 }, (_, n) =>
+      agent(`l${n}`, { about: `loose ${n}`, doing: "Read x" }),
+    ),
+  ];
+  for (const rows of [8, 10, 16, 24]) {
+    const view = frame(live, loops, opts({ rows }));
+    const text = shown(view);
+    assert.ok(view.lines.length <= rows, `${view.lines.length} lines in ${rows} rows`);
+    assert.ok(
+      text.some((l) => l.includes("step 5")),
+      `the step in progress at ${rows} rows`,
+    );
+  }
+  // With some room, what its worker does shows under it, and the run that goes on stays.
+  const text = shown(frame(live, loops, opts({ rows: 24 })));
+  assert.ok(text.some((l) => l.includes("└ Edit f1.ts")));
+  assert.ok(text.some((l) => l.includes("p0")));
+});
+
+test("review: a long chain folds what is over, so what runs stays in sight", () => {
+  const names = [
+    "fetch_pages",
+    "extract",
+    "translate",
+    "summarize",
+    "classify",
+    "store_rows",
+    "notify",
+  ];
+  const run = {
+    id: "r",
+    pipeline: "news",
+    status: "running",
+    steps: names.map((id, i) => ({
+      id,
+      kind: "tool",
+      state: i < 5 ? "done" : i === 5 ? "running" : "pending",
+      items: 0,
+      itemsDone: 0,
+    })),
+  };
+  for (const columns of [60, 30]) {
+    const text = shown(frame(state({ runs: [run] }), [], opts({ columns })));
+    const chain = text.find((l) => l.includes("store_rows"));
+    assert.ok(chain, `the running step at ${columns} columns: ${text.join(" | ")}`);
+    assert.match(chain, /✓5 › ●store_rows/);
+    assert.ok(cells(chain) <= columns);
+  }
+  // With room for all of it, nothing folds.
+  const wide = shown(frame(state({ runs: [run] }), [], opts({ columns: 120 })));
+  assert.ok(wide.some((l) => l.includes("✓fetch_pages › ✓extract")));
+});
+
+test("review: a long right side is cut too, and the left keeps its name", () => {
+  const view = frame(
+    state({
+      blueprint: {
+        ...state().blueprint,
+        steps: [step("a", "Write the thing", "doing", "w".repeat(80))],
+        workers: ["w".repeat(80)],
+      },
+      pieces: [
+        piece("playwright", "mcp", { running: true, calls: 12, last: "browser_take_screenshot" }),
+      ],
+    }),
+    [],
+    opts({ columns: 30 }),
+  );
+  for (const l of view.lines) {
+    const all =
+      (l.indent ?? 0) + [...l.left, ...(l.right ?? [])].reduce((n, s) => n + cells(s.text), 0);
+    assert.ok(all <= 30, `${all} cells: ${l.left.map((s) => s.text).join("")}`);
+  }
+  const text = shown(view);
+  assert.ok(text.some((l) => /Wri/.test(l) && l.includes("\tw")));
+  assert.ok(text.some((l) => /play/.test(l) && l.includes("\tbrowser")));
+});
+
+test("review: a step that waits for Claude stands still once Claude's turn is over", () => {
+  const run = {
+    id: "r",
+    pipeline: "p",
+    status: "waiting",
+    steps: [{ id: "ask", kind: "claude", state: "waiting", items: 0, itemsDone: 0 }],
+  };
+  const fx = (loops) =>
+    frame(state({ runs: [run] }), loops, opts())
+      .lines.flatMap((l) => l.left)
+      .find((s) => s.text === "◆ask")?.fx;
+  assert.equal(fx([agent("main", { doing: "Read x" })]), "pulse");
+  assert.equal(fx([agent("main")]), undefined);
+});
+
+test("review: marks that hide or reorder text are taken out of what is drawn", () => {
+  const hidden = "safe؜goal​hid⁠den͏x᠎y‮z";
+  const text = doing("Bash", { command: hidden });
+  assert.equal(text, "$ safe goal hid den x y z");
+  assert.equal(
+    parse(JSON.stringify(state({ blueprint: { ...state().blueprint, goal: hidden } }))).blueprint
+      .goal,
+    "safe goal hid den x y z",
+  );
+});
+
+test("review: a search after a finished build is a new request", async () => {
+  const small = {
+    ...plan,
+    pipelines: [],
+    steps: [{ id: "look", title: "Look at it", worker: "helper" }],
+  };
+  const { server, project, ready, live } = start();
+  await ready;
+  await server.call("blueprint_save", { blueprint: small });
+  const id = new Blueprints(project).list()[0].id;
+  await server.call("blueprint_approve", { id, user_answer: "approve" });
+  await server.call("blueprint_assemble", { id });
+  await server.call("blueprint_step", { id, step: "look", status: "done" });
+  assert.equal(live().phase, "done");
+  await server.call("find_pieces", { queries: ["something else"] });
+  assert.equal(live().phase, "pieces");
+  assert.equal(live().blueprint, null);
+  server.closeAll();
+});
+
+test("review: a file that only looks like a blueprint is left alone", async () => {
+  const { server, project, ready } = start();
+  await ready;
+  await server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      pipelines: [],
+      steps: [{ id: "look", title: "Look at it", worker: "helper" }],
+    },
+  });
+  const mine = new Blueprints(project).list()[0].id;
+  writeFileSync(
+    join(project, ".encela", "blueprints", "ship.json"),
+    JSON.stringify({
+      id: "ship",
+      status: "draft",
+      goal: "Shipped",
+      steps: [],
+      updatedAt: "2999-01-01T00:00:00Z",
+    }),
+  );
+  const got = await server.call("blueprint_get", {});
+  assert.equal(got.isError, false);
+  assert.match(got.content[0].text, /Try the view/);
+  assert.deepEqual(
+    new Blueprints(project).list().map((b) => b.id),
+    [mine],
+  );
+  server.closeAll();
 });

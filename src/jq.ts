@@ -32,7 +32,11 @@ export interface JqOptions {
   maxOps?: number;
   /** Outputs before giving up (default 100_000). */
   maxOutputs?: number;
-  /** Longest string a program may build, in UTF-16 units (default 20_000_000). */
+  /**
+   * Longest string a program may build, in UTF-16 units (default 20_000_000).
+   * The outputs of one run, written out as JSON, may not be longer than this
+   * either: every string is counted in full each time it occurs.
+   */
   maxString?: number;
 }
 
@@ -53,6 +57,10 @@ const DEFAULT_MAX_STRING = 20_000_000;
 const FILE = "<encela>";
 /** How deep a program's syntax may nest. */
 const MAX_NESTING = 250;
+/** The longest program compile() reads, in UTF-16 units. */
+const MAX_SOURCE = 100_000;
+/** How deep an output may nest: any thread can copy, write or parse that much. */
+export const MAX_OUTPUT_DEPTH = 2000;
 
 // ---------------------------------------------------------------------------
 // Errors and budgets
@@ -90,7 +98,22 @@ function checkLength(n: number): void {
   }
 }
 
+/**
+ * Charges for work that grows with the size of a value: `n` characters
+ * scanned or compared in native code cost one step per 64.
+ */
+function tickScan(n: number): void {
+  if (n >= 64) tick(n >> 6);
+}
+
+/** Charges for sorting `n` items: about n log n comparisons, one step per 8. */
+function tickSort(n: number): void {
+  if (n > 1) tick(Math.ceil((n * Math.log2(n)) / 8));
+}
+
 function fail(message: string): never {
+  // Raising and catching an error is work too.
+  tick(1);
   throw new Thrown(message);
 }
 
@@ -147,6 +170,7 @@ function compareStrings(a: string, b: string): number {
   const n = Math.min(a.length, b.length);
   let i = 0;
   while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
+  tickScan(i << 2);
   if (i === n) return a.length < b.length ? -1 : 1;
   let x = a.charCodeAt(i);
   let y = b.charCodeAt(i);
@@ -159,7 +183,10 @@ function compareStrings(a: string, b: string): number {
 }
 
 function sortedKeys(o: Obj): string[] {
-  const keys = Object.keys(o).sort();
+  const keys = Object.keys(o);
+  tick(keys.length >> 3);
+  tickSort(keys.length);
+  keys.sort();
   for (const k of keys) {
     if (HIGH_CHARS.test(k)) return keys.sort(compareStrings);
   }
@@ -199,8 +226,12 @@ function compare(a: unknown, b: unknown): number {
     const n = Math.min(x.length, y.length);
     for (let i = 0; i < n; i++) {
       const c = compare(x[i], y[i]);
-      if (c) return c;
+      if (c) {
+        tick(i >> 3);
+        return c;
+      }
     }
+    tick(n >> 3);
     return x.length === y.length ? 0 : x.length < y.length ? -1 : 1;
   }
   const x = a as Obj;
@@ -221,6 +252,11 @@ function compare(a: unknown, b: unknown): number {
 }
 
 function equals(a: unknown, b: unknown): boolean {
+  if (typeof a === "string") {
+    // Equal strings that are not the same string are compared in full.
+    if (typeof b === "string" && a.length === b.length) tickScan(a.length);
+    return a === b;
+  }
   if (a === b) return true;
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
     return a == null && b == null;
@@ -229,14 +265,19 @@ function equals(a: unknown, b: unknown): boolean {
   if (Array.isArray(a)) {
     if (!Array.isArray(b) || a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
-      if (!equals(a[i], b[i])) return false;
+      if (!equals(a[i], b[i])) {
+        tick(i >> 3);
+        return false;
+      }
     }
+    tick(a.length >> 3);
     return true;
   }
   if (Array.isArray(b)) return false;
   const x = a as Obj;
   const y = b as Obj;
   const keys = Object.keys(x);
+  tick(keys.length >> 3);
   if (keys.length !== Object.keys(y).length) return false;
   for (const k of keys) {
     if (!Object.hasOwn(y, k) || !equals(x[k], y[k])) return false;
@@ -296,7 +337,7 @@ function writeJson(v: unknown, out: string[], budget: { left: number }): boolean
     }
     case "array": {
       const a = v as unknown[];
-      tick(1);
+      tick(1 + a.length);
       out.push("[");
       budget.left -= 2;
       for (let i = 0; i < a.length; i++) {
@@ -311,11 +352,12 @@ function writeJson(v: unknown, out: string[], budget: { left: number }): boolean
     }
     default: {
       const o = v as Obj;
-      tick(1);
+      const keys = Object.keys(o);
+      tick(1 + keys.length);
       out.push("{");
       budget.left -= 2;
       let first = true;
-      for (const k of Object.keys(o)) {
+      for (const k of keys) {
         const key = `${first ? "" : ","}${quote(k)}:`;
         first = false;
         out.push(key);
@@ -365,7 +407,10 @@ const LONE_SURROGATES = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])
 /** Length in code points. */
 function codePointLength(s: string): number {
   let n = s.length;
-  if (n < 2 || !SURROGATES.test(s)) return n;
+  if (n < 2) return n;
+  tickScan(n);
+  if (!SURROGATES.test(s)) return n;
+  tick(n >> 4);
   for (let i = 0; i < s.length - 1; i++) {
     const c = s.charCodeAt(i);
     if (c >= 0xd800 && c <= 0xdbff) {
@@ -613,13 +658,16 @@ function sliceOf(v: unknown, key: Obj): unknown {
     return v.slice(start, end);
   }
   if (typeof v === "string") {
+    tickScan(v.length);
     if (!SURROGATES.test(v)) {
       const { start, end } = sliceBounds(v.length, key);
       return v.slice(start, end);
     }
     const { start, end } = sliceBounds(codePointLength(v), key);
     const from = unitOffset(v, start);
-    return v.slice(from, unitOffset(v, end, from, start));
+    const to = unitOffset(v, end, from, start);
+    tick(to >> 4);
+    return v.slice(from, to);
   }
   return fail(`Cannot index ${kind(v)} with object`);
 }
@@ -631,12 +679,15 @@ function arrayIndices(arr: unknown[], sub: unknown[]): number[] {
   tick(arr.length);
   for (let i = 0; i + sub.length <= arr.length; i++) {
     let hit = true;
-    for (let j = 0; j < sub.length; j++) {
+    let j = 0;
+    for (; j < sub.length; j++) {
       if (!equals(arr[i + j], sub[j])) {
         hit = false;
         break;
       }
     }
+    // Every element compared is a step.
+    tick(j);
     if (hit) out.push(i);
   }
   return out;
@@ -665,6 +716,7 @@ function index(v: unknown, k: unknown): unknown {
 }
 
 function getPath(v: unknown, path: Path): unknown {
+  tick(1);
   let cur = v;
   for (const k of path) {
     if (cur == null) return null;
@@ -833,6 +885,7 @@ function deletePaths(v: unknown, paths: unknown): unknown {
   }
   if (!paths.length) return v;
   tick(paths.length);
+  tickSort(paths.length);
   const sorted = (paths as Path[]).slice().sort(compare);
   if (!sorted[0].length) return null;
   return deleteSorted(v, sorted, 0, sorted.length, 0);
@@ -869,8 +922,11 @@ function lengthOf(v: unknown): unknown {
       return codePointLength(v as string);
     case "array":
       return (v as unknown[]).length;
-    default:
-      return Object.keys(v as Obj).length;
+    default: {
+      const n = Object.keys(v as Obj).length;
+      tick(n >> 2);
+      return n;
+    }
   }
 }
 
@@ -886,7 +942,10 @@ function contains(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return b.every((y) => a.some((x) => contains(x, y)));
   }
-  if (typeof a === "string" && typeof b === "string") return a.includes(b);
+  if (typeof a === "string" && typeof b === "string") {
+    tickScan(a.length + b.length);
+    return a.includes(b);
+  }
   return rank(a) === rank(b) && equals(a, b);
 }
 
@@ -1057,6 +1116,7 @@ interface Param {
 }
 
 type Pattern =
+  | { t: "palt"; alts: Pattern[] }
   | { t: "pvar"; name: string }
   | { t: "parr"; items: Pattern[] }
   | { t: "pobj"; entries: { name: string | null; key: Node | null; value: Pattern | null }[] };
@@ -1134,6 +1194,8 @@ class Parser {
     private readonly src: string,
     private readonly toks: Tok[],
     private depth = 0,
+    /** Where each line after the first starts, worked out once per program. */
+    private readonly lines: { starts: number[] | null } = { starts: null },
   ) {}
 
   program(): Node {
@@ -1583,16 +1645,21 @@ class Parser {
 
   private string(tok: Tok, fmt: string | null): Node {
     const parts = (tok.parts ?? []).map((part) =>
-      typeof part === "string" ? part : new Parser(this.src, part, this.depth + 1).program(),
+      typeof part === "string"
+        ? part
+        : new Parser(this.src, part, this.depth + 1, this.lines).program(),
     );
     if (parts.length === 1) return { t: "lit", pos: tok.pos, v: parts[0] };
     return { t: "str", pos: tok.pos, parts, fmt };
   }
 
+  /** A pattern, or alternatives `p ?// q ?// ...` (only where a binding starts). */
   private patterns(): Pattern {
     const pat = this.pattern();
-    if (this.isOp("?//")) throw unsupported("?//", this.peek().pos);
-    return pat;
+    if (!this.isOp("?//")) return pat;
+    const alts = [pat];
+    while (this.eat("?//")) alts.push(this.pattern());
+    return { t: "palt", alts };
   }
 
   private pattern(): Pattern {
@@ -1635,9 +1702,22 @@ class Parser {
   }
 
   private line(pos: number): number {
-    let n = 1;
-    for (let i = this.src.indexOf("\n"); i >= 0 && i < pos; i = this.src.indexOf("\n", i + 1)) n++;
-    return n;
+    if (!this.lines.starts) {
+      const starts: number[] = [];
+      for (let i = this.src.indexOf("\n"); i >= 0; i = this.src.indexOf("\n", i + 1))
+        starts.push(i);
+      this.lines.starts = starts;
+    }
+    // 1 + the number of newlines before pos.
+    const starts = this.lines.starts;
+    let lo = 0;
+    let hi = starts.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (starts[mid] < pos) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo + 1;
   }
 }
 
@@ -2058,49 +2138,103 @@ interface Binder {
   /** The frames with them bound, when there is exactly one way to. */
   one: ((value: unknown, env: Env) => Env) | null;
   all: (value: unknown, env: Env) => Iterable<Env>;
+  /**
+   * In a path expression: the frames, and what jq tracks after taking the
+   * value apart. Each index a pattern takes is a path operation in jq, and
+   * only the value at the tracked path may be indexed (`tr` on the way in).
+   */
+  track: (value: unknown, env: Env, tr: PathValue) => Iterable<[Env, PathValue]>;
 }
 
-function bindThen(prev: Binder, sub: Binder, get: (v: unknown) => unknown): Binder {
+/** One index a pattern takes in a path expression: `val[key]`, where `tr` is what jq tracks. */
+function stepPath(tr: PathValue, val: unknown, key: unknown): PathValue {
+  if (!tr.p || tr.v !== val) {
+    return fail(
+      `Invalid path expression near attempt to access element ${dump(key)} of ${dump(val)}`,
+    );
+  }
+  return { p: [...tr.p, key], v: index(val, key) };
+}
+
+/** `prev`, then `sub` on `value[key]`. */
+function bindThen(prev: Binder, sub: Binder, key: unknown): Binder {
   const po = prev.one;
   const so = sub.one;
+  const track = function* (v: unknown, e: Env, tr: PathValue): Generator<[Env, PathValue]> {
+    for (const [e1, tr1] of prev.track(v, e, tr)) {
+      const tr2 = stepPath(tr1, v, key);
+      yield* sub.track(tr2.v, e1, tr2);
+    }
+  };
   if (po && so) {
-    const one = (v: unknown, e: Env): Env => so(get(v), po(v, e));
-    return { sc: sub.sc, one, all: (v, e) => [one(v, e)] };
+    const one = (v: unknown, e: Env): Env => so(index(v, key), po(v, e));
+    return { sc: sub.sc, one, all: (v, e) => [one(v, e)], track };
   }
   return {
     sc: sub.sc,
     one: null,
     *all(v, e) {
-      for (const e1 of prev.all(v, e)) yield* sub.all(get(v), e1);
+      for (const e1 of prev.all(v, e)) yield* sub.all(index(v, key), e1);
     },
+    track,
+  };
+}
+
+/** `prev`, then `sub` on the same value (`{$name: pattern}`). */
+function bindSame(prev: Binder, sub: Binder): Binder {
+  const po = prev.one;
+  const so = sub.one;
+  const track = function* (v: unknown, e: Env, tr: PathValue): Generator<[Env, PathValue]> {
+    for (const [e1, tr1] of prev.track(v, e, tr)) yield* sub.track(v, e1, tr1);
+  };
+  if (po && so) {
+    const one = (v: unknown, e: Env): Env => so(v, po(v, e));
+    return { sc: sub.sc, one, all: (v, e) => [one(v, e)], track };
+  }
+  return {
+    sc: sub.sc,
+    one: null,
+    *all(v, e) {
+      for (const e1 of prev.all(v, e)) yield* sub.all(v, e1);
+    },
+    track,
   };
 }
 
 function compPattern(pat: Pattern, sc: Sc | null): Binder {
+  if (pat.t === "palt") throw new JqError("jq: internal error: ?// in a nested pattern");
   if (pat.t === "pvar") {
     const one = (v: unknown, e: Env): Env => ({ v, up: e });
-    return { sc: bindVar(sc, pat.name), one, all: (v, e) => [one(v, e)] };
+    return {
+      sc: bindVar(sc, pat.name),
+      one,
+      all: (v, e) => [one(v, e)],
+      track: (v, e, tr) => [[one(v, e), tr]],
+    };
   }
-  let out: Binder = { sc, one: (_v, e) => e, all: (_v, e) => [e] };
+  let out: Binder = {
+    sc,
+    one: (_v, e) => e,
+    all: (_v, e) => [e],
+    track: (_v, e, tr) => [[e, tr]],
+  };
   if (pat.t === "parr") {
     pat.items.forEach((item, i) => {
-      out = bindThen(out, compPattern(item, out.sc), (v) => index(v, i));
+      out = bindThen(out, compPattern(item, out.sc), i);
     });
     return out;
   }
   for (const entry of pat.entries) {
     if (entry.name !== null) {
-      const name = entry.name;
-      const get = (v: unknown): unknown => index(v, name);
-      out = bindThen(out, compPattern({ t: "pvar", name }, out.sc), get);
-      if (entry.value) out = bindThen(out, compPattern(entry.value, out.sc), get);
+      const named = compPattern({ t: "pvar", name: entry.name }, out.sc);
+      const sub = entry.value ? bindSame(named, compPattern(entry.value, named.sc)) : named;
+      out = bindThen(out, sub, entry.name);
       continue;
     }
     const keyNode = entry.key as Node;
     const value = entry.value as Pattern;
     if (keyNode.t === "lit") {
-      const k = keyNode.v;
-      out = bindThen(out, compPattern(value, out.sc), (v) => index(v, k));
+      out = bindThen(out, compPattern(value, out.sc), keyNode.v);
       continue;
     }
     // A computed key: evaluated on the value being taken apart, once per output.
@@ -2115,10 +2249,53 @@ function compPattern(pat: Pattern, sc: Sc | null): Binder {
           for (const k of key.all(v, e1)) yield* sub.all(index(v, k), e1);
         }
       },
+      *track(v, e, tr) {
+        for (const [e1, tr1] of prev.track(v, e, tr)) {
+          for (const k of key.all(v, e1)) {
+            const tr2 = stepPath(tr1, v, k);
+            yield* sub.track(tr2.v, e1, tr2);
+          }
+        }
+      },
     };
   }
   return out;
 }
+
+/**
+ * The patterns of `p ?// q ?// ...`. Every variable of every pattern is bound
+ * (null where a pattern doesn't bind it), so the body is compiled once.
+ */
+interface Alternatives {
+  /** The scope with all the variables. */
+  sc: Sc | null;
+  binders: Binder[];
+  /** The frames of binder k's variables, laid out as `sc` has them, on top of `base`. */
+  unify: ((bound: Env, base: Env) => Env)[];
+}
+
+function compAlternatives(pat: Extract<Pattern, { t: "palt" }>, sc: Sc | null): Alternatives {
+  const names = [...new Set(patternNames(pat))];
+  let all = sc;
+  for (const name of names) all = bindVar(all, name);
+  const binders = pat.alts.map((alt) => compPattern(alt, sc));
+  const unify = binders.map((b) => {
+    const own = depthOf(b.sc) - depthOf(sc);
+    const hops = names.map((name) => {
+      const h = hopsTo(b.sc, "var", name);
+      return h >= 0 && h < own ? h : -1;
+    });
+    return (bound: Env, base: Env): Env => {
+      let f = base;
+      for (const h of hops) f = { v: h < 0 ? null : at(bound, h), up: f };
+      return f;
+    };
+  });
+  return { sc: all, binders, unify };
+}
+
+/** An error `?//` moves on from: one raised by a pattern or by what runs with its variables. */
+const retries = (x: unknown): boolean => x instanceof Thrown || x instanceof BreakSignal;
 
 // --- The compiler -----------------------------------------------------------
 
@@ -2439,36 +2616,106 @@ function compAlternative(n: N<"alt">, sc: Sc | null): Code {
   }, paths);
 }
 
+// Path expressions. jq tracks a path and the value at it; a value that is
+// not that value is no path, which jq notices at the next path operation (or
+// at the end of path(f)). In between it can become the value at the path
+// again. The constructs below that move what jq tracks (destructuring,
+// reduce, foreach) say so with these two.
+
+/** `tr.p` when `v` is the value jq tracks there, else null. */
+const pathIf = (v: unknown, tr: PathValue): Path | null => (tr.p && v === tr.v ? tr.p : null);
+
+/** Outputs that are the value at the tracked path are that path again. */
+function* retrack(pvs: Iterable<PathValue>, tr: PathValue): Generator<PathValue> {
+  for (const pv of pvs) yield !pv.p && tr.p && pv.v === tr.v ? { p: tr.p, v: pv.v } : pv;
+}
+
 function compAs(n: N<"as">, sc: Sc | null): Code {
+  if (n.pat.t === "palt") return compAsAlternatives(n, n.pat, sc);
   const src = comp(n.src, sc);
   const binder = compPattern(n.pat, sc);
   const body = comp(n.body, binder.sc);
   const so = src.one;
   const bind = binder.one;
+  const plain = n.pat.t === "pvar";
   const paths = (): Paths =>
     function* (input, path, env) {
+      // The source is evaluated aside; taking its value apart indexes it in path mode.
       for (const v of src.all(input, env)) {
-        for (const e of binder.all(v, env)) yield* body.paths(input, path, e);
+        if (plain) {
+          for (const e of binder.all(v, env)) yield* body.paths(input, path, e);
+          continue;
+        }
+        for (const [e, tr] of binder.track(v, env, { p: path, v: input })) {
+          yield* retrack(body.paths(input, pathIf(input, tr), e), tr);
+        }
       }
     };
+  // One step per binding.
   if (bind && so && body.one) {
     const bo = body.one;
     return single((i, e) => {
       const v = so(i, e);
+      tick(1);
       return v === NONE ? NONE : bo(i, bind(v, e));
     }, paths);
   }
   if (bind && so) {
     return many((i, e) => {
       const v = so(i, e);
+      tick(1);
       return v === NONE ? EMPTY : body.all(i, bind(v, e));
     }, paths);
   }
   return many(function* (i, e) {
     for (const v of src.all(i, e)) {
+      tick(1);
       for (const e1 of binder.all(v, e)) yield* body.all(i, e1);
     }
   }, paths);
+}
+
+/**
+ * `src as p ?// q ?// ... | body`. For each value the patterns are tried in
+ * turn: an error raised by a pattern or by the body (after the outputs it
+ * gave) moves on to the next one, and the last one's error is raised. jq 1.7
+ * also moves on for an error raised after the body, by whatever takes its
+ * outputs; here that error is raised.
+ */
+function compAsAlternatives(n: N<"as">, pat: Extract<Pattern, { t: "palt" }>, sc: Sc | null): Code {
+  const src = comp(n.src, sc);
+  const alts = compAlternatives(pat, sc);
+  const body = comp(n.body, alts.sc);
+  const last = alts.binders.length - 1;
+  return many(
+    function* (i, e) {
+      for (const v of src.all(i, e)) {
+        for (let k = 0; k <= last; k++) {
+          try {
+            for (const e1 of alts.binders[k].all(v, e)) yield* body.all(i, alts.unify[k](e1, e));
+            break;
+          } catch (x) {
+            if (k === last || !retries(x)) throw x;
+          }
+        }
+      }
+    },
+    () =>
+      function* (input, path, env) {
+        for (const v of src.all(input, env)) {
+          for (let k = 0; k <= last; k++) {
+            try {
+              for (const [e1, tr] of alts.binders[k].track(v, env, { p: path, v: input })) {
+                yield* retrack(body.paths(input, pathIf(input, tr), alts.unify[k](e1, env)), tr);
+              }
+              break;
+            } catch (x) {
+              if (k === last || !retries(x)) throw x;
+            }
+          }
+        }
+      },
+  );
 }
 
 function compLabel(n: N<"label">, sc: Sc | null): Code {
@@ -2509,20 +2756,101 @@ function compLabel(n: N<"label">, sc: Sc | null): Code {
 function* bindings(src: Code, binder: Binder, input: unknown, env: Env): Generator<Env> {
   const bind = binder.one;
   for (const v of src.all(input, env)) {
+    tick(1);
     if (bind) yield bind(v, env);
     else yield* binder.all(v, env);
+  }
+}
+
+/**
+ * What reduce and foreach do with one value of their source: bind the
+ * pattern (or the first of `p ?// q ...` that works, moving on as `as`
+ * does) and run `round` with the frames, and with what jq tracks then when
+ * `tr` (what it tracked before) is given. The outputs of `round` are passed on.
+ */
+function* rounds<T>(
+  binder: Binder | null,
+  alts: Alternatives | null,
+  value: unknown,
+  env: Env,
+  tr: PathValue | null,
+  round: (frames: Env, tr: PathValue) => Iterable<T>,
+): Generator<T> {
+  if (binder) {
+    if (tr) for (const [e1, t] of binder.track(value, env, tr)) yield* round(e1, t);
+    else for (const e1 of binder.all(value, env)) yield* round(e1, NOT_TRACKED);
+    return;
+  }
+  const a = alts as Alternatives;
+  const last = a.binders.length - 1;
+  for (let k = 0; k <= last; k++) {
+    try {
+      if (tr) {
+        for (const [e1, t] of a.binders[k].track(value, env, tr)) {
+          yield* round(a.unify[k](e1, env), t);
+        }
+      } else {
+        for (const e1 of a.binders[k].all(value, env))
+          yield* round(a.unify[k](e1, env), NOT_TRACKED);
+      }
+      return;
+    } catch (x) {
+      if (k === last || !retries(x)) throw x;
+    }
+  }
+}
+
+const NOT_TRACKED: PathValue = { p: null, v: null };
+/** A round of reduce gives no outputs. */
+const NOTHING: readonly never[] = [];
+
+/**
+ * reduce and foreach in a path expression, as jq 1.7 runs them: the init
+ * sets what is tracked; the source runs on the input from there; each round
+ * starts from what the source's value left tracked, and the state is a path
+ * only while it is the value at that path.
+ */
+interface Loop {
+  src: Code;
+  init: Code;
+  binder: Binder | null;
+  alts: Alternatives | null;
+}
+
+function* loopStarts(
+  loop: Loop,
+  input: unknown,
+  path: Path | null,
+  env: Env,
+): Generator<[PathValue, PathValue]> {
+  for (const start of loop.init.paths(input, path, env)) {
+    yield [start, start.p ? start : { p: path, v: input }];
   }
 }
 
 function compReduce(n: N<"reduce">, sc: Sc | null): Code {
   const src = comp(n.src, sc);
   const init = comp(n.init, sc);
-  const binder = compPattern(n.pat, sc);
-  const update = comp(n.update, binder.sc);
+  const alts = n.pat.t === "palt" ? compAlternatives(n.pat, sc) : null;
+  const binder = alts ? null : compPattern(n.pat, sc);
+  const update = comp(n.update, alts ? alts.sc : (binder as Binder).sc);
   const uo = update.one;
-  const mutate = inPlace(n.update, binder.sc);
+  const mutate = binder ? inPlace(n.update, binder.sc) : null;
+  const loop: Loop = { src, init, binder, alts };
   const run = (input: unknown, env: Env, start: unknown): unknown => {
     let acc = start;
+    if (!binder) {
+      const round = (frames: Env): Iterable<never> => {
+        const cur = acc;
+        // jq leaves null in the accumulator while the update runs, which
+        // is what the next pattern starts from after an error.
+        acc = null;
+        for (const out of update.all(cur, frames)) acc = out;
+        return NOTHING;
+      };
+      for (const v of src.all(input, env)) for (const _ of rounds(null, alts, v, env, null, round));
+      return acc;
+    }
     const own = mutate ? newOwner() : null;
     for (const e of bindings(src, binder, input, env)) {
       // An update without output leaves null, as jq 1.7 does.
@@ -2542,14 +2870,18 @@ function compReduce(n: N<"reduce">, sc: Sc | null): Code {
   };
   const paths = (): Paths =>
     function* (input, path, env) {
-      for (const start of init.paths(input, path, env)) {
-        let acc = start;
-        for (const e of bindings(src, binder, input, env)) {
-          let last: PathValue = { p: null, v: null };
-          for (const pv of update.paths(acc.v, acc.p, e)) last = pv;
-          acc = last;
+      for (const [start, t0] of loopStarts(loop, input, path, env)) {
+        let acc = start.v;
+        const round = (frames: Env, tr: PathValue): Iterable<never> => {
+          const cur = acc;
+          acc = null;
+          for (const pv of update.paths(cur, pathIf(cur, tr), frames)) acc = pv.v;
+          return NOTHING;
+        };
+        for (const item of src.paths(input, pathIf(input, t0), env)) {
+          for (const _ of rounds(binder, alts, item.v, env, item.p ? item : t0, round));
         }
-        yield acc;
+        yield { p: pathIf(acc, t0), v: acc };
       }
     };
   const io = init.one;
@@ -2567,36 +2899,55 @@ function compReduce(n: N<"reduce">, sc: Sc | null): Code {
 function compForeach(n: N<"foreach">, sc: Sc | null): Code {
   const src = comp(n.src, sc);
   const init = comp(n.init, sc);
-  const binder = compPattern(n.pat, sc);
-  const update = comp(n.update, binder.sc);
-  const extract = n.extract ? comp(n.extract, binder.sc) : null;
+  const alts = n.pat.t === "palt" ? compAlternatives(n.pat, sc) : null;
+  const binder = alts ? null : compPattern(n.pat, sc);
+  const inner = alts ? alts.sc : (binder as Binder).sc;
+  const update = comp(n.update, inner);
+  const extract = n.extract ? comp(n.extract, inner) : null;
+  const loop: Loop = { src, init, binder, alts };
   return many(
     function* (i, e) {
       for (const start of init.all(i, e)) {
         let state = start;
-        for (const e1 of bindings(src, binder, i, e)) {
+        if (binder) {
+          for (const e1 of bindings(src, binder, i, e)) {
+            const loaded = state;
+            state = null;
+            for (const v of update.all(loaded, e1)) {
+              state = v;
+              if (extract) yield* extract.all(v, e1);
+              else yield v;
+            }
+          }
+          continue;
+        }
+        const round = function* (frames: Env): Generator<unknown> {
           const loaded = state;
           state = null;
-          for (const v of update.all(loaded, e1)) {
-            state = v;
-            if (extract) yield* extract.all(v, e1);
-            else yield v;
+          for (const u of update.all(loaded, frames)) {
+            state = u;
+            if (extract) yield* extract.all(u, frames);
+            else yield u;
           }
-        }
+        };
+        for (const v of src.all(i, e)) yield* rounds(null, alts, v, e, null, round);
       }
     },
     () =>
       function* (input, path, env) {
-        for (const start of init.paths(input, path, env)) {
-          let state = start;
-          for (const e1 of bindings(src, binder, input, env)) {
+        for (const [start, t0] of loopStarts(loop, input, path, env)) {
+          let state = start.v;
+          const round = function* (frames: Env, tr: PathValue): Generator<PathValue> {
             const loaded = state;
-            state = { p: null, v: null };
-            for (const pv of update.paths(loaded.v, loaded.p, e1)) {
-              state = pv;
-              if (extract) yield* extract.paths(pv.v, pv.p, e1);
-              else yield pv;
+            state = null;
+            for (const u of retrack(update.paths(loaded, pathIf(loaded, tr), frames), tr)) {
+              state = u.v;
+              if (extract) yield* retrack(extract.paths(u.v, u.p, frames), u.p ? u : tr);
+              else yield u;
             }
+          };
+          for (const item of src.paths(input, pathIf(input, t0), env)) {
+            yield* rounds(binder, alts, item.v, env, item.p ? item : t0, round);
           }
         }
       },
@@ -2605,15 +2956,18 @@ function compForeach(n: N<"foreach">, sc: Sc | null): Code {
 
 // --- Assignment -------------------------------------------------------------
 
-/** `paths |= update`: the first output replaces the value; a path without output is deleted at the end. */
-function modify(
+/**
+ * `paths |= update`: the first output replaces the value; a path without
+ * output is deleted at the end. Gives the value before that and the paths to delete.
+ */
+function modifyParts(
   root: unknown,
   paths: Iterable<PathValue>,
   update: (old: unknown) => unknown,
-): unknown {
+): { value: unknown; gone: Path[] } {
   const own = newOwner();
   let cur = root;
-  let gone: Path[] | null = null;
+  const gone: Path[] = [];
   for (const pv of paths) {
     const p = pv.p;
     if (!p) return notPath(pv.v);
@@ -2621,7 +2975,6 @@ function modify(
     const old = getPath(cur, p);
     const next = update(old);
     if (next === NONE) {
-      if (!gone) gone = [];
       gone.push(p);
       continue;
     }
@@ -2629,50 +2982,99 @@ function modify(
     // What `update` gave may share parts with what was there: stop trusting them.
     if (next !== old && isContainer(next)) keepOnly(own, cur, p);
   }
-  return gone ? deletePaths(cur, gone) : cur;
+  return { value: cur, gone };
+}
+
+function modify(
+  root: unknown,
+  paths: Iterable<PathValue>,
+  update: (old: unknown) => unknown,
+): unknown {
+  const { value, gone } = modifyParts(root, paths, update);
+  return gone.length ? deletePaths(value, gone) : value;
+}
+
+/**
+ * `|=` and `op=` in a path expression. jq 1.7 defines them with reduce over
+ * `[value, paths to delete]` and then takes `.[0]` of that, which is never
+ * the value at the path: an error, once the update has run.
+ */
+function modifyNotPath(parts: { value: unknown; gone: Path[] }): never {
+  return fail(
+    `Invalid path expression near attempt to access element 0 of ${dump([parts.value, parts.gone])}`,
+  );
 }
 
 function compAssign(n: N<"assign">, sc: Sc | null): Code {
   const l = comp(n.l, sc);
   const r = comp(n.r, sc);
   if (n.op === "=") {
-    const assign = (input: unknown, env: Env, value: unknown): unknown => {
+    const assign = (input: unknown, env: Env, value: unknown): unknown =>
+      assignAll(input, l.paths(input, [], env), value).value;
+    /** The result, and whether every path was `[]` (`. = v` gives v itself). */
+    const assignAll = (
+      input: unknown,
+      paths: Iterable<PathValue>,
+      value: unknown,
+    ): { value: unknown; whole: boolean } => {
       const own = newOwner();
       let cur = input;
-      for (const pv of l.paths(input, [], env)) {
+      let whole = true;
+      for (const pv of paths) {
         if (!pv.p) return notPath(pv.v);
         tick(1);
+        if (pv.p.length) whole = false;
         cur = setPath(cur, pv.p, 0, value, own);
       }
-      return cur;
+      return { value: cur, whole };
     };
+    // In a path expression the result is a path only when nothing was set
+    // (jq's setpath always makes a new value), or for `. = .`.
+    const paths = (): Paths =>
+      function* (input, path, env) {
+        for (const v of r.all(input, env)) {
+          const out = assignAll(input, l.paths(input, [], env), v);
+          yield { p: out.whole && out.value === input ? path : null, v: out.value };
+        }
+      };
     const ro = r.one;
     if (ro) {
       return single((i, e) => {
         const v = ro(i, e);
         return v === NONE ? NONE : assign(i, e, v);
-      });
+      }, paths);
     }
     return many(function* (i, e) {
       for (const v of r.all(i, e)) yield assign(i, e, v);
-    });
+    }, paths);
   }
   if (n.op === "|=") {
-    return single((i, e) => modify(i, l.paths(i, [], e), (old) => firstOf(r, old, e)));
+    const update = (e: Env) => (old: unknown) => firstOf(r, old, e);
+    return single(
+      (i, e) => modify(i, l.paths(i, [], e), update(e)),
+      () => (input, _path, env) =>
+        modifyNotPath(modifyParts(input, l.paths(input, [], env), update(env))),
+    );
   }
   // `a op= b` is `b as $x | a |= (. op $x)`.
   const op = n.op.slice(0, -1);
   const f: Binary = op === "//" ? (a, b) => (truthy(a) ? a : b) : BINARY[op];
+  const paths = (): Paths =>
+    function* (input, _path, env) {
+      for (const x of r.all(input, env)) {
+        modifyNotPath(modifyParts(input, l.paths(input, [], env), (old) => f(old, x)));
+      }
+    };
   const ro = r.one;
   if (ro) {
     return single((i, e) => {
       const x = ro(i, e);
       return x === NONE ? NONE : modify(i, l.paths(i, [], e), (old) => f(old, x));
-    });
+    }, paths);
   }
   return many(function* (i, e) {
     for (const x of r.all(i, e)) yield modify(i, l.paths(i, [], e), (old) => f(old, x));
-  });
+  }, paths);
 }
 
 // --- Function calls ---------------------------------------------------------
@@ -3210,6 +3612,7 @@ function regexFor(pattern: unknown, flags: RegexFlags): Regex {
   if (typeof pattern !== "string") {
     return fail(`${describe(pattern)} cannot be matched, as it is not a string`);
   }
+  tickScan(pattern.length);
   const key = `${flags.ignoreCase ? "i" : ""}${flags.extended ? "x" : ""}${flags.dotAll ? "p" : ""}/${pattern}`;
   const cached = regexCache.get(key);
   if (cached) return cached;
@@ -3448,6 +3851,7 @@ function shellQuote(v: unknown): string {
 
 function base64Decode(v: unknown): string {
   const text = toText(v);
+  tickScan(text.length);
   const cut = text.indexOf("=");
   const data = cut < 0 ? text : text.slice(0, cut);
   if (!/^[A-Za-z0-9+/]*$/.test(data) || data.length % 4 === 1) {
@@ -3483,6 +3887,7 @@ function formatter(name: string, pos: number): (v: unknown) => string {
       return (v) => {
         const text = toText(v);
         checkLength(Math.ceil(text.length / 3) * 4);
+        tick(text.length >> 4);
         return Buffer.from(text, "utf8").toString("base64");
       };
     case "base64d":
@@ -3597,6 +4002,8 @@ function isoWeek(t: BrokenTime): [number, number] {
 }
 
 function strftime(t: BrokenTime, format: string): string {
+  // Read character by character.
+  tick(format.length >> 2);
   const num = (n: number, width: number, fill: string, flag: string): string => {
     const digits = String(Math.abs(n));
     const sign = n < 0 ? "-" : "";
@@ -3716,26 +4123,303 @@ function formatTime(v: unknown, format: unknown): string {
 
 const ISO_FORMAT = "%Y-%m-%dT%H:%M:%SZ";
 
-/** `strptime("%Y-%m-%dT%H:%M:%SZ") | mktime`, the one format jq's date helpers read. */
-function parseIsoDate(v: unknown): number {
-  if (typeof v !== "string") return fail("strptime/1 requires string inputs and arguments");
-  const m = /^\s*(\d{1,4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{1,2}):(\d{1,2})Z$/.exec(v);
-  const f = m ? m.slice(1).map(Number) : [];
-  if (!m || f[1] < 1 || f[1] > 12 || f[2] < 1 || f[2] > 31 || f[3] > 23 || f[4] > 59 || f[5] > 61) {
-    return fail(`date ${JSON.stringify(v)} does not match format ${JSON.stringify(ISO_FORMAT)}`);
+/** Days before each month, in a common and in a leap year (glibc's __mon_yday). */
+const MON_YDAY = [
+  [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365],
+  [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366],
+];
+const SHORT_DAYS = WEEKDAYS.map((d) => d.slice(0, 3));
+const SHORT_MONTHS = MONTHS.map((m) => m.slice(0, 3));
+/** Conversions glibc's strptime has that this one leaves out. */
+const STRPTIME_UNSUPPORTED = "CcgGIklpPrUuVwWxX";
+
+const isCSpace = (c: string | undefined): boolean =>
+  c === " " || (c !== undefined && c >= "\t" && c <= "\r");
+
+/** C's division: truncated toward zero. */
+const cdiv = (a: number, b: number): number => Math.trunc(a / b);
+
+/** Broken-down UTC time for a count of seconds of any size up to 2^53, without Date. */
+function civil(secs: number): BrokenTime {
+  const days = Math.floor(secs / 86400);
+  const rest = secs - days * 86400;
+  // Howard Hinnant's days_from_civil, inverted.
+  const z = days + 719468;
+  const era = Math.floor(z / 146097);
+  const doe = z - era * 146097;
+  const yoe = Math.floor(
+    (doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365,
+  );
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  const mp = Math.floor((5 * doy + 2) / 153);
+  const day = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  const month = mp < 10 ? mp + 2 : mp - 10;
+  const year = yoe + era * 400 + (month < 2 ? 1 : 0);
+  const leap = isLeap(year) ? 1 : 0;
+  return {
+    year,
+    month,
+    day,
+    hours: Math.floor(rest / 3600),
+    minutes: Math.floor((rest % 3600) / 60),
+    seconds: rest % 60,
+    weekday: (((days + 4) % 7) + 7) % 7,
+    yearday: MON_YDAY[leap][month] + day - 1,
+  };
+}
+
+/**
+ * jq 1.7's strptime/1 as it runs on glibc, in UTC: the broken-down time,
+ * with weekday and day of the year worked out the way glibc and jq do, and
+ * what is left of the input (white space only) as a ninth element.
+ */
+function strptime(input: unknown, format: unknown): unknown[] {
+  if (typeof input !== "string" || typeof format !== "string") {
+    return fail("strptime/1 requires string inputs and arguments");
   }
-  const secs = timegm({
-    year: f[0],
-    month: f[1] - 1,
-    day: f[2],
-    hours: f[3],
-    minutes: f[4],
-    seconds: f[5],
-    weekday: 0,
-    yearday: 0,
-  });
-  if (secs === -1) return fail("invalid gmtime representation");
-  return secs;
+  tick(1 + ((input.length + format.length) >> 4));
+  // tm, with year counted from 1900 as in C; 8 and 367 are jq's "not set".
+  const tm = { year: 0, mon: 0, mday: 0, hour: 0, min: 0, sec: 0, wday: 8, yday: 367 };
+  const have = { wday: false, yday: false, mon: false, mday: false, xday: false };
+  let i = 0;
+  const noMatch = (): never =>
+    fail(`date ${JSON.stringify(input)} does not match format ${JSON.stringify(format)}`);
+  /** glibc's get_number: spaces, then up to `n` digits while the value can still grow within `to`. */
+  const number = (from: number, to: number, n: number): number => {
+    while (isCSpace(input[i])) i++;
+    const c = input[i];
+    if (c === undefined || c < "0" || c > "9") return noMatch();
+    let val = 0;
+    let left = n;
+    do {
+      val = val * 10 + (input.charCodeAt(i++) - 48);
+    } while (--left > 0 && val * 10 <= to && input[i] >= "0" && input[i] <= "9");
+    if (val < from || val > to) return noMatch();
+    return val;
+  };
+  /** A day or month name, full or abbreviated, in any case. */
+  const name = (full: string[], short: string[]): number => {
+    for (let k = 0; k < full.length; k++) {
+      for (const word of [full[k], short[k]]) {
+        if (input.slice(i, i + word.length).toLowerCase() === word.toLowerCase()) {
+          i += word.length;
+          return k;
+        }
+      }
+    }
+    return noMatch();
+  };
+  const run = (fmt: string): void => {
+    for (let f = 0; f < fmt.length; f++) {
+      const c = fmt[f];
+      if (isCSpace(c)) {
+        while (isCSpace(input[i])) i++;
+        continue;
+      }
+      if (c !== "%") {
+        if (input[i] !== c) noMatch();
+        i++;
+        continue;
+      }
+      f++;
+      // Flags, a width and the E and O modifiers are read and ignored, as glibc does.
+      while ("-_0^#".includes(fmt[f] ?? "x")) f++;
+      while (fmt[f] >= "0" && fmt[f] <= "9") f++;
+      while (fmt[f] === "E" || fmt[f] === "O") f++;
+      const d = fmt[f];
+      switch (d) {
+        case "%":
+          if (input[i] !== "%") noMatch();
+          i++;
+          break;
+        case "n":
+        case "t":
+          while (isCSpace(input[i])) i++;
+          break;
+        case "a":
+        case "A":
+          tm.wday = name(WEEKDAYS, SHORT_DAYS);
+          have.wday = true;
+          break;
+        case "b":
+        case "B":
+        case "h":
+          tm.mon = name(MONTHS, SHORT_MONTHS);
+          have.mon = true;
+          have.xday = true;
+          break;
+        case "d":
+        case "e":
+          tm.mday = number(1, 31, 2);
+          have.mday = true;
+          have.xday = true;
+          break;
+        case "m":
+          tm.mon = number(1, 12, 2) - 1;
+          have.mon = true;
+          have.xday = true;
+          break;
+        case "Y":
+          tm.year = number(0, 9999, 4) - 1900;
+          have.xday = true;
+          break;
+        case "y": {
+          const y = number(0, 99, 2);
+          tm.year = y >= 69 ? y : y + 100;
+          have.xday = true;
+          break;
+        }
+        case "j":
+          tm.yday = number(1, 366, 3) - 1;
+          have.yday = true;
+          break;
+        case "H":
+          tm.hour = number(0, 23, 2);
+          break;
+        case "M":
+          tm.min = number(0, 59, 2);
+          break;
+        case "S":
+          tm.sec = number(0, 61, 2);
+          break;
+        case "D":
+          run("%m/%d/%y");
+          break;
+        case "F":
+          run("%Y-%m-%d");
+          break;
+        case "T":
+          run("%H:%M:%S");
+          break;
+        case "R":
+          run("%H:%M");
+          break;
+        case "s": {
+          const m = /^[0-9]+/.exec(input.slice(i, i + 40));
+          if (!m) return noMatch();
+          i += m[0].length;
+          const secs = Number(m[0]);
+          if (secs > Number.MAX_SAFE_INTEGER) return noMatch();
+          // glibc reads it with localtime_r; the time zone here is UTC.
+          const t = civil(secs);
+          Object.assign(tm, {
+            year: t.year - 1900,
+            mon: t.month,
+            mday: t.day,
+            hour: t.hours,
+            min: t.minutes,
+            sec: t.seconds,
+            wday: t.weekday,
+            yday: t.yearday,
+          });
+          break;
+        }
+        case "z": {
+          // Z, +hh, +hhmm or +hh:mm. The offset is read and then not used, as in jq.
+          while (isCSpace(input[i])) i++;
+          if (input[i] === "Z") {
+            i++;
+            break;
+          }
+          if (input[i] !== "+" && input[i] !== "-") return noMatch();
+          i++;
+          let n = 0;
+          let val = 0;
+          while (n < 4 && input[i] >= "0" && input[i] <= "9") {
+            val = val * 10 + (input.charCodeAt(i++) - 48);
+            n++;
+            if (n === 2 && input[i] === ":" && input[i + 1] >= "0" && input[i + 1] <= "9") i++;
+          }
+          if (n === 2) val *= 100;
+          else if (n !== 4 || val % 100 >= 60) return noMatch();
+          break;
+        }
+        case "Z":
+          // A time zone name: read, not used.
+          while (isCSpace(input[i])) i++;
+          while (i < input.length && !isCSpace(input[i])) i++;
+          break;
+        default:
+          if (d !== undefined && STRPTIME_UNSUPPORTED.includes(d)) {
+            return fail(`strptime/1: %${d} is not supported in Encela's jq subset`);
+          }
+          return noMatch();
+      }
+    }
+  };
+  run(format);
+  const rest = input.slice(i);
+  if (rest && !isCSpace(rest[0])) return noMatch();
+  // What glibc works out at the end.
+  const leap = (): number => (isLeap(1900 + tm.year) ? 1 : 0);
+  if (have.xday && !have.wday) {
+    if (!(have.mon && have.mday) && have.yday) {
+      const days = MON_YDAY[leap()];
+      let mon = 0;
+      while (mon < 12 && days[mon] <= tm.yday) mon++;
+      if (!have.mon) tm.mon = mon - 1;
+      if (!have.mday) tm.mday = tm.yday - days[mon - 1] + 1;
+      have.mon = true;
+      have.mday = true;
+    }
+    if (tm.year >= -1900) {
+      const corr = 1900 + tm.year - (tm.mon < 2 ? 1 : 0);
+      const q = cdiv(corr, 4);
+      const wday =
+        -473 +
+        365 * (tm.year - 70) +
+        q -
+        cdiv(q, 25) +
+        (q % 25 < 0 ? 1 : 0) +
+        cdiv(cdiv(q, 25), 4) +
+        MON_YDAY[0][tm.mon] +
+        tm.mday -
+        1;
+      tm.wday = ((wday % 7) + 7) % 7;
+    }
+  }
+  if (have.xday && !have.yday) tm.yday = MON_YDAY[leap()][tm.mon] + tm.mday - 1;
+  // And what jq 1.7 adds where strptime left them unset.
+  if (tm.wday === 8 && tm.mday >= 1 && tm.mday <= 31) {
+    const century = cdiv(1900 + tm.year, 100);
+    let year = (1900 + tm.year) % 100;
+    if (tm.mon < 2) year--;
+    let mon = tm.mon - 1;
+    if (mon < 1) mon += 12;
+    let wday =
+      (tm.mday +
+        Math.floor(2.6 * mon - 0.2) +
+        year +
+        Math.floor(year / 4) +
+        Math.floor(century / 4) -
+        2 * century) %
+      7;
+    if (wday < 0) wday += 7;
+    tm.wday = wday;
+  }
+  if (tm.yday === 367 && tm.mday >= 1 && tm.mday <= 31) {
+    let mon = Math.abs(tm.mon);
+    if (mon > 11) mon %= 12;
+    const leapDay = tm.mon > 1 && isLeap(1900 + tm.year) ? 1 : 0;
+    tm.yday = MON_YDAY[0][mon] + leapDay + tm.mday - 1;
+  }
+  const out: unknown[] = [
+    tm.year + 1900,
+    tm.mon,
+    tm.mday,
+    tm.hour,
+    tm.min,
+    tm.sec,
+    tm.wday,
+    tm.yday,
+  ];
+  if (rest) out.push(rest);
+  return out;
+}
+
+/** jq's `def fromdateiso8601: strptime("%Y-%m-%dT%H:%M:%SZ") | mktime;` */
+function parseIsoDate(v: unknown): number {
+  return mktime(strptime(v, ISO_FORMAT));
 }
 
 // ---------------------------------------------------------------------------
@@ -3743,6 +4427,7 @@ function parseIsoDate(v: unknown): number {
 
 /** A number from text as jq's tonumber reads it, or null. */
 function parseNumber(text: string): number | null {
+  tickScan(text.length);
   const s = text.trim();
   if (/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s)) return Number(s);
   if (/^[+-]?nan$/i.test(s)) return Number.NaN;
@@ -3871,6 +4556,7 @@ function explode(v: unknown): unknown {
 function implode(v: unknown): unknown {
   if (!Array.isArray(v)) return fail("implode input must be an array");
   checkLength(v.length);
+  tick(v.length);
   const parts: string[] = [];
   for (const x of v) {
     if (typeof x !== "number") {
@@ -3898,6 +4584,7 @@ function trim(v: unknown, left: boolean, right: boolean): unknown {
   const blank = (c: string): boolean => c === " " || (c >= "\t" && c <= "\r");
   if (left) while (from < to && blank(v[from])) from++;
   if (right) while (to > from && blank(v[to - 1])) to--;
+  tick((from + v.length - to) >> 4);
   return v.slice(from, to);
 }
 
@@ -3909,7 +4596,8 @@ function stringIndices(s: string, sub: string): number[] {
   let bytes = 0;
   let from = 0;
   for (let at = s.indexOf(sub); at >= 0; at = s.indexOf(sub, at + 1)) {
-    tick(1);
+    // Each hit is `sub` compared in full, and the text before it measured.
+    tick(1 + (sub.length >> 4) + ((at - from) >> 6));
     bytes += utf8Length(s.slice(from, at));
     from = at;
     out.push(bytes);
@@ -4003,15 +4691,22 @@ function reverse(v: unknown): unknown {
 function sortValues(v: unknown): unknown[] {
   if (!Array.isArray(v)) return fail(`${describe(v)} cannot be sorted, as it is not an array`);
   tick(v.length);
+  tickSort(v.length);
   let numbers = true;
   let strings = true;
+  let chars = 0;
   for (const x of v) {
     if (typeof x !== "number" || Number.isNaN(x) || Object.is(x, -0)) numbers = false;
     if (typeof x !== "string" || HIGH_CHARS.test(x)) strings = false;
+    else chars += x.length;
     if (!numbers && !strings) break;
   }
   if (numbers) return Array.from(Float64Array.from(v as number[]).sort());
-  if (strings) return (v as string[]).slice().sort();
+  if (strings) {
+    // Long strings that share a start are compared in full each time.
+    tickScan(chars * Math.ceil(Math.log2(v.length + 1)));
+    return (v as string[]).slice().sort();
+  }
   return v.slice().sort(compare);
 }
 
@@ -4036,6 +4731,7 @@ function compareKeys(a: unknown, b: unknown): number {
 
 /** The positions of `keys` in sorted order, equal keys in their first order. */
 function sortedOrder(keys: unknown[]): number[] {
+  tickSort(keys.length);
   const order = keys.map((_, i) => i);
   return order.sort((a, b) => compareKeys(keys[a], keys[b]) || a - b);
 }
@@ -4240,7 +4936,6 @@ const UNSUPPORTED = new Set([
   "builtins",
   "localtime",
   "strflocaltime",
-  "strptime",
   "gamma",
   "lgamma",
   "lgamma_r",
@@ -4400,6 +5095,7 @@ special("map", 1, ([f]) => {
 special("path", 1, ([f]) =>
   many(function* (i, e) {
     for (const pv of f.paths(i, [], e)) {
+      tick(1);
       if (!pv.p) notPath(pv.v);
       yield pv.p;
     }
@@ -4689,7 +5385,7 @@ native("not", 0, (v) => !truthy(v));
 native("length", 0, lengthOf);
 native("utf8bytelength", 0, (v) => {
   if (typeof v !== "string") return fail(`${describe(v)} only strings have UTF-8 byte length`);
-  tick(v.length >> 6);
+  tick(v.length >> 4);
   return utf8Length(v);
 });
 native("type", 0, kind);
@@ -4717,22 +5413,28 @@ native("ascii_upcase", 0, (v) => changeCase(v, true));
 native("trim", 0, (v) => trim(v, true, true));
 native("ltrim", 0, (v) => trim(v, true, false));
 native("rtrim", 0, (v) => trim(v, false, true));
-native("ltrimstr", 1, (v, x) =>
-  typeof v === "string" && typeof x === "string" && v.startsWith(x) ? v.slice(x.length) : v,
-);
-native("rtrimstr", 1, (v, x) =>
-  typeof v === "string" && typeof x === "string" && x && v.endsWith(x) ? v.slice(0, -x.length) : v,
-);
+native("ltrimstr", 1, (v, x) => {
+  if (typeof v !== "string" || typeof x !== "string") return v;
+  tickScan(x.length);
+  return v.startsWith(x) ? v.slice(x.length) : v;
+});
+native("rtrimstr", 1, (v, x) => {
+  if (typeof v !== "string" || typeof x !== "string" || !x) return v;
+  tickScan(x.length);
+  return v.endsWith(x) ? v.slice(0, -x.length) : v;
+});
 native("startswith", 1, (v, x) => {
   if (typeof v !== "string" || typeof x !== "string") {
     return fail("startswith() requires string inputs");
   }
+  tickScan(x.length);
   return v.startsWith(x);
 });
 native("endswith", 1, (v, x) => {
   if (typeof v !== "string" || typeof x !== "string") {
     return fail("endswith() requires string inputs");
   }
+  tickScan(x.length);
   return v.endsWith(x);
 });
 native("split", 1, (v, sep) => {
@@ -4858,6 +5560,7 @@ native("gmtime", 0, (v) => {
 native("mktime", 0, mktime);
 native("strftime", 1, formatTime);
 native("fromdateiso8601", 0, parseIsoDate);
+native("strptime", 1, strptime);
 native("format", 1, (v, name) => {
   if (typeof name !== "string") return fail(`${describe(name)} is not a valid format`);
   let f: (v: unknown) => string;
@@ -4929,12 +5632,14 @@ const FRESH_RESULTS = new Set([
   ],
   ...["split", "splits", "join", "test", "match", "capture", "scan", "sub", "gsub", "any", "all"],
   ...["isempty", "range", "isnan", "isinfinite", "isnormal", "infinite", "nan", "now", "bsearch"],
-  ...["gmtime", "mktime", "strftime", "todate", "fromdate", "todateiso8601", "fromdateiso8601"],
+  ...["gmtime", "mktime", "strftime", "strptime", "todate", "fromdate", "todateiso8601"],
+  "fromdateiso8601",
   ...["date", "format", "IN", "fma", ...Object.keys(MATH1), ...Object.keys(MATH2)],
 ]);
 
 function patternNames(pat: Pattern, out: string[] = []): string[] {
-  if (pat.t === "pvar") out.push(pat.name);
+  if (pat.t === "palt") for (const alt of pat.alts) patternNames(alt, out);
+  else if (pat.t === "pvar") out.push(pat.name);
   else if (pat.t === "parr") for (const item of pat.items) patternNames(item, out);
   else {
     for (const entry of pat.entries) {
@@ -5207,6 +5912,7 @@ function tailOf(n: Node, sc: Sc | null, vars: Map<string, number>): Step | null 
 /** `e as $x | tail` and `if c then tail else tail end`, which may only come last. */
 function closingStep(n: Node, sc: Sc | null, vars: Map<string, number>): Step | null {
   if (n.t === "as") {
+    if (n.pat.t === "palt") return null;
     const state = flow(n.src, ROOT, vars, sc);
     if (state !== 0 && state !== INNER) return null;
     const binder = compPattern(n.pat, sc);
@@ -5288,6 +5994,10 @@ function analyze(root: Node): { freeVars: string[]; refs: string[][] } {
   };
   const bind = (pat: Pattern, b: Bound | null): Bound | null => {
     let cur = b;
+    if (pat.t === "palt") {
+      for (const alt of pat.alts) cur = bind(alt, cur);
+      return cur;
+    }
     if (pat.t === "pvar") return { name: pat.name, up: cur };
     if (pat.t === "parr") {
       for (const item of pat.items) cur = bind(item, cur);
@@ -5300,8 +6010,12 @@ function analyze(root: Node): { freeVars: string[]; refs: string[][] } {
     }
     return cur;
   };
-  /** `$free.a.b[...]...`: records the literal field path and visits the keys. */
-  const chain = (n: Node, b: Bound | null): boolean => {
+  /**
+   * A chain of fields, brackets and `?` on one term, walked once (a long chain
+   * must not be walked again from each of its links). `$free.a.b[...]` records
+   * the literal field path read from the variable; the keys are visited either way.
+   */
+  const chain = (n: Node, b: Bound | null): void => {
     const links: Node[] = [];
     let cur = n;
     for (;;) {
@@ -5312,9 +6026,11 @@ function analyze(root: Node): { freeVars: string[]; refs: string[][] } {
         cur = cur.body;
       } else break;
     }
-    if (cur.t !== "var" || !isFree(cur.name, b)) return false;
-    const path = [cur.name];
-    let literal = true;
+    const base = cur;
+    const fromVar = base.t === "var" && isFree(base.name, b);
+    const path = fromVar ? [(base as N<"var">).name] : [];
+    let literal = fromVar;
+    if (!fromVar) visit(base, b);
     for (let i = links.length - 1; i >= 0; i--) {
       const link = links[i];
       if (literal && link.t === "idx" && link.key.t === "lit" && typeof link.key.v === "string") {
@@ -5326,8 +6042,7 @@ function analyze(root: Node): { freeVars: string[]; refs: string[][] } {
         if (link.to) visit(link.to, b);
       }
     }
-    read(path);
-    return true;
+    if (fromVar) read(path);
   };
   const visit = (n: Node, b: Bound | null): void => {
     switch (n.t) {
@@ -5337,16 +6052,13 @@ function analyze(root: Node): { freeVars: string[]; refs: string[][] } {
       case "idx":
       case "slice":
       case "iter":
-        if (chain(n, b)) return;
-        visit(n.of, b);
-        if (n.t === "idx") visit(n.key, b);
-        if (n.t === "slice") {
-          if (n.from) visit(n.from, b);
-          if (n.to) visit(n.to, b);
-        }
+        chain(n, b);
         return;
       case "try":
-        if (!n.handler && chain(n, b)) return;
+        if (!n.handler) {
+          chain(n, b);
+          return;
+        }
         visit(n.body, b);
         if (n.handler) visit(n.handler, b);
         return;
@@ -5449,16 +6161,41 @@ function toJqError(x: unknown): JqError {
 const limitOf = (given: unknown, normal: number): number =>
   typeof given === "number" && given >= 0 ? given : normal;
 
-/** Stops an output that would be enormous once written out (values can share parts). */
+/**
+ * Stops outputs that would be enormous once written out or copied to another
+ * thread. Values can share parts (one string held a thousand times costs a
+ * program nothing), so every occurrence is counted at its full size: roughly
+ * the length of the JSON text. Also stops outputs nested too deeply.
+ */
 function checkOutputs(values: unknown[], limit: number): void {
-  let units = 0;
-  const walk = (v: unknown): void => {
-    units += typeof v === "string" ? 1 + (v.length >> 8) : 1;
-    if (units > limit) throw new JqError("jq: the output is too large");
-    if (Array.isArray(v)) for (const x of v) walk(x);
-    else if (isObj(v)) for (const k of Object.keys(v)) walk(v[k]);
+  let size = 0;
+  const tooLarge = (): never => {
+    throw new JqError(
+      `jq: the output is too large: written out it comes to more than ${limit} characters (maxString)`,
+    );
   };
-  for (const v of values) walk(v);
+  const walk = (v: unknown, depth: number): void => {
+    if (typeof v === "string") size += v.length + 3;
+    else if (typeof v === "number") size += 8;
+    else size += 5;
+    if (size > limit) tooLarge();
+    if (!isContainer(v)) return;
+    if (depth >= MAX_OUTPUT_DEPTH) {
+      throw new JqError(
+        `jq: the output is too large: it is nested more than ${MAX_OUTPUT_DEPTH} levels deep`,
+      );
+    }
+    if (Array.isArray(v)) {
+      for (const x of v) walk(x, depth + 1);
+    } else {
+      const keys = Object.keys(v);
+      for (const k of keys) {
+        size += k.length + 3;
+        walk((v as Obj)[k], depth + 1);
+      }
+    }
+  };
+  for (const v of values) walk(v, 0);
 }
 
 /** Parses and checks a program: syntax, unknown functions (name/arity), unsupported features. Throws JqError with position. */
@@ -5468,6 +6205,11 @@ export function compile(source: string): Program {
   let refs: string[][];
   try {
     if (typeof source !== "string") throw new JqError("jq: the program must be a string");
+    if (source.length > MAX_SOURCE) {
+      throw new JqError(
+        `jq: the program is ${source.length} characters long; at most ${MAX_SOURCE} are read`,
+      );
+    }
     const tree = parse(source);
     const read = analyze(tree);
     freeVars = read.freeVars;
@@ -5503,7 +6245,7 @@ export function compile(source: string): Program {
           }
           out.push(v);
         }
-        checkOutputs(out, Math.max(opsLimit, 1_000_000));
+        checkOutputs(out, strLimit);
         return out;
       } catch (x) {
         throw toJqError(x);
