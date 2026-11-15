@@ -17,7 +17,18 @@ import type { Elements, EngineInterface, Register } from "claude-code";
 import { atom, read, update } from "claude-code";
 import type { Agent, Live } from "../types";
 import type { Line, Seg } from "./model";
-import { doing, encelaTool, ended, frame, look, moving, parse, seen, workerOf } from "./model";
+import {
+  began,
+  doing,
+  encelaTool,
+  ended,
+  frame,
+  look,
+  moving,
+  parse,
+  seen,
+  workerOf,
+} from "./model";
 
 const PANE = "encela";
 const TITLE = "Encela";
@@ -158,10 +169,10 @@ async function met($: EngineInterface, id: string, prompt: string, about: string
   await update($, agents, (list) => seen(list, id, patch));
 }
 
-/** A loop's turn ended. */
-async function over($: EngineInterface, id: string) {
+/** A loop's turn began, or ended. */
+async function turn($: EngineInterface, id: string, begins: boolean) {
   armed ??= await read($, since);
-  if (armed) await update($, agents, (list) => ended(list, id));
+  if (armed) await update($, agents, (list) => (begins ? began(list, id) : ended(list, id)));
 }
 
 export const register: Register = (on) => {
@@ -212,8 +223,13 @@ export const register: Register = (on) => {
     return started;
   });
 
+  on("turn.start", async ($, e, next) => {
+    await turn($, e.agentId ?? "main", true).catch(() => {});
+    return next(e);
+  });
+
   on("turn.complete", async ($, e, next) => {
-    await over($, e.agentId ?? "main").catch(() => {});
+    await turn($, e.agentId ?? "main", false).catch(() => {});
     return next(e);
   });
 

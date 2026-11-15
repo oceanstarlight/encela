@@ -94,6 +94,7 @@ function world(on: On, file: { text: string; realPath?: string } | null) {
   on("session.root", () => ({ value: ROOT }));
   on("tool.call", () => ({ result: {} }));
   on("agent.spawn", () => ({ model: "sonnet", agentId: "agent-1" }));
+  on("turn.start", (_, e) => ({ turnId: e.turnId }));
   on("turn.complete", (_, e) => ({ text: e.answer }));
   on("fs.stat", (_, e) => {
     if (e.path === ROOT) {

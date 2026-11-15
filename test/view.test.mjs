@@ -9,6 +9,7 @@ import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { Blueprints, briefs, Registry, Server, ToolCache, writePlugin } from "./.build/lib.js";
 import {
+  began,
   cells,
   doing,
   encelaTool,
@@ -359,6 +360,15 @@ test("the model loops: who is who, what each did last, when a turn ends", () => 
   assert.ok(!list.some((a) => a.id === "a1"));
   assert.equal(list.at(-1).id, "x19");
 
+  // A turn that began is at work before its first tool call, and keeps what it was doing.
+  assert.equal(began([], "main")[0].doing, "…");
+  assert.equal(began(list, "x19").at(-1).doing, "…");
+  assert.equal(
+    began(seen(list, "x19", { doing: "Read a.ts", done: true }), "x19").at(-1).doing,
+    "Read a.ts",
+  );
+  assert.equal(began(seen(list, "x19", { done: true }), "x19").at(-1).done, false);
+
   list = ended(ended(list, "x19"), "main");
   assert.equal(list.find((a) => a.id === "x19").done, true);
   assert.deepEqual(
@@ -418,6 +428,13 @@ test("motion is marked only where work is going on", () => {
   const asking = frame(state({ phase: "approval" }), [], opts());
   assert.deepEqual(fx(asking), ["pulse:● 승인", "pulse:승인을 기다리는 중"]);
   assert.equal(asking.band[1].fx, "pulse");
+  // Claude's call is out while the question is open: that is waiting, not work on the build.
+  const held = frame(
+    state({ phase: "approval" }),
+    [agent("main", { doing: "blueprint_approve" })],
+    opts(),
+  );
+  assert.ok(!fx(held).includes("bar"));
   // A run that is going moves by itself; a step waiting for Claude pulses.
   const run = {
     id: "r-1",
@@ -583,10 +600,14 @@ test("how a run of text is drawn: the theme's colours, never raw ones", () => {
   assert.deepEqual(look({ tone: "busy", bold: true }), { color: "suggestion", bold: true });
   assert.deepEqual(look({ tone: "wait", dim: true }), { color: "warning", dimColor: true });
   assert.deepEqual(look({ tone: "good", inverse: true }), { color: "success", inverse: true });
-  // A worker's colour stands in for the tone's; it comes round after five workers.
-  assert.deepEqual(look({ tone: "dim", hue: 0 }), { color: "permission" });
-  assert.equal(look({ tone: "dim", hue: 5 }).color, "permission");
-  assert.notEqual(look({ tone: "dim", hue: 1 }).color, look({ tone: "dim", hue: 2 }).color);
+  // A worker's colour stands in for the tone's, and is none of the colours that say how things stand.
+  assert.deepEqual(look({ tone: "dim", hue: 0 }), { color: "planMode" });
+  const hues = [0, 1, 2].map((hue) => look({ tone: "dim", hue }).color);
+  assert.equal(new Set(hues).size, 3);
+  for (const tone of ["good", "bad", "busy", "wait"]) {
+    assert.ok(!hues.includes(look({ tone }).color), tone);
+  }
+  assert.equal(look({ tone: "dim", hue: 3 }).color, hues[0], "it comes round after three workers");
   // What was dim and is lit is no longer dim.
   assert.deepEqual(look({ tone: "dim", bold: true }), { bold: true });
 });

@@ -155,8 +155,8 @@ const DOCUMENTS = ["skill", "rule", "instruction", "subagent"];
 const EVENT_KINDS = Object.keys(WORDS.en.event) as LiveEvent["kind"][];
 /** How long the line above the prompt stays once a build is done. */
 const DONE_FOR = 120_000;
-/** The colours that tell workers apart. */
-const HUES = 5;
+/** The colours that tell workers apart: as many as the theme has apart from the ones that say how things stand. */
+const HUES = 3;
 
 const seg = (text: string, tone: Tone = "plain"): Seg => ({ text, tone });
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -407,6 +407,12 @@ export function seen(list: readonly Agent[], id: string, patch: Partial<Agent>):
     kept.splice(drop, 1);
   }
   return kept;
+}
+
+/** `list` once a turn of `id` began: it is at work from then on, before its first tool call. */
+export function began(list: readonly Agent[], id: string): Agent[] {
+  const doing = list.find((a) => a.id === id)?.doing || "…";
+  return seen(list, id, { doing, done: false });
 }
 
 /** `list` after the turn of `id` ended: a subagent is done, the main loop is between turns. */
@@ -695,7 +701,12 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
       gap,
       {
         left: [seg(w.steps, "strong")],
-        bar: { done, total, ...(working && done < total ? { live: true } : {}) },
+        // The light runs while the build is being worked on, not while the user is asked.
+        bar: {
+          done,
+          total,
+          ...(working && live.phase === "build" && done < total ? { live: true } : {}),
+        },
         key: "bar",
         sig: String(done),
       },
@@ -888,7 +899,8 @@ const TONE_COLOR: Record<Tone, string | undefined> = {
   busy: "suggestion",
   wait: "warning",
 };
-const HUE_COLOR = ["permission", "planMode", "autoAccept", "merged", "remember"];
+// Teal, lavender and blue in Claude Code's themes: none is the colour of done, in progress, waiting or failed.
+const HUE_COLOR = ["planMode", "autoAccept", "ide"];
 
 /** How a run of text is drawn, in the words Claude Code's Text takes: a colour of the theme, dim, bold, inverse. */
 export function look(cell: {
