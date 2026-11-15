@@ -352,6 +352,8 @@ const OWN = new Set([
   "find_pieces",
   "get_piece",
   "piece_add",
+  "github_search",
+  "github_read",
   "blueprint_save",
   "blueprint_get",
   "blueprint_approve",
@@ -387,7 +389,7 @@ export function doing(tool: string, input: Record<string, unknown>): string {
       const called = typeof input.tool === "string" && input.tool !== tool ? input.tool : "";
       text = called ? `${piece} · ${called}` : piece || own;
     } else if (OWN.has(own)) {
-      const about = input.pipeline ?? input.step ?? input.run ?? "";
+      const about = input.pipeline ?? input.step ?? input.run ?? input.repo ?? input.query ?? "";
       text = `${own}${typeof about === "string" && about ? ` ${about}` : ""}`;
     } else {
       // A tool of a running piece: `<piece>__<tool>`.

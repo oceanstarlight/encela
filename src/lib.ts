@@ -3,6 +3,18 @@ export { briefs, copyPath, writeCopies } from "./assemble";
 export { Blueprints, normalizeBlueprint, ready, render, shared } from "./blueprint";
 export { CallLost, Client, expand, findReply, forThisOs } from "./client";
 export { Engine } from "./engine";
+export {
+  clean,
+  Finder,
+  FinderError,
+  foundText,
+  githubRepo,
+  mcpExamples,
+  packageOf,
+  readingText,
+  repoName,
+  spdxOf,
+} from "./finder";
 export { hookContext, wantsEncela } from "./hook";
 export { inEncela } from "./paths";
 export { cautions, missingEnv, normalizePiece, permissive } from "./piece";

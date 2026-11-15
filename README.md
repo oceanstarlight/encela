@@ -21,7 +21,7 @@
 프롬프트
   └ hook이 "설계도부터"라는 안내를 붙임
 ① 분석      목표, 요구사항, 사용자가 정할 것
-② 부품 찾기  find_pieces → get_piece (없으면 밖에서 찾아 piece_add)
+② 부품 찾기  find_pieces → get_piece (없으면 github_search → github_read → piece_add)
 ③ 설계도    blueprint_save: 부품과 역할, 작업자, 단계, 파이프라인, 선택지
 ④ 승인      blueprint_approve: 승인 / 수정 / 취소
 ⑤ 조립      blueprint_assemble: MCP 부품 시작, 문서 부품 작업용 사본, 작업자별 지시서
@@ -175,6 +175,15 @@ node dist/cli.js setup     # 플러그인을 ~/.encela/claude-plugin 에 쓰고 
 }
 ```
 
+**GitHub 파인더**: 카탈로그에 없는 건 Claude가 GitHub에서 찾아요.
+
+- `github_search`: 저장소 검색. 별, 라이선스, 마지막 푸시, 주의할 점(보관됨, 라이선스 없음, 오래 방치됨, 포크)을 같이 보여 줘요.
+- `github_read`: 저장소(또는 그 안의 폴더·파일)를 특정 커밋에서 읽고 부품 초안을 만들어요. README의 `mcpServers` 예시, `package.json`·`pyproject.toml`, `SKILL.md`·`agents/`·규칙 파일을 보고 종류와 시작 명령을 추정하고, 무엇을 추정했는지 적어요. 문서 부품은 가장 가까운 LICENSE 파일로 라이선스를 판단하고, 스킬에 딸린 스크립트는 가져오지 않아요.
+- 시작 명령이 가리키는 패키지는 npm·PyPI에서 확인해요: 실제로 게시됐는지, 그 패키지가 이 저장소를 출처로 적었는지(이름 사칭 방지), 설치 스크립트가 있는지. README가 "항상 최신"으로 받게 돼 있으면 읽은 시점의 버전으로 고정해요.
+- 읽기만 해요. 요청은 GitHub API, GitHub의 raw 파일, npm·PyPI 레지스트리로 가는 GET뿐이고, 아무것도 복제·실행·저장하지 않아요. 저장소의 글은 Claude에게 "지시가 아닌 자료"로 표시해서 넘겨요.
+- `piece_add`에 `github_read`가 준 `from`을 같이 넘기면, 출처·라이선스·경고·문서 본문은 Claude가 적은 것이 아니라 엔셀라가 그 커밋에서 다시 읽은 것으로 채워져요.
+- 환경 변수 `GITHUB_TOKEN`(또는 `GH_TOKEN`)이 있으면 GitHub API 요청에만 붙여요(한도: 익명 시간당 60회 → 5,000회). 다른 곳으로 보내거나 저장하지 않아요.
+
 **밖에서 가져온 부품**: Claude가 작업 중에 찾아 `piece_add`로 넣은 부품은 제한 없이 받되, 사용자가 그 부품이 든 설계도를 승인하기 전에는 실행되지 않아요. 승인 화면에 출처, 라이선스, 실행되는 명령, 필요한 환경 변수가 경고로 보여요. 모르는 MCP 서버를 실행하는 건 모르는 코드를 내 컴퓨터에서 실행하는 것이니 읽어 보고 승인하세요.
 
 ## 개발
@@ -188,7 +197,7 @@ pnpm check:view  # 작업 화면을 Claude Code로 검사 (claude 명령이 있�
 
 | 경로 | 내용 |
 |---|---|
-| `src/` | 부품·레지스트리·검색, 설계도·조립, 파이프라인(정의·엔진·jq·워커), MCP 서버와 허브, hook, 설치 |
+| `src/` | 부품·레지스트리·검색, GitHub 파인더, 설계도·조립, 파이프라인(정의·엔진·jq·워커), MCP 서버와 허브, hook, 설치 |
 | `plugin/` | 오케스트레이터 skill, 조립·파이프라인 서브에이전트, 작업 화면(`hooks/view.tsx`, `hooks/motion.tsx`, `hooks/model.ts`) |
 | `catalog/` | 번들 부품과 라이선스 |
 | `docs/` | 파이프라인 설계 문서 |
@@ -198,7 +207,7 @@ pnpm check:view  # 작업 화면을 Claude Code로 검사 (claude 명령이 있�
 1. [x] 부품, 레지스트리, 허브
 2. [x] 설계도, 승인, 오케스트레이터 skill, hook
 3. [x] 파이프라인 엔진: 부품의 출력을 다른 부품의 입력으로 서버 안에서 직접 넘김(도구·변환·Claude 단계)
-4. [ ] GitHub 파인더: 저장소를 찾아 읽고 부품 명세 초안 작성
+4. [x] GitHub 파인더: 저장소를 찾아 읽고 부품 명세 초안 작성
 5. [ ] 레시피: 잘 된 설계도와 파이프라인을 저장하고 재사용
 
 ## 라이선스
