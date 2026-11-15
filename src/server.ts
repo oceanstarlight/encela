@@ -807,8 +807,22 @@ export class Server {
     // One that stays finished is not sealed again: saved with other text, it
     // is no longer the build that was seen to its end.
     if (previous) {
+      const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
+      // A finished build goes on only as what was built: its steps as they
+      // were, with more after them (its pieces may change; that is approved).
+      const goesOn =
+        previous.status !== "done" ||
+        (same(
+          [previous.goal, previous.requirements, previous.workers, previous.choices],
+          [b.goal, b.requirements, b.workers, b.choices],
+        ) &&
+          same(previous.pipelines, b.pipelines) &&
+          same(previous.steps, b.steps.slice(0, previous.steps.length)));
       if (!this.blueprints.building(previous)) b.done = "";
-      else if (b.status !== "done") this.blueprints.sealBuild(b);
+      else if (b.status !== "done") {
+        if (goesOn) this.blueprints.sealBuild(b);
+        else b.done = "";
+      }
     }
     this.blueprints.save(b);
     if (!previous && typeof given.recipe === "string") {
@@ -1160,7 +1174,8 @@ export class Server {
     // has seen so far. Steps a file already calls begun or done, in a file
     // that isn't as this computer left it, were not seen.
     const seen = this.blueprints.building(b) || b.steps.every((s) => s.status === "todo");
-    b.status = "assembled";
+    // A finished build that was sent back for approval has nothing left to do.
+    b.status = b.steps.every((s) => s.status === "done") ? "done" : "assembled";
     b.updatedAt = new Date().toISOString();
     if (seen) this.blueprints.sealBuild(b);
     else b.done = "";

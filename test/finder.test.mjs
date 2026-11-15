@@ -1190,6 +1190,10 @@ test("review 2: a start command's cautions see through folders, suffixes, wrappe
     ["nice", ["-n", "5", "./server", "sh"]],
     ["env", ["LOG=1", "node", "dist/index.js", "--title", "notes -prod"]],
     ["node", ["--enable-source-maps", "dist/index.js"]],
+    ["python", ["-u", "server.py", "-p", "8080"]],
+    ["node", ["--enable-source-maps", "dist/index.js", "-p", "3000"]],
+    ["node", ["--no-warnings", "build/index.js", "-transport", "stdio"]],
+    ["py", ["-3", "server.py", "-c", "config.json"]],
     ["uvx", ["some-pkg"]],
   ]) {
     assert.doesNotMatch(await read(command, args), /shell|code of its/, `${command} ${args}`);

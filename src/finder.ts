@@ -880,7 +880,11 @@ export class Finder {
         if (/^-/.test(a)) {
           if (INLINE.test(a)) return true;
           if (/^python|^py$/.test(name) && a === "-m") return false;
-          valued = !a.includes("=");
+          // Only an option known to take its value as the next word hides a script behind it.
+          valued =
+            /^(-[WXQC]|--(conditions|env-file|max-old-space-size|stack-size|input-type|title|cwd|config))$/.test(
+              a,
+            );
         } else {
           if (!valued) return false;
           valued = false;

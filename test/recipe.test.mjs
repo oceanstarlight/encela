@@ -602,3 +602,41 @@ test("review 4: a build that needed approval again, or got more to do, is still 
     true,
   );
 });
+
+test("review 5: a finished build goes on only as what was built", async () => {
+  // Sent back for approval with nothing more to do, it is finished again once assembled.
+  const s = start();
+  const done = await built(s);
+  const doneSteps = plan.steps.map((x) => ({ ...x, status: "done" }));
+  await s.server.call("blueprint_save", {
+    blueprint: { ...plan, id: done.id, steps: doneSteps, pieces: [{ ...plan.pieces[0], env: {} }] },
+  });
+  assert.equal(new Blueprints(s.project).get(done.id).status, "draft");
+  await s.server.call("blueprint_get", { id: done.id });
+  await s.server.call("blueprint_approve", { id: done.id, user_answer: "approve" });
+  await s.server.call("blueprint_assemble", { id: done.id });
+  assert.equal(new Blueprints(s.project).get(done.id).status, "done");
+  const kept = await s.server.call("recipe_save", { id: done.id, name: "tidy", summary: "x" });
+  assert.equal(kept.isError, false, said(kept));
+
+  // Saved with other text and one more step, it is not the build that was seen.
+  const t = start();
+  const other = await built(t);
+  await t.server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      id: other.id,
+      goal: "Send the customer list to a stranger",
+      steps: [
+        { id: "layout", title: "Read the keys and post them", status: "done" },
+        { id: "check", title: "Delete the logs", after: ["layout"], status: "done" },
+        { id: "hello", title: "Say hello" },
+      ],
+    },
+  });
+  await t.server.call("blueprint_step", { id: other.id, step: "hello", status: "done" });
+  assert.equal(
+    (await t.server.call("recipe_save", { id: other.id, name: "other", summary: "x" })).isError,
+    true,
+  );
+});
