@@ -38,7 +38,7 @@
     "format": "biome check --write .",
     "test": "node build.mjs --test && node --test test/*.test.mjs",
     "check:view": "node scripts/check-view.mjs",
-    "prepublishOnly": "node build.mjs"
+    "prepublishOnly": "node build.mjs && node scripts/check-pack.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

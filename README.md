@@ -4,7 +4,7 @@
 
 엔셀라는 Claude Code용 MCP 서버와 플러그인이에요. 부품(MCP 서버, CLI, 라이브러리, skill, rule, 지침, subagent)을 레고 블록처럼 갖고 있다가, 요청이 들어오면 Claude가 설계도를 그리고 사용자가 승인한 부품만 조립해요. 부품끼리는 파이프라인으로 실제로 이어서, 데이터가 Claude를 거치지 않고 부품에서 부품으로 넘어가요.
 
-> 개발 초기 단계예요. 1~3단계(부품·허브, 설계도·승인·오케스트레이터, 파이프라인)는 동작해요. [로드맵](#로드맵)
+> 개발 초기 단계예요. 로드맵 1~5단계(부품·허브, 설계도·승인, 파이프라인, GitHub 파인더, 레시피)는 동작해요. [로드맵](#로드맵)
 
 ## 어떻게 동작하나요
 
@@ -123,12 +123,18 @@ Encela ▸ ⠹ 만들기 1/4 · 작업자 2 · exports 2/5
 
 ## 설치
 
-Node.js 20 이상과 [Claude Code](https://docs.claude.com/en/docs/claude-code)가 필요해요. 아직 npm에 올리지 않아서 소스에서 설치해요.
+Node.js 20 이상과 [Claude Code](https://docs.claude.com/en/docs/claude-code)가 필요해요.
+
+```bash
+npx encela setup           # 플러그인을 ~/.encela/claude-plugin 에 쓰고 내 claude로 설치
+```
+
+계속 쓸 거면 `npm install -g encela` 뒤에 `encela setup`을 해 두면 시작이 더 빨라요. 소스에서 설치하려면:
 
 ```bash
 pnpm install
 pnpm build
-node dist/cli.js setup     # 플러그인을 ~/.encela/claude-plugin 에 쓰고 내 claude로 설치
+node dist/cli.js setup
 ```
 
 그다음 Claude Code를 새로 시작하고 평소처럼 요청을 쓰면 돼요. `/encela:go <요청>`은 작은 요청에도 같은 흐름을 강제해요.
