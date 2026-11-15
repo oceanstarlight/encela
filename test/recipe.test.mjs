@@ -537,3 +537,68 @@ test("review 3: a recipe names only the input values it really left out, and opt
   assert.equal(inputs.who.required, true);
   assert.equal(inputs.opt.required, false);
 });
+
+test("review 4: a build that needed approval again, or got more to do, is still one this computer saw", async () => {
+  // A change during the build sends it back for approval; it is then finished.
+  const s = start();
+  await s.ready;
+  await s.server.call("blueprint_save", { blueprint: plan });
+  const id = new Blueprints(s.project).list()[0].id;
+  await s.server.call("blueprint_approve", { id, user_answer: "approve" });
+  await s.server.call("blueprint_assemble", { id });
+  await s.server.call("blueprint_step", { id, step: "layout", status: "done" });
+  await s.server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      id,
+      pieces: [{ ...plan.pieces[0], env: { OUT_DIR: "/tmp/x" } }],
+    },
+  });
+  assert.equal(new Blueprints(s.project).get(id).status, "draft");
+  await s.server.call("blueprint_get", { id });
+  await s.server.call("blueprint_approve", { id, user_answer: "approve" });
+  await s.server.call("blueprint_assemble", { id });
+  await s.server.call("blueprint_step", { id, step: "check", status: "done" });
+  const kept = await s.server.call("recipe_save", { id, name: "again", summary: "x" });
+  assert.equal(kept.isError, false, said(kept));
+
+  // A finished build gets one more step, which is then done.
+  const t = start();
+  const done = await built(t);
+  await t.server.call("blueprint_save", {
+    blueprint: {
+      ...plan,
+      id: done.id,
+      steps: [
+        ...plan.steps.map((x) => ({ ...x, status: "done" })),
+        { id: "polish", title: "Polish", after: ["check"] },
+      ],
+    },
+  });
+  assert.equal(new Blueprints(t.project).get(done.id).status, "assembled");
+  await t.server.call("blueprint_step", { id: done.id, step: "polish", status: "done" });
+  const more = await t.server.call("recipe_save", { id: done.id, name: "more", summary: "x" });
+  assert.equal(more.isError, false, said(more));
+
+  // A draft's file edited to say its steps are done is still not a build that was seen.
+  const u = start();
+  await u.ready;
+  await u.server.call("blueprint_save", { blueprint: plan });
+  const uid = new Blueprints(u.project).list()[0].id;
+  await u.server.call("blueprint_approve", { id: uid, user_answer: "approve" });
+  const file = join(u.project, ".encela", "blueprints", `${uid}.json`);
+  const b = JSON.parse(readFileSync(file, "utf8"));
+  writeFileSync(
+    file,
+    JSON.stringify({ ...b, steps: b.steps.map((x) => ({ ...x, status: "done" })) }),
+  );
+  await u.server.call("blueprint_save", {
+    blueprint: { ...plan, id: uid, steps: plan.steps.map((x) => ({ ...x, status: "done" })) },
+  });
+  await u.server.call("blueprint_assemble", { id: uid });
+  await u.server.call("blueprint_step", { id: uid, step: "check", status: "done" });
+  assert.equal(
+    (await u.server.call("recipe_save", { id: uid, name: "forged", summary: "x" })).isError,
+    true,
+  );
+});

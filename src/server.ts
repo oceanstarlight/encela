@@ -802,12 +802,13 @@ export class Server {
     }
     const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
     if (!previous) b.id = this.blueprints.freeId(b.id);
-    // A build under way that this computer has seen so far stays one it has
-    // seen. A finished one is not sealed again: saved with other text, it is
-    // no longer the build that was seen to its end.
-    if (previous?.status === "assembled" && b.status === "assembled") {
-      if (this.blueprints.building(previous)) this.blueprints.sealBuild(b);
-      else b.done = "";
+    // A build this computer has seen so far stays one it has seen, also when
+    // a change sends it back for approval or gives a finished one more to do.
+    // One that stays finished is not sealed again: saved with other text, it
+    // is no longer the build that was seen to its end.
+    if (previous) {
+      if (!this.blueprints.building(previous)) b.done = "";
+      else if (b.status !== "done") this.blueprints.sealBuild(b);
     }
     this.blueprints.save(b);
     if (!previous && typeof given.recipe === "string") {
@@ -1155,13 +1156,10 @@ export class Server {
         out.push(`- ${piece.id}: ${e instanceof Error ? e.message : e}`);
       }
     }
-    // From here this computer watches the build. Steps a file already calls
-    // begun or done were not seen, and neither is a build picked up from a
-    // file that isn't as this computer left it.
-    const seen =
-      b.status === "assembled"
-        ? this.blueprints.building(b)
-        : b.steps.every((s) => s.status === "todo");
+    // From here this computer watches the build, or goes on watching one it
+    // has seen so far. Steps a file already calls begun or done, in a file
+    // that isn't as this computer left it, were not seen.
+    const seen = this.blueprints.building(b) || b.steps.every((s) => s.status === "todo");
     b.status = "assembled";
     b.updatedAt = new Date().toISOString();
     if (seen) this.blueprints.sealBuild(b);

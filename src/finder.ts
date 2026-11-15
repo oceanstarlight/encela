@@ -524,8 +524,6 @@ const INTERPRETER = /^(node|nodejs|python[0-9.]*|py|deno|bun|ruby|perl|php)$/;
 /** Programs that only start another one. */
 const WRAPPER =
   /^(env|nohup|nice|time|command|exec|sudo|doas|cmd|start|stdbuf|timeout|busybox|xargs|setsid|chroot)$/;
-/** Programs whose own arguments can carry a program to run. */
-const RUNS = /^(npx|bunx|npm|pnpm|yarn|uvx|uv|pipx|docker|podman|nerdctl)$/;
 // Code given on the command line (`-e`, in a group of short flags such as `-pe`, or with the code stuck to the flag: `-e1`), or loaded before the program.
 const INLINE =
   /^(-[A-Za-z]*[ceEpr].*|(--eval|--print|--require|--import|--loader|--experimental-loader)(=.*)?)$/;
@@ -835,39 +833,73 @@ export class Finder {
    * command takes whatever is newest.
    */
   private async command(r: Reading, command: string, args: string[], whose: string) {
-    // The program that really runs: without its folder and suffix, and past
-    // the wrappers that only start another program.
+    // Every program the command runs or may run: the command itself and, past
+    // a wrapper that only starts another program, what it starts. A wrapper's
+    // options take values (`sudo -u node sh x`, `timeout 30 sh`), so a word
+    // after an option may be the program or not: it is looked at, and so is
+    // the next one.
+    const word = (a: string) => a.replace(/^["']+|["']+$/g, "");
     const bare = (c: string) =>
-      c
+      word(c)
         .replace(/^.*[\\/]/, "")
         .replace(/\.(exe|cmd|bat)$/i, "")
         .toLowerCase();
-    let program = bare(command);
-    let rest = args;
-    let shell = SHELL.test(program);
-    for (let i = 0; i < 4 && WRAPPER.test(program); i++) {
-      // A wrapper's options take values (`sudo -u root sh`, `timeout 30 sh`,
-      // `env -S "sh -c x"`): the program is the first word known to run
-      // things, else the first that is no option and no assignment.
-      rest = rest.flatMap((a) => a.trim().split(/\s+/)).filter(Boolean);
-      const known = (a: string) =>
-        [SHELL, INTERPRETER, WRAPPER, RUNS].some((kind) => kind.test(bare(a)));
-      let at = rest.findIndex(known);
-      if (at < 0) {
-        at = rest.findIndex((a) => !/^[-/]/.test(a) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(a));
+    const ran: { name: string; args: string[] }[] = [{ name: bare(command), args }];
+    for (let i = 0; i < ran.length && i < 8; i++) {
+      const wrapper = ran[i] as { name: string; args: string[] };
+      if (!WRAPPER.test(wrapper.name)) continue;
+      const words = wrapper.args
+        .flatMap((a) =>
+          a
+            .trim()
+            .replace(/^(-[A-Za-z]*S|--split-string=)(?=.)/, "")
+            .split(/\s+/),
+        )
+        .map(word)
+        .filter(Boolean);
+      let valued = false;
+      for (let k = 0; k < words.length; k++) {
+        const a = words[k] as string;
+        if (/^-/.test(a) || /^\/[A-Za-z?]{1,2}$/.test(a)) {
+          valued = !a.includes("=");
+          continue;
+        }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(a)) {
+          valued = false;
+          continue;
+        }
+        ran.push({ name: bare(a), args: words.slice(k + 1) });
+        if (!valued && !/^\d/.test(a)) break;
+        valued = false;
       }
-      if (at < 0) break;
-      program = bare(rest[at] as string);
-      rest = rest.slice(at + 1);
-      shell ||= SHELL.test(program);
     }
-    if (shell || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
+    // Code among an interpreter's own options: those before the script or module.
+    const inline = (name: string, given: string[]) => {
+      let valued = false;
+      for (const a of given) {
+        if (/^-/.test(a)) {
+          if (INLINE.test(a)) return true;
+          if (/^python|^py$/.test(name) && a === "-m") return false;
+          valued = !a.includes("=");
+        } else {
+          if (!valued) return false;
+          valued = false;
+        }
+      }
+      return false;
+    };
+    const runs = (kind: RegExp) => ran.some((p) => kind.test(p.name));
+    if (runs(SHELL) || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
       r.cautions.push("Starts through a shell or downloads as it starts: read the command");
     }
     if (
-      (INTERPRETER.test(program) && rest.some((a) => INLINE.test(a))) ||
-      (/^(deno|bun)$/.test(program) && rest[0] === "eval") ||
-      (/^(npx|bunx|npm)$/.test(program) && rest.some((a) => /^(-[A-Za-z]*c|--call)(=|$)/.test(a)))
+      ran.some(
+        (p) =>
+          (INTERPRETER.test(p.name) && inline(p.name, p.args)) ||
+          (/^(deno|bun)$/.test(p.name) && p.args[0] === "eval") ||
+          (/^(npx|bunx|npm)$/.test(p.name) &&
+            p.args.some((a) => /^(-[A-Za-z]*c|--call)(=|$)/.test(a))),
+      )
     ) {
       r.cautions.push("The start command carries code of its own to run: read it");
     }
@@ -876,12 +908,12 @@ export class Finder {
         "An argument holds characters a Windows command line treats specially (& | ^ < > %): read the command",
       );
     }
-    if (/^(docker|podman|nerdctl)$/.test(program)) {
+    if (runs(/^(docker|podman|nerdctl)$/)) {
       r.cautions.push("Runs a container image that is fetched when it starts");
     }
     const spec = packageOf(command, args);
     if (!spec) {
-      if (/^(npx|bunx|npm|uvx|pipx|pnpm|yarn|uv)$/.test(program)) {
+      if (runs(/^(npx|bunx|npm|uvx|pipx|pnpm|yarn|uv)$/)) {
         r.cautions.push(
           "The start command fetches code that Encela could not check against npm or PyPI (a path, a URL, another name for a package, or options it doesn't read)",
         );

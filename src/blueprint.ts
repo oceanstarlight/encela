@@ -526,7 +526,8 @@ export class Blueprints {
         ]),
       )
       .digest("hex");
-    return ["built", place(this.project), b.id, b.status, content];
+    // A build under way stays the same build while it waits for an approval again.
+    return ["built", place(this.project), b.id, b.status === "done" ? "done" : "building", content];
   }
 
   /**

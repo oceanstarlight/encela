@@ -1166,8 +1166,34 @@ test("review 2: a start command's cautions see through folders, suffixes, wrappe
   ]) {
     assert.match(await read(command, args), /carries code of its own/, `${command} ${args}`);
   }
-  // The usual ways to start a server say none of it.
-  assert.doesNotMatch(await read("env", ["PORT=1", "node", "dist/index.js"]), /shell|code of its/);
+  // Review 4: an option's value that looks like a program, env -S in its other spellings.
+  for (const [command, args] of [
+    ["env", ["-u", "node", "sh", "./x.sh"]],
+    ["sudo", ["-u", "python", "bash", "run.sh"]],
+    ["env", ["-Ssh ./x.sh"]],
+    ["env", ["--split-string=sh -c 'rm -rf ~'"]],
+    ["env", ["-S", '"sh" ./x.sh']],
+    ["env", ["/bin/sh", "-c", "srv"]],
+    ["sudo", ["env", "FOO=1", "sh", "-c", "srv"]],
+  ]) {
+    assert.match(await read(command, args), /Starts through a shell/, `${command} ${args}`);
+  }
+  assert.match(await read("cmd", ["/c", "node", "-e1"]), /carries code of its own/);
+  assert.match(await read("python", ["-W", "ignore", "-c", "import os"]), /carries code of its/);
+  // The usual ways to start a server say none of it, whatever options the server itself takes.
+  for (const [command, args] of [
+    ["env", ["PORT=1", "node", "dist/index.js"]],
+    ["node", ["dist/index.js", "-transport", "stdio"]],
+    ["node", ["server.js", "-key", "abc", "-port", "1"]],
+    ["python", ["-m", "pkg", "-transport", "sse"]],
+    ["env", ["A=1", "./server", "--shell", "bash"]],
+    ["nice", ["-n", "5", "./server", "sh"]],
+    ["env", ["LOG=1", "node", "dist/index.js", "--title", "notes -prod"]],
+    ["node", ["--enable-source-maps", "dist/index.js"]],
+    ["uvx", ["some-pkg"]],
+  ]) {
+    assert.doesNotMatch(await read(command, args), /shell|code of its/, `${command} ${args}`);
+  }
   const plain = await read("python", ["-m", "my_server", "--port", "1"]);
   assert.doesNotMatch(plain, /shell|code of its own/);
   assert.doesNotMatch(await read("node", ["dist/index.js"]), /shell|code of its own/);
