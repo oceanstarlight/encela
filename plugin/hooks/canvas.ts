@@ -11,7 +11,7 @@
 // `model.ts` moves the packets.
 import type { Act, Agent, Live } from "../types";
 import type { Line, Seg, Tone } from "./model";
-import { cells, fit, moving, oneLine } from "./model";
+import { asText, cells, cellsOf, fit, moving, oneLine } from "./model";
 
 type Lang = "ko" | "en";
 
@@ -78,13 +78,13 @@ export function actOf(
     return clean ? { kind, name: clean } : null;
   };
   if (own !== null) {
-    if (own === "piece_call") return named("piece", String(input.id ?? "").replace(/^[a-z]+:/, ""));
+    if (own === "piece_call") return named("piece", asText(input.id).replace(/^[a-z]+:/, ""));
     if (ownTools.has(own)) return null;
     const at = own.indexOf("__");
     return at > 0 ? named("piece", own.slice(0, at)) : null;
   }
   if (tool === "WebSearch" || tool === "WebFetch") return { kind: "web", name: "web" };
-  if (tool === "Skill") return named("skill", String(input.skill ?? ""));
+  if (tool === "Skill") return named("skill", asText(input.skill));
   if (tool.startsWith("mcp__")) {
     return named("mcp", (tool.split("__")[1] ?? "").replace(/^plugin_[^_]+_/, ""));
   }
@@ -99,7 +99,10 @@ export function acted(
   by: 1 | -1,
 ): Act[] {
   const id = `${from}\u0001${to.kind}\u0001${to.name}`;
-  const was = list.find((a) => a.id === id) ?? { id, from, ...to, busy: 0, calls: 0 };
+  const known = list.find((a) => a.id === id);
+  // The end of a call the turn's end already took off the canvas brings nothing back.
+  if (by < 0 && !known) return [...list];
+  const was = known ?? { id, from, ...to, busy: 0, calls: 0 };
   const now: Act = {
     ...was,
     busy: Math.max(0, was.busy + by),
@@ -152,6 +155,8 @@ interface Edge {
   /** 0: they have to do with each other. 1: one has called the other. 2: it is calling it now. */
   rank: 0 | 1 | 2;
   hue?: number;
+  /** A call that is out right now (not a subagent at work, not pieces being put together). */
+  call?: true;
 }
 
 interface Px {
@@ -216,8 +221,8 @@ export function canvas(
 ): Line[] {
   const lang: Lang = live?.lang ?? opts.lang ?? "en";
   const w = WORDS[lang];
-  const columns = Math.max(16, Math.floor(opts.columns));
-  const rows = Math.max(3, Math.floor(opts.rows));
+  const columns = Math.max(1, Math.floor(opts.columns) || 1);
+  const rows = Math.max(1, Math.floor(opts.rows) || 1);
   const b = live?.blueprint ?? null;
   const hueOf = (worker: string) => {
     const i = b?.workers.indexOf(worker) ?? -1;
@@ -302,10 +307,12 @@ export function canvas(
     });
     // Being put together: the orchestrator reaches for every piece.
     if (live?.phase === "assemble") edges.push({ from: "main", to: `piece:${p.name}`, rank: 2 });
-    // A pipeline calls pieces by itself.
+    // A pipeline calls pieces by itself: the run whose step in progress names this piece.
     if (p.busy > 0) {
       for (const r of runs.filter((x) => x.status === "running")) {
-        edges.push({ from: `run:${r.id}`, to: `piece:${p.name}`, rank: 2 });
+        if (r.steps.some((s) => s.state === "running" && s.kind === "tool" && s.piece === p.id)) {
+          edges.push({ from: `run:${r.id}`, to: `piece:${p.name}`, rank: 2, call: true });
+        }
       }
     }
   }
@@ -334,14 +341,52 @@ export function canvas(
     }
     const sub = agents.find((x) => x.id === a.from);
     edges.push(
-      tint({ from, to, rank: (a.busy > 0 ? 2 : 1) as 1 | 2 }, sub ? hueOf(sub.worker) : undefined),
+      tint(
+        {
+          from,
+          to,
+          rank: (a.busy > 0 ? 2 : 1) as 1 | 2,
+          ...(a.busy > 0 ? { call: true as const } : {}),
+        },
+        sub ? hueOf(sub.worker) : undefined,
+      ),
     );
   }
 
   // --- the layers, top to bottom: an empty one takes no room
   const used = [0, 1, 2].filter((l) => nodes.some((n) => n.layer === l));
   for (const n of nodes) n.layer = used.indexOf(n.layer);
-  const layers = used.length;
+  const gone = new Map<string, string>();
+  const gather = (rest: Node[], layer: number): Node => {
+    const plus: Node = {
+      id: `more:${layer}`,
+      layer,
+      glyph: "…",
+      label: w.more(rest.length),
+      sub: "",
+      tone: rest.some((n) => n.tone === "busy") ? "busy" : "dim",
+      spin: false,
+      loose: false,
+      x: 0,
+      y: 0,
+      w: 0,
+    };
+    for (const n of rest) {
+      gone.set(n.id, plus.id);
+      nodes.splice(nodes.indexOf(n), 1);
+    }
+    nodes.push(plus);
+    return plus;
+  };
+  // A layer takes a row and the lines to the next one another: layers there are no rows for
+  // are gathered into one `+n` beside the last layer that has its row.
+  const layers = Math.min(used.length, Math.max(1, Math.floor((rows + 1) / 2)));
+  if (layers < used.length) {
+    gather(
+      nodes.filter((n) => n.layer >= layers),
+      layers - 1,
+    );
+  }
   const foot = pieces.length > 0 && rows >= layers * 2 + 2 ? 1 : 0;
   const mode =
     MODES.find((m) => columns >= 28 && layers * m.node + (layers - 1) * m.gap <= rows - foot) ??
@@ -360,31 +405,17 @@ export function canvas(
   const least = boxed ? 8 : 5;
   const most = boxed ? 26 : 22;
   const between = boxed ? 1 : 2;
-  const gone = new Map<string, string>();
   for (let l = 0; l < layers; l++) {
     let row = nodes.filter((n) => n.layer === l);
     const fits = Math.max(1, Math.floor((room + between) / (least + between)));
     if (row.length > fits) {
       const kept = row.slice(0, Math.max(1, fits - 1));
       const rest = row.slice(kept.length);
-      const plus: Node = {
-        id: `more:${l}`,
-        layer: l,
-        glyph: "…",
-        label: w.more(rest.length),
-        sub: "",
-        tone: rest.some((n) => n.tone === "busy") ? "busy" : "dim",
-        spin: false,
-        loose: false,
-        x: 0,
-        y: 0,
-        w: 0,
-      };
-      for (const n of rest) {
-        gone.set(n.id, plus.id);
-        nodes.splice(nodes.indexOf(n), 1);
-      }
-      nodes.push(plus);
+      // What was gathered before counts as what it stood for.
+      const before = rest.find((n) => n.id === `more:${l}`);
+      const stood = before ? [...gone.values()].filter((v) => v === before.id).length : 0;
+      const plus = gather(rest, l);
+      if (before) plus.label = w.more(rest.length - 1 + stood);
       row = [...kept, plus];
     }
     // A box: two borders, the marker, a space each side of the name.
@@ -410,9 +441,15 @@ export function canvas(
   }
   // Lines to and from what was gathered go to the `+n` node; of two between the same pair the stronger stays.
   const joined = new Map<string, Edge>();
+  const stands = (id: string) => {
+    let now = id;
+    for (let i = 0; i < 3 && gone.has(now) && gone.get(now) !== now; i++)
+      now = gone.get(now) as string;
+    return now;
+  };
   for (const e of edges) {
-    const from = gone.get(e.from) ?? e.from;
-    const to = gone.get(e.to) ?? e.to;
+    const from = stands(e.from);
+    const to = stands(e.to);
     if (from === to) continue;
     const key = `${from}\u0001${to}`;
     const was = joined.get(key);
@@ -431,7 +468,14 @@ export function canvas(
   const put = (x: number, y: number, text: string, px: Omit<Px, "ch">) => {
     let at = x;
     for (const ch of text) {
-      const wide = cells(ch) > 1;
+      const size = cellsOf(ch);
+      if (size === 0) {
+        // A mark sits on the character before it.
+        const on = grid[y]?.[at - 1]?.skip ? grid[y]?.[at - 2] : grid[y]?.[at - 1];
+        if (on && at > x) on.ch += ch;
+        continue;
+      }
+      const wide = size > 1;
       if (at + (wide ? 1 : 0) >= columns) break;
       set(at, y, { ...px, ch });
       if (wide) set(at + 1, y, { ch: "", tone: px.tone, skip: true });
@@ -470,10 +514,16 @@ export function canvas(
   }
 
   // A line is a walk from cell to cell; where walks meet, the cell joins them all.
-  const walk = (cellsOf: [number, number][], e: Edge, open: number, close: number) => {
-    cellsOf.forEach(([x, y], i) => {
-      const prev = cellsOf[i - 1];
-      const next = cellsOf[i + 1];
+  const walk = (path: [number, number][], e: Edge, open: number, close: number) => {
+    // Where this line joins one that packets already run along, they run on in step.
+    let phase = 0;
+    if (e.rank === 2) {
+      const j = path.findIndex(([x, y]) => grid[y]?.[x]?.fx === "flow");
+      if (j >= 0) phase = ((grid[path[j]?.[1] ?? 0]?.[path[j]?.[0] ?? 0]?.at ?? 0) - j) % 6;
+    }
+    path.forEach(([x, y], i) => {
+      const prev = path[i - 1];
+      const next = path[i + 1];
       let link = 0;
       const toward = (o: [number, number] | undefined, fallback: number) => {
         if (!o) return fallback;
@@ -497,7 +547,7 @@ export function canvas(
                 ch: "",
                 tone: (e.rank === 2 ? "busy" : e.rank === 1 ? "plain" : "dim") as Tone,
                 rank: e.rank,
-                ...(e.rank === 2 && working ? { fx: "flow" as const, at: i } : {}),
+                ...(e.rank === 2 && working ? { fx: "flow" as const, at: i + phase } : {}),
               },
               e.rank === 2 ? e.hue : undefined,
             )
@@ -589,7 +639,7 @@ export function canvas(
     const up = assembled ? pieces.length : 0;
     const servers = pieces.filter((p) => p.running).length;
     const docs = pieces.filter((p) => DOCUMENTS.includes(p.kind)).length;
-    const calling = [...joined.values()].filter((e) => e.rank === 2).length;
+    const calling = edges.filter((e) => e.call).length;
     const said: Seg[] = [
       { text: w.parts(up, pieces.length), tone: assembled ? "good" : "dim" },
       ...(servers ? [{ text: ` · ● ${w.servers(servers)}`, tone: "dim" as Tone }] : []),

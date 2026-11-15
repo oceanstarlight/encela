@@ -32,6 +32,8 @@ interface Kept {
   tab: Tab;
   /** The tab the hooks module last named: when it names another, that one shows. */
   told: Tab;
+  /** Whether there are tabs at all: the small form has one picture and none to choose. */
+  tabs: boolean;
 }
 
 const Lines: ClientModule = (given, surface) => {
@@ -42,12 +44,19 @@ const Lines: ClientModule = (given, surface) => {
   const tab: Tab = !canvas ? "graph" : kept && kept.told === told ? kept.tab : told;
   const showing = tab === "canvas" && canvas ? canvas : lines;
   const motion = meet(kept?.motion, showing);
-  if (!kept || motion !== kept.motion || kept.tab !== tab || kept.told !== told) {
-    surface.setState({ motion, tab, told } satisfies Kept);
+  const tabs = !!canvas;
+  if (
+    !kept ||
+    motion !== kept.motion ||
+    kept.tab !== tab ||
+    kept.told !== told ||
+    kept.tabs !== tabs
+  ) {
+    surface.setState({ motion, tab, told, tabs } satisfies Kept);
   }
   const choose = (to: Tab) => {
     const now = surface.state as Kept | undefined;
-    if (!now || now.tab === to) return;
+    if (!now?.tabs || now.tab === to) return;
     surface.setState({ ...now, tab: to } satisfies Kept);
     surface.post({ tab: to });
   };

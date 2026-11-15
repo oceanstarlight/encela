@@ -450,9 +450,10 @@ export class Server {
               id: run.id,
               pipeline: run.pipeline.name,
               status: run.status,
-              steps: run.steps.map((s) => ({
+              steps: run.steps.map((s, i) => ({
                 id: s.id,
                 kind: s.kind,
+                piece: run.pipeline.steps[i]?.piece ?? "",
                 state: s.state,
                 items: s.items,
                 itemsDone: s.itemsDone,

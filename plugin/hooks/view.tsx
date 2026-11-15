@@ -215,13 +215,19 @@ async function met($: EngineInterface, id: string, prompt: string, about: string
   await update($, agents, (list) => seen(list, id, patch));
 }
 
+/** How many turns of each loop have ended: a call's end counts only in the turn it began in. */
+const turns = new Map<string, number>();
+
 /** A loop's turn began, or ended. */
 async function turn($: EngineInterface, id: string, begins: boolean) {
   armed ??= await read($, since);
   if (!armed) return;
   await update($, agents, (list) => (begins ? began(list, id) : ended(list, id)));
   // Whatever the loop was calling, it isn't any more.
-  if (!begins) await update($, acts, (list) => settled(list, id));
+  if (!begins) {
+    turns.set(id, (turns.get(id) ?? 0) + 1);
+    await update($, acts, (list) => settled(list, id));
+  }
 }
 
 export const register: Register = (on) => {
@@ -252,7 +258,11 @@ export const register: Register = (on) => {
     if (!watching) return next(e);
     // For the canvas: who reaches for what, while the call is out.
     const from = e.agentId ?? "main";
-    const to = actOf(e.tool, input, name, OWN);
+    let to: ReturnType<typeof actOf> = null;
+    try {
+      to = actOf(e.tool, input, name, OWN);
+    } catch {}
+    const during = turns.get(from) ?? 0;
     if (!own && !to) return next(e);
     if (to) await update($, acts, (list) => acted(list, from, to, 1)).catch(() => {});
     if (own) {
@@ -263,7 +273,9 @@ export const register: Register = (on) => {
       return await next(e);
     } finally {
       // The answer waits for neither the canvas nor the view's reading.
-      if (to) void update($, acts, (list) => acted(list, from, to, -1)).catch(() => {});
+      if (to && (turns.get(from) ?? 0) === during) {
+        void update($, acts, (list) => acted(list, from, to, -1)).catch(() => {});
+      }
       if (own) {
         inFlight--;
         still = 0;
@@ -341,12 +353,14 @@ export const register: Register = (on) => {
       );
     }
     // The canvas keeps the head: what is being built, and where the flow stands.
-    const head = view.lines.slice(0, view.head);
+    const head = view.lines.slice(0, Math.min(view.head, Math.max(0, rows - 1)));
+    // A blank line under the head where the picture still has three rows.
+    const gap = head.length && rows - head.length >= 4 ? 1 : 0;
     const picture: Line[] = [
       ...head,
-      ...(head.length ? [{ left: [] }] : []),
+      ...(gap ? [{ left: [] }] : []),
       ...canvas(state, loops, reached, {
-        rows: Math.max(3, rows - head.length - (head.length ? 1 : 0)),
+        rows: Math.max(1, rows - head.length - gap),
         columns,
         lang,
       }),

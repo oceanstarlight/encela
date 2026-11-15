@@ -35,6 +35,8 @@ export interface LiveRun {
   steps: {
     id: string;
     kind: "tool" | "transform" | "claude";
+    /** A tool step: the id of the piece it calls; "" otherwise. */
+    piece: string;
     state: "todo" | "running" | "waiting" | "done" | "failed" | "skipped";
     items: number;
     itemsDone: number;
