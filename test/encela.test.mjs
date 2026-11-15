@@ -536,6 +536,16 @@ test("the plugin starts Encela the right way on each OS", () => {
     args: ["/x/cli.js"],
   });
   assert.equal(launcherFor("darwin", false, "/h/.npm/_npx/ab/cli.js", "node").command, "npx");
+  // While npx runs, its own folder is on PATH: an `encela` found there is gone later.
+  const viaNpx =
+    "C:\\Users\\me\\AppData\\Local\\npm-cache\\_npx\\ab12\\node_modules\\encela\\dist\\cli.js";
+  assert.deepEqual(launcherFor("win32", true, viaNpx, "node.exe").args.slice(0, 3), [
+    "/c",
+    "npx",
+    "-y",
+  ]);
+  assert.match(hookCommandFor("win32", true, viaNpx, "node.exe"), /^npx -y encela@\S+ hook$/);
+  assert.match(hookCommandFor("linux", true, "/h/.npm/_npx/ab/cli.js", "node"), /^npx -y encela@/);
   // The hook runs in a POSIX shell, Git Bash on Windows: no cmd /c, no backslashes.
   assert.equal(hookCommandFor("win32", true, cli, "node.exe"), "encela hook");
   assert.equal(

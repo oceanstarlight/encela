@@ -14,6 +14,9 @@ export const MARKETPLACE = "encela";
 export const PLUGIN = "encela";
 export const PLUGIN_ID = `${PLUGIN}@${MARKETPLACE}`;
 
+/** A file in the folder npx keeps what it fetched in. */
+const NPX = /[\\/]_npx[\\/]/;
+
 /** How the plugin starts this package: `encela` on PATH, this install, or npx. */
 export function launcher(): { command: string; args: string[] } {
   return launcherFor(process.platform, ...installed());
@@ -30,9 +33,11 @@ function bareLauncher(
   cli: string,
   execPath: string,
 ): { command: string; args: string[] } {
+  // npx runs from a cache folder that can be cleared: point at the registry
+  // instead. This comes first: while npx runs, its own folder is on PATH, so
+  // an `encela` is found there that is gone when the plugin starts.
+  if (NPX.test(cli)) return { command: "npx", args: ["-y", `${PACKAGE}@${VERSION}`] };
   if (encelaOnPath) return { command: "encela", args: [] };
-  // npx runs from a cache folder that can be cleared: point at the registry instead.
-  if (/[\\/]_npx[\\/]/.test(cli)) return { command: "npx", args: ["-y", `${PACKAGE}@${VERSION}`] };
   return { command: execPath, args: [cli] };
 }
 
@@ -78,10 +83,13 @@ export function hookCommandFor(
 function onPath(name: string): boolean {
   const exts =
     process.platform === "win32" ? (process.env.PATHEXT ?? ".EXE;.CMD").split(";") : [""];
-  return (process.env.PATH ?? "")
-    .split(delimiter)
-    .filter(Boolean)
-    .some((dir) => exts.some((e) => existsSync(join(dir, name + e.toLowerCase()))));
+  return (
+    (process.env.PATH ?? "")
+      .split(delimiter)
+      // What npx put on PATH for one run is not on it later.
+      .filter((dir) => dir && !NPX.test(`${dir}/`))
+      .some((dir) => exts.some((e) => existsSync(join(dir, name + e.toLowerCase()))))
+  );
 }
 
 const GO_COMMAND = `---
