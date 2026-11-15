@@ -315,6 +315,26 @@ test("a tool call in a few words", () => {
     "playwright",
   );
   assert.ok(cells(doing("Bash", { command: "x".repeat(500) })) <= 60);
+  // Nothing that isn't plain text reaches the screen: Claude Code refuses a tree with control characters in it.
+  const plain = /^[^\p{Cc}\u2028\u202a-\u202e\u2066-\u2069]*$/u;
+  const nasty = "a\u001b[31mred\u0007\u0000\tb\r\nc\u202edcba\u2066x\ufeff";
+  assert.equal(doing("Bash", { command: nasty }), "$ a [31mred b c dcba x");
+  assert.match(doing("Edit", { file_path: `/x/${nasty}.ts` }), plain);
+  assert.match(doing(`mcp__srv__${nasty}`, {}), plain);
+  assert.equal(workerOf(`Worker "back\u001bend": role`), "back end");
+  const dirty = parse(
+    JSON.stringify({
+      ...state(),
+      blueprint: { ...state().blueprint, goal: nasty, steps: [step(nasty, nasty, "doing", nasty)] },
+      pieces: [piece(nasty, "mcp", { last: nasty, calls: 1 })],
+      events: [{ at: 1, kind: "step", what: nasty, how: nasty }],
+    }),
+  );
+  const all = frame(dirty, [agent("main", { doing: doing("Bash", { command: nasty }) })], opts());
+  for (const l of all.lines) {
+    for (const s of [...l.left, ...(l.right ?? [])]) assert.match(s.text, plain);
+  }
+  for (const s of all.band) assert.match(s.text, plain);
 });
 
 test("the model loops: who is who, what each did last, when a turn ends", () => {

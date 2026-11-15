@@ -22,9 +22,11 @@ import {
   doing,
   encelaTool,
   ended,
+  fit,
   frame,
   look,
   moving,
+  oneLine,
   parse,
   seen,
   workerOf,
@@ -165,7 +167,7 @@ async function note(
 async function met($: EngineInterface, id: string, prompt: string, about: string) {
   armed ??= await read($, since);
   if (!armed) return;
-  const patch = { worker: workerOf(prompt), about };
+  const patch = { worker: workerOf(prompt), about: fit(oneLine(about), 60) };
   await update($, agents, (list) => seen(list, id, patch));
 }
 

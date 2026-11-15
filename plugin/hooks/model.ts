@@ -159,7 +159,17 @@ const DONE_FOR = 120_000;
 const HUES = 3;
 
 const seg = (text: string, tone: Tone = "plain"): Seg => ({ text, tone });
-const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+/**
+ * Text as one line that is safe to draw: control characters (an escape
+ * sequence in a command, say) and the marks that reorder or hide text are
+ * taken out, runs of white space made one. Claude Code refuses a tree whose
+ * text holds control characters, so one stray byte would blank the pane.
+ */
+export const oneLine = (s: string) =>
+  s
+    .replace(/[\p{Cc}\u2028\u2029\u202a-\u202e\u2066-\u2069\u200e\u200f\ufeff]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 // --- widths: a terminal draws Korean, Chinese and Japanese two cells wide
 
@@ -219,7 +229,8 @@ function fitLine(line: Line, columns: number): Line {
 
 const rec = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-const str = (v: unknown, max = 160) => (typeof v === "string" ? v.slice(0, max) : "");
+const str = (v: unknown, max = 160) =>
+  typeof v === "string" ? oneLine(v.slice(0, max * 2)).slice(0, max) : "";
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
 const arr = (v: unknown, max: number): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
@@ -322,7 +333,7 @@ export function moving(live: Live | null): boolean {
 
 /** The worker a subagent was started as: the first line of its brief says. */
 export function workerOf(prompt: string): string {
-  return /^Worker "([^"\n]{1,80})":/m.exec(prompt)?.[1] ?? "";
+  return oneLine(/^Worker "([^"\n]{1,80})":/m.exec(prompt)?.[1] ?? "");
 }
 
 /** The Encela tool behind a tool name Claude Code shows, or null: `mcp__plugin_encela_encela__find_pieces` → `find_pieces`. */
