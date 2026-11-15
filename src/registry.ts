@@ -103,12 +103,33 @@ export class Registry {
     const own = this.own();
     const at = own.findIndex((p) => p.id === piece.id);
     if (at >= 0) {
-      // Changing what an accepted piece runs needs the user's word again.
       const before = own[at] as Piece;
-      const same =
-        JSON.stringify([before.config, before.install, before.body]) ===
-        JSON.stringify([piece.config, piece.install, piece.body]);
-      if (by === "claude" && same) piece.trusted = before.trusted;
+      if (by === "claude" && before.origin === "user") {
+        throw new Error(
+          `${piece.id} is a piece the user added themselves: it is not replaced. Give this one another name.`,
+        );
+      }
+      // Changing what an accepted piece runs, says or is needs the user's
+      // word again: its command, its text, the files beside it, its guide,
+      // and where it comes from.
+      const what = (p: Piece) =>
+        JSON.stringify([
+          p.kind,
+          p.config,
+          p.install,
+          p.body,
+          Object.entries(p.files ?? {}).sort(([a], [z]) => (a < z ? -1 : a > z ? 1 : 0)),
+          p.paths,
+          p.guide,
+          p.source?.repo ?? "",
+          p.source?.commit ?? "",
+          p.license,
+        ]);
+      if (by === "claude") {
+        if (what(before) === what(piece)) piece.trusted = before.trusted;
+        // What the user was to be told about it is not taken back by a later call.
+        piece.warnings = [...new Set([...before.warnings, ...piece.warnings])];
+      }
       own[at] = piece;
     } else own.push(piece);
     this.store(own);

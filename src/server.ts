@@ -1053,6 +1053,21 @@ export class Server {
         `${b.id} is ${b.status}: the user has to approve it first (blueprint_approve). Nothing was assembled.${this.foreignNote(b.id)}`,
       );
     }
+    // What the user approved is the pieces as they were then: one that was
+    // changed since (kept again with other text, files or command) waits for
+    // the user's word, and so does the blueprint.
+    const changed = b.pieces
+      .map((p) => this.registry.find(p.piece))
+      .filter((p): p is Piece => !!p && !p.trusted)
+      .map((p) => p.id);
+    if (changed.length) {
+      unapprove(b);
+      b.updatedAt = new Date().toISOString();
+      this.blueprints.save(b);
+      throw new Error(
+        `${changed.join(", ")} ${changed.length > 1 ? "were" : "was"} changed after the user approved ${b.id}, so the approval no longer holds and nothing was assembled. Show the blueprint again (blueprint_get) and call blueprint_approve.`,
+      );
+    }
     const usage = new Map<string, string>();
     const out: string[] = [`Assembled ${b.id}: ${b.goal}`, "", "## Pieces"];
     let failed = 0;

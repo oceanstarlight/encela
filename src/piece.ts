@@ -229,6 +229,16 @@ export function cautions(p: Piece): string[] {
         ? `Starts a program on this computer: ${[p.config.command, ...p.config.args].join(" ")}`
         : `Connects to ${p.config.url}`,
     );
+    // What it is started with, and which of the user's own values it is handed.
+    const env = Object.entries(p.config.env);
+    const set = env.filter(([, v]) => !/^\$\{[A-Za-z0-9_]+(:-[^}]*)?\}$/.test(v));
+    const handed = env.filter(([k, v]) => !set.some(([n]) => n === k) && v !== "");
+    if (set.length) out.push(`Sets for it: ${set.map(([k, v]) => `${k}=${v}`).join(", ")}`);
+    if (handed.length) {
+      out.push(
+        `Is handed your ${handed.map(([k]) => k).join(", ")} from this computer's environment`,
+      );
+    }
   }
   if (p.config) {
     const missing = missingEnv(p.config);
