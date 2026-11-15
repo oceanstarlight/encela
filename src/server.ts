@@ -802,6 +802,13 @@ export class Server {
     }
     const b = normalizeBlueprint(input, this.registry, previous, new Date(), this.tools);
     if (!previous) b.id = this.blueprints.freeId(b.id);
+    // A build under way that this computer has seen so far stays one it has
+    // seen. A finished one is not sealed again: saved with other text, it is
+    // no longer the build that was seen to its end.
+    if (previous?.status === "assembled" && b.status === "assembled") {
+      if (this.blueprints.building(previous)) this.blueprints.sealBuild(b);
+      else b.done = "";
+    }
     this.blueprints.save(b);
     if (!previous && typeof given.recipe === "string") {
       try {
@@ -917,7 +924,7 @@ export class Server {
       return await this.ask(
         "elicitation/create",
         {
-          message: `${this.show(b, true)}\n\n${question}`,
+          message: `${render(b, this.registry, true, this.tools)}\n\n${question}`,
           requestedSchema: {
             type: "object",
             properties: {
@@ -976,6 +983,7 @@ export class Server {
         return `${through} (Here the user can't be asked directly, so that stays so.)`;
       }
       let reply: Json | null = null;
+      const asked = this.piecesOf(b);
       try {
         reply = await this.decision(
           b,
@@ -985,6 +993,8 @@ export class Server {
         // The client didn't ask after all.
       }
       if (reply?.action !== "accept") return through;
+      // The user answered a question that showed the pieces as they were when it was asked.
+      this.shownAs.set(b.id, asked);
       const now = same(b);
       if (!now) return changed;
       b = now;
@@ -1018,6 +1028,8 @@ export class Server {
     let note = String(args.note ?? "").trim();
     let direct = false;
     if (this.canAsk && !(given && this.unanswered.has(asked))) {
+      // A question that was closed unanswered showed nobody anything.
+      const shown = this.piecesOf(b);
       try {
         const reply = await this.decision(b, "Approve this blueprint?");
         if (reply.action === "decline") {
@@ -1028,6 +1040,7 @@ export class Server {
           return `The approval question was closed without an answer (a run without a terminal can't show it), so ${b.id} is still a draft and nothing may be assembled. Ask the user yourself with AskUserQuestion (approve / change something / cancel), then call blueprint_approve again with user_answer and what they said in note. If they already gave you their decision on this blueprint, pass that.`;
         }
         direct = true;
+        this.shownAs.set(b.id, shown);
         const content = (reply.content as Json) ?? {};
         answer = String(content.decision ?? "");
         note = String(content.note ?? "").trim() || note;
@@ -1045,7 +1058,11 @@ export class Server {
     const now = same(b);
     if (!now) return changed;
     b = now;
-    if (answer === "approve" && swapped(b)) return pieces;
+    if (answer === "approve" && swapped(b)) {
+      // A client that closes questions would close the next one too.
+      if (!direct) this.unanswered.add(asked);
+      return pieces;
+    }
     b.approvalNote = note;
     b.updatedAt = new Date().toISOString();
     if (answer === "approve") {
@@ -1138,8 +1155,17 @@ export class Server {
         out.push(`- ${piece.id}: ${e instanceof Error ? e.message : e}`);
       }
     }
+    // From here this computer watches the build. Steps a file already calls
+    // begun or done were not seen, and neither is a build picked up from a
+    // file that isn't as this computer left it.
+    const seen =
+      b.status === "assembled"
+        ? this.blueprints.building(b)
+        : b.steps.every((s) => s.status === "todo");
     b.status = "assembled";
     b.updatedAt = new Date().toISOString();
+    if (seen) this.blueprints.sealBuild(b);
+    else b.done = "";
     this.blueprints.save(b);
     this.current = b.id;
     this.live.note("assembled", b.id, String(b.pieces.length - failed));
@@ -1187,6 +1213,8 @@ export class Server {
     if (!["todo", "doing", "done", "failed"].includes(status)) {
       throw new Error("status is todo, doing, done or failed");
     }
+    // Whether the build, as the file has it, is one this computer saw so far.
+    const seen = this.blueprints.building(b);
     s.status = status;
     this.current = b.id;
     this.live.note("step", s.title || s.id, status);
@@ -1195,7 +1223,7 @@ export class Server {
     const allDone = b.steps.every((x) => x.status === "done");
     b.status = allDone ? "done" : "assembled";
     // Only a build this computer saw to its end can be kept as a recipe.
-    if (allDone) this.blueprints.sealDone(b);
+    if (seen) this.blueprints.sealBuild(b);
     else b.done = "";
     this.blueprints.save(b);
     if (allDone) {

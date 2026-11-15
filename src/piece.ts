@@ -231,12 +231,11 @@ export function cautions(p: Piece): string[] {
     );
     // What it is started with, what it is sent, and which of the user's own
     // values (named by `${NAME}` anywhere in its config) go to it.
-    const short = (v: string) => (v.length > 60 ? `${v.slice(0, 60)}…` : v);
     const env = Object.entries(p.config.env).filter(([, v]) => !/^\$\{[A-Za-z0-9_]+\}$/.test(v));
-    if (env.length) out.push(`Sets for it: ${env.map(([k, v]) => `${k}=${short(v)}`).join(", ")}`);
+    if (env.length) out.push(`Sets for it: ${env.map(([k, v]) => `${k}=${v}`).join(", ")}`);
     const headers = Object.entries(p.config.headers);
     if (headers.length) {
-      out.push(`Sends the headers: ${headers.map(([k, v]) => `${k}: ${short(v)}`).join(", ")}`);
+      out.push(`Sends the headers: ${headers.map(([k, v]) => `${k}: ${v}`).join(", ")}`);
     }
     const handed = new Set<string>();
     for (const t of [

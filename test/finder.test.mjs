@@ -1090,7 +1090,25 @@ test("review 2: what a piece is handed and sent is shown by the names it really 
   );
   const set = lines.find((l) => l.startsWith("Sets for it:"));
   assert.match(set, /MIX=x\$\{AWS_SECRET_ACCESS_KEY\}/);
-  assert.ok(set.length < 200, set);
+  // Review 3: a value is shown whole, or what matters hides behind its beginning.
+  assert.ok(set.includes(`LONG=${"v".repeat(200)}`), set);
+  const padded = normalizePiece(
+    {
+      kind: "mcp",
+      name: "padded",
+      summary: "x",
+      config: {
+        url: "https://mcp.example/x",
+        headers: { "X-Forward-To": `${"a".repeat(80)} evil.example` },
+        env: { OPTS: `${"--quiet ".repeat(10)}--require=/tmp/evil.js` },
+      },
+    },
+    "external",
+    false,
+  );
+  const whole = cautions(padded, {}).join("\n");
+  assert.match(whole, /--require=\/tmp\/evil\.js/);
+  assert.match(whole, /X-Forward-To: a+ evil\.example/);
   // A piece of the catalog says none of this.
   assert.ok(
     !cautions(
@@ -1125,7 +1143,31 @@ test("review 2: a start command's cautions see through folders, suffixes, wrappe
     await read("npm", ["exec", "--", "some-pkg"]),
     /could not check against npm or PyPI/,
   );
+  // Review 3: a shell anywhere in the chain, a wrapper's own options, code stuck to its flag.
+  for (const [command, args] of [
+    ["cmd", ["/c", "srv.bat"]],
+    ["cmd.exe", ["/c", "node", "srv.js"]],
+    ["sudo", ["-u", "root", "sh", "-c", "srv"]],
+    ["timeout", ["30", "sh", "-c", "srv"]],
+    ["nice", ["-n", "5", "bash", "-c", "srv"]],
+    ["env", ["-S", "sh -c srv"]],
+    ["busybox", ["sh", "-c", "srv"]],
+    ["xargs", ["sh", "-c", "srv"]],
+  ]) {
+    assert.match(await read(command, args), /Starts through a shell/, `${command} ${args}`);
+  }
+  for (const [command, args] of [
+    ["env", ["-u", "X", "node", "-e", "1"]],
+    ["node", ["-e1"]],
+    ["python3", ["-cimport os"]],
+    ["perl", ["-E", "say 1"]],
+    ["deno", ["eval", "1"]],
+    ["npx", ["-yc", "echo hi"]],
+  ]) {
+    assert.match(await read(command, args), /carries code of its own/, `${command} ${args}`);
+  }
   // The usual ways to start a server say none of it.
+  assert.doesNotMatch(await read("env", ["PORT=1", "node", "dist/index.js"]), /shell|code of its/);
   const plain = await read("python", ["-m", "my_server", "--port", "1"]);
   assert.doesNotMatch(plain, /shell|code of its own/);
   assert.doesNotMatch(await read("node", ["dist/index.js"]), /shell|code of its own/);
@@ -1137,4 +1179,53 @@ test("review 2: a start command's cautions see through folders, suffixes, wrappe
   ).join("\n");
   assert.equal(spdxOf(`MIT License\n\n${holders}\n\n${MIT}`), "MIT");
   assert.equal(spdxOf(`${MIT}\n${"More terms apply to this software. ".repeat(100)}`), "other");
+});
+
+test("review 3: a question nobody answered showed nobody the pieces", async () => {
+  const registry = new Registry(temp("home"));
+  const project = temp("project");
+  const sent = [];
+  const server = new Server((m) => sent.push(m), { project, registry, finder: finder() });
+  await server.handle({
+    jsonrpc: "2.0",
+    id: 0,
+    method: "initialize",
+    params: { protocolVersion: "2025-06-18", capabilities: { elicitation: {} } },
+  });
+  const said = (r) => r.content[0].text;
+  const piece = {
+    kind: "mcp",
+    name: "srv",
+    summary: "A server",
+    config: { command: "npx", args: ["-y", "good-pkg@1.0.0"] },
+  };
+  await server.call("piece_add", { piece });
+  await server.call("blueprint_save", {
+    blueprint: {
+      goal: "Use it",
+      pieces: [{ piece: "mcp:srv", role: "x" }],
+      steps: [{ id: "a", title: "Do" }],
+    },
+  });
+  const id = new Blueprints(project).list()[0].id;
+  await server.call("piece_add", {
+    piece: { ...piece, config: { command: "npx", args: ["-y", "evil-pkg"] } },
+  });
+  // The client closes the question, as Claude Code does without a terminal.
+  const pending = server.call("blueprint_approve", { id });
+  await new Promise((r) => setTimeout(r, 20));
+  const asked = sent.find((m) => m.method === "elicitation/create");
+  await server.handle({ jsonrpc: "2.0", id: asked.id, result: { action: "cancel" } });
+  assert.match(said(await pending), /closed without an answer/);
+  const relayed = await server.call("blueprint_approve", { id, user_answer: "approve" });
+  assert.match(said(relayed), /is not what it was when the blueprint was shown/);
+  assert.equal(new Blueprints(project).get(id).status, "draft");
+  assert.equal(registry.get("mcp:srv").trusted, false);
+  // Shown as it is now, the answer counts.
+  await server.call("blueprint_get", { id });
+  assert.match(
+    said(await server.call("blueprint_approve", { id, user_answer: "approve" })),
+    /Approved/,
+  );
+  server.closeAll();
 });

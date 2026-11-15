@@ -522,10 +522,13 @@ const LOADS_CODE =
 const WEAKENS = /(TLS|SSL|VERIFY|CA_?CERTS?|CA_?BUNDLE|PROXY|REGISTRY|INDEX_URL|INSECURE)/i;
 const INTERPRETER = /^(node|nodejs|python[0-9.]*|py|deno|bun|ruby|perl|php)$/;
 /** Programs that only start another one. */
-const WRAPPER = /^(env|nohup|nice|time|command|exec|sudo|cmd|start|stdbuf|timeout)$/;
-// Code given on the command line (`-e`, also in a group of short flags such as `-pe`), or loaded before the program.
+const WRAPPER =
+  /^(env|nohup|nice|time|command|exec|sudo|doas|cmd|start|stdbuf|timeout|busybox|xargs|setsid|chroot)$/;
+/** Programs whose own arguments can carry a program to run. */
+const RUNS = /^(npx|bunx|npm|pnpm|yarn|uvx|uv|pipx|docker|podman|nerdctl)$/;
+// Code given on the command line (`-e`, in a group of short flags such as `-pe`, or with the code stuck to the flag: `-e1`), or loaded before the program.
 const INLINE =
-  /^(-[A-Za-z]*[cepr]|--eval|--print|--require|--import|--loader|--experimental-loader)(=.*)?$/;
+  /^(-[A-Za-z]*[ceEpr].*|(--eval|--print|--require|--import|--loader|--experimental-loader)(=.*)?)$/;
 const SHELL = /^(sh|bash|zsh|fish|dash|ksh|cmd|powershell|pwsh)$/;
 
 // --- the finder
@@ -841,18 +844,30 @@ export class Finder {
         .toLowerCase();
     let program = bare(command);
     let rest = args;
+    let shell = SHELL.test(program);
     for (let i = 0; i < 4 && WRAPPER.test(program); i++) {
-      const at = rest.findIndex((a) => !/^[-/]/.test(a) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(a));
+      // A wrapper's options take values (`sudo -u root sh`, `timeout 30 sh`,
+      // `env -S "sh -c x"`): the program is the first word known to run
+      // things, else the first that is no option and no assignment.
+      rest = rest.flatMap((a) => a.trim().split(/\s+/)).filter(Boolean);
+      const known = (a: string) =>
+        [SHELL, INTERPRETER, WRAPPER, RUNS].some((kind) => kind.test(bare(a)));
+      let at = rest.findIndex(known);
+      if (at < 0) {
+        at = rest.findIndex((a) => !/^[-/]/.test(a) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(a));
+      }
       if (at < 0) break;
       program = bare(rest[at] as string);
       rest = rest.slice(at + 1);
+      shell ||= SHELL.test(program);
     }
-    if (SHELL.test(program) || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
+    if (shell || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
       r.cautions.push("Starts through a shell or downloads as it starts: read the command");
     }
     if (
       (INTERPRETER.test(program) && rest.some((a) => INLINE.test(a))) ||
-      (/^(npx|bunx|npm)$/.test(program) && rest.some((a) => /^(-c|--call)(=|$)/.test(a)))
+      (/^(deno|bun)$/.test(program) && rest[0] === "eval") ||
+      (/^(npx|bunx|npm)$/.test(program) && rest.some((a) => /^(-[A-Za-z]*c|--call)(=|$)/.test(a)))
     ) {
       r.cautions.push("The start command carries code of its own to run: read it");
     }
