@@ -31,6 +31,7 @@ export {
   stepPrint,
   varsFor,
 } from "./pipeline";
+export { Recipes, recipeLine, recipeName, recipeText } from "./recipe";
 export { catalogPieces, Registry } from "./registry";
 export { Sandbox } from "./sandbox";
 export { check, signature } from "./schema";

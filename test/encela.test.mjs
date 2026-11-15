@@ -472,7 +472,7 @@ test("the server speaks MCP: tools, prompt, unknown methods", async () => {
   assert.match(hello.result.instructions, /blueprint_approve/);
   const list = await server.handle({ jsonrpc: "2.0", id: 1, method: "tools/list" });
   const names = list.result.tools.map((t) => t.name);
-  assert.equal(names.length, 17);
+  assert.equal(names.length, 19);
   for (const n of names) assert.ok(`mcp__plugin_encela_encela__${n}`.length <= 64, n);
   const go = await server.handle({
     jsonrpc: "2.0",

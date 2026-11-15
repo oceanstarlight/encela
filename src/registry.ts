@@ -43,6 +43,30 @@ export function writeJson(file: string, value: unknown) {
   renameSync(tmp, file);
 }
 
+const sorted = (o: Record<string, string> | undefined) =>
+  Object.entries(o ?? {}).sort(([a], [z]) => (a < z ? -1 : a > z ? 1 : 0));
+
+/**
+ * What a piece runs, says and is, as one text: two pieces with the same one
+ * are the same piece to the user who accepted it, however they were written
+ * down (the order of names in an environment doesn't count).
+ */
+export function pieceWhat(p: Piece): string {
+  const c = p.config;
+  return JSON.stringify([
+    p.kind,
+    c ? [c.transport, c.command, c.args, sorted(c.env), c.url, sorted(c.headers)] : null,
+    p.install,
+    p.body,
+    sorted(p.files),
+    p.paths,
+    p.guide,
+    p.source?.repo ?? "",
+    p.source?.commit ?? "",
+    p.license,
+  ]);
+}
+
 export class Registry {
   constructor(
     private dir = home(),
@@ -103,12 +127,22 @@ export class Registry {
     const own = this.own();
     const at = own.findIndex((p) => p.id === piece.id);
     if (at >= 0) {
-      // Changing what an accepted piece runs needs the user's word again.
       const before = own[at] as Piece;
-      const same =
-        JSON.stringify([before.config, before.install, before.body]) ===
-        JSON.stringify([piece.config, piece.install, piece.body]);
-      if (by === "claude" && same) piece.trusted = before.trusted;
+      if (by === "claude" && before.origin === "user") {
+        throw new Error(
+          `${piece.id} is a piece the user added themselves: it is not replaced. Give this one another name.`,
+        );
+      }
+      // Changing what an accepted piece runs, says or is needs the user's
+      // word again: its command, its text, the files beside it, its guide,
+      // and where it comes from.
+      if (by === "claude" && pieceWhat(before) === pieceWhat(piece)) {
+        piece.trusted = before.trusted;
+        // What the user was to be told about it is not taken back by a later
+        // call. (A piece that was changed is untrusted again and is shown
+        // with what is said about it as it is now.)
+        piece.warnings = [...new Set([...before.warnings, ...piece.warnings])];
+      }
       own[at] = piece;
     } else own.push(piece);
     this.store(own);

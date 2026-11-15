@@ -8,6 +8,7 @@
 // cleaned of control characters, and handed to Claude marked as data. A
 // draft is a guess from the repository's own files (its README's
 // `mcpServers` example, its package manifest), and says what was guessed.
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes } from "node:crypto";
 import { VERSION } from "./paths";
 import { DOC_KINDS, KINDS, type PieceKind, permissive } from "./piece";
@@ -20,16 +21,25 @@ const PYPI = "https://pypi.org";
 const TIMEOUT = 15_000;
 const MAX_JSON = 12 * 1024 * 1024;
 const MAX_FILE = 400 * 1024;
-const MAX_REQUESTS = 24;
+const MAX_REQUESTS = 40;
 /** Characters of a README handed to Claude, of a document piece's text, and files a skill may bring along. */
 const README_CHARS = 6000;
 const MAX_BODY = 200_000;
 const MAX_COMPANIONS = 20;
 /** How long an answer is kept, and months without a push after which a repository is called quiet. */
 const KEEP = 10 * 60_000;
+/** How many answers are kept at once, and how many characters of files. */
+const KEPT = 200;
+const KEPT_CHARS = 8_000_000;
 const QUIET_MONTHS = 18;
 
-export class FinderError extends Error {}
+export class FinderError extends Error {
+  /** True when a call ran out of the requests it may make. */
+  budget = false;
+}
+
+/** The requests the call under way may still make: each call has its own count. */
+const budget = new AsyncLocalStorage<{ left: number }>();
 
 export interface FinderOptions {
   /** Where the API and the raw files are, for tests; GitHub's own otherwise. */
@@ -92,7 +102,7 @@ export function clean(text: string, max: number, lines = false): string {
   const kept = lines ? /[^\S\n]+/g : /\s+/g;
   const out = text
     .replace(/\r\n?/g, "\n")
-    .replace(/[^\P{Cc}\n\t]|[\u2028\u2029\u202a-\u202e\u2066-\u2069\u200e\u200f\ufeff]/gu, " ")
+    .replace(/[^\P{Cc}\n\t]|[\p{Cf}\u2028\u2029]|\u034f|\u180e/gu, " ")
     .replace(kept, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -138,6 +148,9 @@ const join = (...parts: string[]) => parts.filter(Boolean).join("/");
 
 const LICENSE_FILE = /^(LICENSE|LICENCE|COPYING|UNLICENSE)([.-][A-Za-z0-9.-]+)?$/i;
 
+const ADDED_TERMS =
+  /commons clause|non-?commercial|not for commercial|commercial use is|may not (be )?(use|sell|sold)|shall not (be )?(use|sell|sold)|prohibited|without (prior )?written permission|additional (terms|restrictions)|field of use|only for (personal|evaluation|educational)/;
+
 /** The SPDX id of a license text, by its wording; "other" when it isn't one of the common ones. */
 export function spdxOf(text: string): string {
   const t = text.slice(0, 6000).replace(/\s+/g, " ").toLowerCase();
@@ -153,6 +166,15 @@ export function spdxOf(text: string): string {
   }
   if (t.includes("cc0 1.0") || t.includes("creative commons zero")) return "CC0-1.0";
   if (t.includes("creative commons")) return "other";
+  // A free license's words with terms added to them are not that license.
+  // (Who holds the copyright, however many they are, adds no terms.)
+  const whole = text
+    .split(/\r?\n/)
+    .filter((l) => !/^\s*(copyright\b|\(c\)|©|portions copyright)/i.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (whole.length > 2600 || ADDED_TERMS.test(whole)) return "other";
   if (t.includes("permission to use, copy, modify, and/or distribute this software")) return "ISC";
   if (t.includes("permission is hereby granted, free of charge")) {
     return t.includes('the software is provided "as is"') ? "MIT" : "other";
@@ -248,28 +270,32 @@ export function packageOf(command: string, args: string[]): Spec | null {
     where = "PyPI";
     i = 2;
   } else return null;
+  // Only what stands before the command is the runner's; the rest is the
+  // command's own. An option this doesn't know may change what is fetched,
+  // so nothing is concluded then.
   const names = where === "npm" ? /^(-p|--package)$/ : /^--from$/;
-  const valued =
-    where === "npm"
-      ? /^(-c|--call)$/
-      : /^(--with|--python|-p|--index|--index-url|--extra-index-url|--directory)$/;
+  const plain = /^(-y|--yes|-q|--quiet)$/;
+  const valued = where === "npm" ? /^$/ : /^(--python|-p)$/;
   let at = -1;
   let named = false;
   for (; i < args.length; i++) {
     const a = args[i] as string;
-    if (names.test(a)) {
-      at = i + 1;
-      named = true;
+    if (!a.startsWith("-")) {
+      if (!named) at = i;
       break;
     }
-    if (valued.test(a)) i++;
-    else if (/^(--package|--from)=/.test(a)) return null;
-    else if (!a.startsWith("-") && at < 0) at = i;
+    if (names.test(a)) {
+      if (named) return null;
+      named = true;
+      at = ++i;
+    } else if (valued.test(a)) i++;
+    else if (!plain.test(a)) return null;
   }
   const spec = args[at];
   if (spec === undefined) return null;
   if (where === "npm") {
-    const m = /^((?:@[^/@\s]+\/)?[^/@\s]+)(?:@([^@\s]+))?$/.exec(spec);
+    // `name@npm:other`, `name@github:a/b` and `name@https://…` fetch something else than `name`.
+    const m = /^((?:@[^/@\s]+\/)?[^/@\s]+)(?:@([0-9A-Za-z.+_-]+))?$/.exec(spec);
     if (!m || !PACKAGE.npm.test(m[1] as string)) return null;
     const name = m[1] as string;
     const version = m[2] && m[2] !== "latest" ? m[2] : "";
@@ -283,6 +309,25 @@ export function packageOf(command: string, args: string[]): Spec | null {
   if (m[2]) return { where, name, version, at };
   const sep = named || c === "pipx" ? "==" : "@";
   return { where, name, version, at, pin: (v) => `${name}${sep}${v}` };
+}
+
+/** A config Claude wants kept, as an example to check; null when it names nothing to start or reach. */
+function givenConfig(raw: unknown): Example | null {
+  const c = record(raw);
+  const command = typeof c.command === "string" ? c.command.trim() : "";
+  const url = typeof c.url === "string" ? c.url.trim() : "";
+  if (!command && !url) return null;
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record(c.env))) {
+    if (typeof v === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(k)) env[k] = v;
+  }
+  return {
+    name: "",
+    command,
+    args: Array.isArray(c.args) ? c.args.filter((a): a is string => typeof a === "string") : [],
+    env,
+    url,
+  };
 }
 
 const MCP_DEPENDENCY = /^(@modelcontextprotocol\/(sdk|server)|fastmcp|mcp-framework|@mastra\/mcp)$/;
@@ -338,7 +383,9 @@ function pythonManifest(text: string): Manifest | null {
   let workspace = false;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    const head = /^\[+([^\]]+)\]+$/.exec(line);
+    // No line of a manifest that is one is this long.
+    if (line.length > 2000) continue;
+    const head = /^\[{1,2}([^[\]]+)\]{1,2}$/.exec(line);
     if (head) {
       section = (head[1] as string).trim();
       inDeps = false;
@@ -430,7 +477,10 @@ function looseJson(text: string): unknown {
 export function mcpExamples(readme: string): Example[] {
   const out: Example[] = [];
   const seen = new Set<string>();
-  for (const m of readme.matchAll(/"(?:[A-Za-z.]*\.)?mcpServers"\s*:\s*\{/g)) {
+  let looked = 0;
+  for (const m of readme.matchAll(/"(?:[A-Za-z.]{0,40}\.)?mcpServers"\s*:\s*\{/g)) {
+    // A README shows a handful of these at most.
+    if (++looked > 12) break;
     const block = balanced(readme, (m.index ?? 0) + m[0].length - 1);
     const servers = looseJson(block);
     if (!servers || typeof servers !== "object" || Array.isArray(servers)) continue;
@@ -467,8 +517,16 @@ const PLACEHOLDER =
 const HARMLESS = /^(true|false|\d{1,6}|[a-z]{2,12}|info|debug|warn|error|production|development)$/i;
 /** Names that make a program load other code: never taken from a README. */
 const LOADS_CODE =
-  /^(NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|DYLD_.*|PATH|PYTHONPATH|PYTHONSTARTUP|RUBYOPT|PERL5OPT|BASH_ENV|ENV|NPM_CONFIG_.*|PIP_.*|UV_.*)$/i;
-const SHELL = /^(sh|bash|zsh|fish|cmd|cmd\.exe|powershell|pwsh)$/i;
+  /^(NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|LD_AUDIT|DYLD_.*|PATH|PATHEXT|COMSPEC|PYTHONPATH|PYTHONSTARTUP|PYTHONHOME|PYTHONINSPECT|RUBYOPT|RUBYLIB|GEM_HOME|GEM_PATH|PERL5OPT|PERL5LIB|BASH_ENV|ENV|ZDOTDIR|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS|CLASSPATH|DOTNET_STARTUP_HOOKS|GIT_SSH|GIT_SSH_COMMAND|GIT_EXEC_PATH|NPM_CONFIG_.*|PIP_.*|UV_.*|BUN_INSTALL|DENO_DIR)$/i;
+/** Names that turn off a check or send a program's traffic somewhere else: never taken from a README either. */
+const WEAKENS = /(TLS|SSL|VERIFY|CA_?CERTS?|CA_?BUNDLE|PROXY|REGISTRY|INDEX_URL|INSECURE)/i;
+const INTERPRETER = /^(node|nodejs|python[0-9.]*|py|deno|bun|ruby|perl|php)$/;
+/** Programs that only start another one. */
+const WRAPPER = /^(env|nohup|nice|time|command|exec|sudo|cmd|start|stdbuf|timeout)$/;
+// Code given on the command line (`-e`, also in a group of short flags such as `-pe`), or loaded before the program.
+const INLINE =
+  /^(-[A-Za-z]*[cepr]|--eval|--print|--require|--import|--loader|--experimental-loader)(=.*)?$/;
+const SHELL = /^(sh|bash|zsh|fish|dash|ksh|cmd|powershell|pwsh)$/;
 
 // --- the finder
 
@@ -484,7 +542,6 @@ export class Finder {
   private npm: string;
   private pypi: string;
   private kept = new Map<string, { at: number; value: unknown }>();
-  private requests = 0;
 
   constructor(private opts: FinderOptions = {}) {
     this.api = (opts.api ?? API).replace(/\/+$/, "");
@@ -499,16 +556,21 @@ export class Finder {
 
   /** One GET. Redirects are followed only within the host asked; an answer over `max` bytes is refused. */
   private async get(url: string, accept: string, max: number): Promise<string | null> {
-    if (++this.requests > MAX_REQUESTS) {
-      throw new FinderError(
-        "Reading this repository takes too many requests: give a path inside it",
-      );
-    }
     const run = this.opts.fetch ?? fetch;
     let at = new URL(url);
     const host = at.host;
+    const origin = at.origin;
+    const count = budget.getStore();
     const github = url.startsWith(`${this.api}/`);
     for (let hop = 0; hop < 4; hop++) {
+      // Every request counts, the ones a redirect asks for too.
+      if (count && --count.left < 0) {
+        const over = new FinderError(
+          "This takes more requests than one call may make: read a smaller part (a folder or a file) with `path`",
+        );
+        over.budget = true;
+        throw over;
+      }
       const headers: Record<string, string> = {
         accept,
         "user-agent": `encela/${VERSION}`,
@@ -532,8 +594,11 @@ export class Finder {
         await res.body?.cancel().catch(() => {});
         if (!to) return null;
         at = new URL(to, at);
-        if (at.host !== host)
-          throw new FinderError(`${host} sent the request on to ${at.host}: not followed`);
+        if (at.origin !== origin) {
+          throw new FinderError(
+            `${host} sent the request on to ${at.host === host ? at.origin : at.host}: not followed`,
+          );
+        }
         continue;
       }
       if (res.status === 404 || res.status === 451) {
@@ -583,6 +648,23 @@ export class Finder {
     throw new FinderError(`${host} sent the request round in circles`);
   }
 
+  /** Remembers an answer for a while: a bounded number of them, and bounded in size. */
+  private keep(url: string, value: unknown) {
+    const now = this.now();
+    for (const [k, v] of this.kept) if (now - v.at >= KEEP) this.kept.delete(k);
+    this.kept.delete(url);
+    this.kept.set(url, { at: now, value });
+    const size = (v: unknown) => (typeof v === "string" ? v.length : 2000);
+    let total = 0;
+    for (const v of this.kept.values()) total += size(v.value);
+    for (const [k, v] of this.kept) {
+      if (this.kept.size <= KEPT && total <= KEPT_CHARS) break;
+      if (k === url) continue;
+      total -= size(v.value);
+      this.kept.delete(k);
+    }
+  }
+
   private async json(url: string): Promise<Record<string, unknown> | null> {
     const hit = this.kept.get(url);
     if (hit && this.now() - hit.at < KEEP) return hit.value as Record<string, unknown> | null;
@@ -599,8 +681,7 @@ export class Finder {
         throw new FinderError(`The answer of ${new URL(url).host} couldn't be read`);
       }
     }
-    this.kept.set(url, { at: this.now(), value });
-    if (this.kept.size > 200) this.kept.delete(this.kept.keys().next().value as string);
+    this.keep(url, value);
     return value;
   }
 
@@ -613,15 +694,21 @@ export class Finder {
   ): Promise<string | null> {
     const url = `${this.raw}/${repo}/${commit}/${path.split("/").map(encodeURIComponent).join("/")}`;
     const hit = this.kept.get(url);
-    if (hit && this.now() - hit.at < KEEP) return hit.value as string | null;
+    if (hit && this.now() - hit.at < KEEP && typeof hit.value === "string") {
+      // What was read under a wider limit is still too large for a narrower one.
+      return Buffer.byteLength(hit.value) > max ? null : hit.value;
+    }
     const text = await this.get(url, "text/plain, */*", max);
-    this.kept.set(url, { at: this.now(), value: text });
+    if (text !== null) this.keep(url, text);
     return text;
   }
 
   /** Repositories for a query, in GitHub's order of best match. */
-  async search(query: string, limit = 8): Promise<Found[]> {
-    this.requests = 0;
+  search(query: string, limit = 8): Promise<Found[]> {
+    return budget.run({ left: MAX_REQUESTS }, () => this.searching(query, limit));
+  }
+
+  private async searching(query: string, limit: number): Promise<Found[]> {
     const q = clean(query, 200);
     if (!q) throw new FinderError("Give words to search GitHub for");
     const n = Math.max(1, Math.min(20, Math.floor(limit) || 8));
@@ -673,7 +760,7 @@ export class Finder {
       return {
         where,
         name,
-        version: clean(p.version, 40),
+        version: clean(p.version, 40).replace(/[^0-9A-Za-z.+_-]/g, "?"),
         repos: repo ? [repo] : [],
         scripts: INSTALL_SCRIPTS.filter((s) => typeof scripts[s] === "string"),
         withdrawn: typeof p.deprecated === "string" && p.deprecated !== "",
@@ -686,7 +773,7 @@ export class Finder {
     return {
       where,
       name,
-      version: clean(info.version, 40),
+      version: clean(info.version, 40).replace(/[^0-9A-Za-z.+!_-]/g, "?"),
       repos: [...new Set(urls.map((u) => githubRepo(String(u ?? ""))).filter(Boolean))],
       scripts: [],
       withdrawn: info.yanked === true,
@@ -703,8 +790,19 @@ export class Finder {
     r: Reading,
     where: Spec["where"],
     name: string,
-  ): Promise<(Published & { mine: boolean }) | null> {
-    const found = await this.published(where, name);
+  ): Promise<(Published & { mine: boolean }) | null | undefined> {
+    let found: Published | null;
+    try {
+      found = await this.published(where, name);
+    } catch (e) {
+      if (!(e instanceof FinderError) || e.budget) throw e;
+      // The registry can't be asked right now: said so, and nothing is concluded from it.
+      r.registry = `${where}: couldn't be asked about ${name}`;
+      r.cautions.push(
+        `${where} couldn't be asked about ${name} when this was read: whether it is published from this repository was not checked`,
+      );
+      return undefined;
+    }
     if (!found) {
       r.registry = `${where}: no package named ${name}`;
       return null;
@@ -729,14 +827,93 @@ export class Finder {
   }
 
   /**
+   * What the user should know about a start command, and its package looked
+   * up where it is published; `args` gets the version pinned when the
+   * command takes whatever is newest.
+   */
+  private async command(r: Reading, command: string, args: string[], whose: string) {
+    // The program that really runs: without its folder and suffix, and past
+    // the wrappers that only start another program.
+    const bare = (c: string) =>
+      c
+        .replace(/^.*[\\/]/, "")
+        .replace(/\.(exe|cmd|bat)$/i, "")
+        .toLowerCase();
+    let program = bare(command);
+    let rest = args;
+    for (let i = 0; i < 4 && WRAPPER.test(program); i++) {
+      const at = rest.findIndex((a) => !/^[-/]/.test(a) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(a));
+      if (at < 0) break;
+      program = bare(rest[at] as string);
+      rest = rest.slice(at + 1);
+    }
+    if (SHELL.test(program) || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
+      r.cautions.push("Starts through a shell or downloads as it starts: read the command");
+    }
+    if (
+      (INTERPRETER.test(program) && rest.some((a) => INLINE.test(a))) ||
+      (/^(npx|bunx|npm)$/.test(program) && rest.some((a) => /^(-c|--call)(=|$)/.test(a)))
+    ) {
+      r.cautions.push("The start command carries code of its own to run: read it");
+    }
+    if (args.some((a) => /[&|^<>%]/.test(a))) {
+      r.cautions.push(
+        "An argument holds characters a Windows command line treats specially (& | ^ < > %): read the command",
+      );
+    }
+    if (/^(docker|podman|nerdctl)$/.test(program)) {
+      r.cautions.push("Runs a container image that is fetched when it starts");
+    }
+    const spec = packageOf(command, args);
+    if (!spec) {
+      if (/^(npx|bunx|npm|uvx|pipx|pnpm|yarn|uv)$/.test(program)) {
+        r.cautions.push(
+          "The start command fetches code that Encela could not check against npm or PyPI (a path, a URL, another name for a package, or options it doesn't read)",
+        );
+      }
+      return;
+    }
+    const known = await this.vouch(r, spec.where, spec.name);
+    if (known === undefined) return;
+    if (!known) {
+      r.cautions.push(
+        `${spec.name} is not on ${spec.where}: the start command would fail, or run whatever is published under that name later`,
+      );
+      return;
+    }
+    if (!known.mine) {
+      r.cautions.push(
+        known.repos.length
+          ? `The ${spec.where} package ${spec.name} names another repository as its source (${known.repos[0]})`
+          : `The ${spec.where} package ${spec.name} doesn't say where its source is`,
+      );
+    }
+    if (spec.version) return;
+    if (spec.pin) {
+      args[spec.at] = spec.pin(known.version);
+      r.open.push(
+        `config.args: pinned to ${known.version}, the newest on ${spec.where} when this was read (${whose} command takes the newest each time it starts)`,
+      );
+    } else {
+      r.cautions.push(`${spec.name} is fetched at its newest version each time it starts`);
+    }
+  }
+
+  /**
    * Reads a repository, or a folder or file of it, at a commit, and drafts a
    * piece from it. `kind` settles what the draft is when the files don't say.
    */
-  async read(
+  read(
     given: string,
-    opts: { path?: string; ref?: string; kind?: string } = {},
+    opts: { path?: string; ref?: string; kind?: string; config?: unknown } = {},
   ): Promise<Reading> {
-    this.requests = 0;
+    return budget.run({ left: MAX_REQUESTS }, () => this.reading(given, opts));
+  }
+
+  private async reading(
+    given: string,
+    opts: { path?: string; ref?: string; kind?: string; config?: unknown },
+  ): Promise<Reading> {
     const repo = repoName(given);
     const asked = repoPath(opts.path ?? "");
     const kind =
@@ -807,7 +984,7 @@ export class Finder {
     }
     if (r.licenseFile && dir(r.licenseFile) !== "") {
       r.open.push(
-        `${r.licenseFile} covers this folder: its license (${r.license}) may differ from the repository's`,
+        `A license file of this folder's own covers it (${r.license}): it may differ from the repository's`,
       );
     }
 
@@ -833,11 +1010,12 @@ export class Finder {
     // What it is.
     const examples = mcpExamples(readme);
     const skillFile = file && base(file) === "SKILL.md" ? file : (here("SKILL.md")?.path ?? "");
-    let is: PieceKind | undefined = kind;
+    // What the files plainly are is not for the caller to rename.
+    let is: PieceKind | undefined = skillFile
+      ? "skill"
+      : ((file ? documentKind(file) : undefined) ?? kind);
     if (!is) {
-      if (skillFile) is = "skill";
-      else if (file) is = documentKind(file);
-      else if (own?.mcp || examples.length) is = "mcp";
+      if (own?.mcp || examples.length) is = "mcp";
       else if (own?.bins.length) is = "cli";
       else if (own) is = "library";
       else if (other) is = /model context protocol|\bmcp\b/i.test(readme) ? "mcp" : "cli";
@@ -880,7 +1058,7 @@ export class Finder {
       }
       await this.document(r, draft, entries, main, is);
     } else if (is === "mcp") {
-      await this.server(r, draft, examples, own, other);
+      await this.server(r, draft, examples, own, other, givenConfig(opts.config));
     } else {
       // A command line tool or a library: how to get it, and a guide Claude writes from the README.
       if (own?.name && !own.private) {
@@ -897,7 +1075,9 @@ export class Finder {
           r.open.push(
             known
               ? `install: ${where} has a package named ${own.name}, but it doesn't name this repository as its source, so it may be another project: find in the README how this one is installed`
-              : `install: ${own.name} is not on ${where}: find in the README how it is installed`,
+              : known === null
+                ? `install: ${own.name} is not on ${where}: find in the README how it is installed`
+                : `install: ${where} couldn't be asked: find in the README how it is installed`,
           );
         }
       }
@@ -947,8 +1127,11 @@ export class Finder {
     for (const e of beside.filter(
       (e) => TEXT_FILE.test(e.path) && !LICENSE_FILE.test(base(e.path)),
     )) {
+      // What won't be kept isn't fetched: the tree says how large each file is.
       const text =
-        Object.keys(files).length < MAX_COMPANIONS && e.size <= 100_000
+        Object.keys(files).length < MAX_COMPANIONS &&
+        e.size <= 100_000 &&
+        total + e.size <= MAX_BODY
           ? await this.file(r.repo, r.commit, e.path, 100_000)
           : null;
       if (text === null || total + text.length > MAX_BODY) {
@@ -966,90 +1149,65 @@ export class Finder {
     const scripts = beside.filter((e) => SCRIPT_FILE.test(e.path));
     if (scripts.length) {
       r.cautions.push(
-        `The skill comes with ${scripts.length} script${scripts.length === 1 ? "" : "s"} that Encela did not take along (${scripts
-          .slice(0, 3)
-          .map((e) => clean(base(e.path), 40))
-          .join(", ")}): what it says to run with them won't work`,
+        `The skill comes with ${scripts.length} script${scripts.length === 1 ? "" : "s"} that Encela did not take along: what it says to run with them won't work`,
       );
     }
   }
 
-  /** An MCP server piece: how to start it, by the README's own example or else by its package. */
+  /**
+   * An MCP server piece: how to start it, by the README's own example or
+   * else by its package. With `given` (a config Claude wants kept), that one
+   * is checked and cleaned in the README's place.
+   */
   private async server(
     r: Reading,
     draft: Record<string, unknown>,
     examples: Example[],
     own: Manifest | null,
     other: string,
+    given: Example | null,
   ) {
-    const example = examples.find((e) => e.command && !/^docker$/i.test(e.command)) ?? examples[0];
+    const example =
+      given ?? examples.find((e) => e.command && !/^docker$/i.test(e.command)) ?? examples[0];
+    const whose = given ? "the piece's" : "the README's";
+    const Whose = given ? "The piece's config" : "The README's example";
     let command = "";
     if (example?.url && !example.command) {
       draft.config = { transport: "http", url: example.url };
-      r.open.push(
-        `config: the address is the README's example "${clean(example.name, 40)}"; it was not tried`,
-      );
+      if (!given)
+        r.open.push("config: the address is the README's first example; it was not tried");
     } else if (example) {
       command = example.command;
       const args = [...example.args];
       const env: Record<string, string> = {};
       for (const [k, v] of Object.entries(example.env)) {
         if (LOADS_CODE.test(k)) {
-          r.cautions.push(`Its README sets ${k}, which makes a program load other code: left out`);
-          continue;
-        }
+          r.cautions.push(`${Whose} sets ${k}, which makes a program load other code: left out`);
+        } else if (WEAKENS.test(k)) {
+          r.cautions.push(
+            `${Whose} sets ${k}, which turns off a check or sends traffic somewhere else: left out`,
+          );
+        } else if (given) env[k] = v;
         // A value that isn't plainly harmless becomes a reference: no stranger's key or path is kept.
-        env[k] = HARMLESS.test(v) ? v : `\${${k}}`;
+        else env[k] = HARMLESS.test(v) ? v : `\${${k}}`;
       }
       draft.config = { transport: "stdio", command, args, env };
-      r.open.push(
-        `config: the start command is the README's example "${clean(example.name, 40)}"; it was not started`,
-      );
-      const loose = args.filter((a) => PLACEHOLDER.test(a));
-      if (loose.length) {
-        r.open.push(
-          `config.args holds a placeholder to replace: ${loose.map((a) => clean(a, 60)).join(", ")}`,
-        );
-      }
-      const asked = Object.keys(env).filter((k) => (env[k] as string).startsWith("${"));
-      if (asked.length) {
-        r.open.push(
-          `config.env reads ${asked.join(", ")} from the user's environment: tell the user to set ${asked.length === 1 ? "it" : "them"}`,
-        );
-      }
-      if (SHELL.test(command) || args.some((a) => /\|\s*(sh|bash)\b|\b(curl|wget)\s/.test(a))) {
-        r.cautions.push("Starts through a shell or downloads as it starts: read the command");
-      }
-      if (/^docker$/i.test(command)) {
-        r.cautions.push("Runs a container image that is fetched when it starts");
-      }
-      const spec = packageOf(command, args);
-      if (spec) {
-        const known = await this.vouch(r, spec.where, spec.name);
-        if (!known) {
-          r.cautions.push(
-            `${spec.name} is not on ${spec.where}: the start command would fail, or run whatever is published under that name later`,
+      if (!given) {
+        r.open.push("config: the start command is the README's first example; it was not started");
+        const loose = args.flatMap((a, i) => (PLACEHOLDER.test(a) ? [i] : []));
+        if (loose.length) {
+          r.open.push(
+            `config.args holds a placeholder to replace at position ${loose.slice(0, 10).join(", ")} (counted from 0)`,
           );
-        } else {
-          if (!known.mine) {
-            r.cautions.push(
-              known.repos.length
-                ? `The ${spec.where} package ${spec.name} names another repository as its source (${known.repos[0]})`
-                : `The ${spec.where} package ${spec.name} doesn't say where its source is`,
-            );
-          }
-          if (!spec.version && spec.pin) {
-            args[spec.at] = spec.pin(known.version);
-            r.open.push(
-              `config.args: pinned to ${known.version}, the newest on ${spec.where} when this was read (the README's command takes the newest each time it starts)`,
-            );
-          }
         }
-      } else if (/^(npx|bunx|uvx|pipx)$/i.test(command)) {
-        r.open.push(
-          "config.args: the command fetches code that isn't a plain package from npm or PyPI (a path, a URL, or options Encela doesn't read): check where it comes from",
-        );
+        const asked = Object.keys(env).filter((k) => (env[k] as string).startsWith("${"));
+        if (asked.length) {
+          r.open.push(
+            `config.env reads ${asked.join(", ")} from the user's environment: tell the user to set ${asked.length === 1 ? "it" : "them"}`,
+          );
+        }
       }
+      await this.command(r, command, args, whose);
     } else if (
       own?.bins.length &&
       !own.private &&
@@ -1070,7 +1228,9 @@ export class Finder {
         r.open.push(
           known
             ? `config: ${where} has a package named ${own.name}, but it doesn't name this repository as its source, so it may be another project: find in the README how this one is started`
-            : `config: ${own.name} is not on ${where}: find in the README how it is started, and write command and args`,
+            : known === null
+              ? `config: ${own.name} is not on ${where}: find in the README how it is started, and write command and args`
+              : `config: ${where} couldn't be asked: find in the README how it is started, and write command and args`,
         );
       }
     } else {
@@ -1086,20 +1246,33 @@ export class Finder {
   /**
    * A piece Claude wants kept, with what the finder read itself in place of
    * what Claude was told: where it is from, its license, what the user
-   * should know and, for a document, its text.
+   * should know, for a document its text, and for an MCP server its start
+   * command as the finder checked it.
    */
   async fill(piece: unknown, from: unknown): Promise<Record<string, unknown>> {
     const p = record(piece);
     const f = record(from);
     const text = (v: unknown) => (typeof v === "string" ? v : "");
+    // What is kept is what stood at one commit, not what a branch holds by now.
+    if (!/^[0-9a-f]{40}$/.test(text(f.commit))) {
+      throw new FinderError(
+        "from.commit is the full commit github_read gave (40 hex characters): read the repository again and pass its `from` as it is",
+      );
+    }
     const r = await this.read(text(f.repo), {
       path: text(f.path),
       ref: text(f.commit),
       kind: text(p.kind),
+      config: p.config,
     });
     if (!r.draft) {
       throw new FinderError(
-        `Nothing to keep at ${r.repo}${r.path ? `/${r.path}` : ""}: ${r.open.join("; ")}`,
+        `Nothing to keep at ${r.repo}${r.path ? ` (the path given)` : ""}: ${r.open.join("; ")}`,
+      );
+    }
+    if (r.draft.kind !== p.kind) {
+      throw new FinderError(
+        `What is at that path is a ${String(r.draft.kind)}, not a ${clean(text(p.kind), 20) || "piece without a kind"}: keep it as what it is`,
       );
     }
     const said = Array.isArray(p.warnings)
@@ -1114,6 +1287,15 @@ export class Finder {
     if (typeof r.draft.body === "string") {
       out.body = r.draft.body;
       out.files = r.draft.files ?? {};
+    }
+    if (r.draft.kind === "mcp") {
+      const kept = record(p.config);
+      const checked = record(r.draft.config);
+      // The command is the one the finder checked: pinned, and without what was left out.
+      out.config =
+        checked.transport === "http"
+          ? { ...checked, headers: kept.headers }
+          : { ...kept, ...checked };
     }
     return out;
   }

@@ -2,6 +2,7 @@
 // it (the goal, the pieces and why, who does which step), the user approves
 // or changes it, and only then are the pieces assembled.
 // Kept in the project as `.encela/blueprints/<id>.json`.
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { inEncela } from "./paths";
 import { cautions, isDocument, type Piece } from "./piece";
@@ -55,6 +56,8 @@ export interface Step {
 }
 
 export interface Choice {
+  /** What the user chose the last time, when the blueprint started from a recipe: a default, asked again. */
+  last?: string;
   question: string;
   options: string[];
   answer: string;
@@ -88,6 +91,8 @@ export interface Blueprint {
   approval: "" | "direct" | "relayed";
   /** Fingerprints of the pipeline steps the user saw marked (may change things, may reach outside) when approving. */
   approvedCalls: string[];
+  /** This computer's seal over the blueprint as it stood when its last step was done; a recipe is made only from such a one. */
+  done?: string;
   /**
    * This computer's seal over the approval (src/seal.ts). Without it the
    * approval doesn't count: the file may have come with the project.
@@ -315,7 +320,12 @@ export function normalizeBlueprint(
     problems.push("steps: the after links go round in a circle");
   }
   const choices: Choice[] = objects(r.choices)
-    .map((c) => ({ question: text(c.question), options: list(c.options), answer: text(c.answer) }))
+    .map((c) => ({
+      question: text(c.question),
+      options: list(c.options),
+      answer: text(c.answer),
+      ...(text(c.last) ? { last: text(c.last) } : {}),
+    }))
     .filter((c) => c.question);
 
   if (problems.length) {
@@ -466,7 +476,9 @@ export function render(b: Blueprint, registry: Registry, brief = false, tools?: 
     out.push("", "## For you to decide");
     for (const c of b.choices) {
       const options = c.options.length ? ` (${c.options.join(" / ")})` : "";
-      out.push(`- ${c.question}${options}${c.answer ? ` → ${c.answer}` : ""}`);
+      const last =
+        !c.answer && typeof c.last === "string" && c.last ? ` (last time: ${c.last})` : "";
+      out.push(`- ${c.question}${options}${c.answer ? ` → ${c.answer}` : last}`);
     }
   }
   return out.join("\n");
@@ -497,6 +509,33 @@ export class Blueprints {
   /** Whether the approval in `b` is one this computer's user gave. */
   sealed(b: Blueprint): boolean {
     return !this.seals || this.seals.matches(b.seal, ...sealFacts(b, this.project));
+  }
+
+  private doneFacts(b: Blueprint): string[] {
+    const content = createHash("sha256")
+      .update(
+        JSON.stringify([
+          b.goal,
+          b.requirements,
+          b.pieces,
+          b.workers,
+          b.steps,
+          b.choices,
+          b.pipelines,
+        ]),
+      )
+      .digest("hex");
+    return ["done", place(this.project), b.id, content];
+  }
+
+  /** Records that this computer saw every step of `b` done, as `b` is now. */
+  sealDone(b: Blueprint) {
+    b.done = this.seals ? this.seals.sign(...this.doneFacts(b)) : "";
+  }
+
+  /** Whether `b`, exactly as it is, was built to its end on this computer. */
+  builtHere(b: Blueprint): boolean {
+    return b.status === "done" && (!this.seals || this.seals.matches(b.done, ...this.doneFacts(b)));
   }
 
   /** Seals the approval just recorded in `b`. */
