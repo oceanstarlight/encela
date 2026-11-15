@@ -186,7 +186,7 @@ const common = {
   platform: "node",
   format: "esm",
   target: "node20",
-  define: { __VERSION__: JSON.stringify(pkg.version) },
+  define: { __VERSION__: JSON.stringify(pkg.version), __NAME__: JSON.stringify(pkg.name) },
   legalComments: "none",
   logLevel: "warning",
 };
