@@ -2,7 +2,7 @@
 // engine has to cope with: text results, structured results that wrap
 // text, JSON as text, failures reported in the result, slow calls, and
 // tools that say (or don't say) that they only read.
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 
 const text = { type: "object", properties: { text: { type: "string" } }, required: ["text"] };
@@ -73,8 +73,20 @@ createInterface({ input: process.stdin }).on("line", (line) => {
       capabilities: { tools: {} },
       serverInfo: { name: "echo" },
     });
-  } else if (m.method === "tools/list") ok({ tools });
-  else if (m.method === "tools/call") {
+  } else if (m.method === "tools/list") {
+    // A server that changes what its tools say without changing itself: the
+    // file named by ECHO_CHANGED holds {describe: {name: text}, add: [tool]}.
+    const file = process.env.ECHO_CHANGED;
+    const now = file && existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
+    ok({
+      tools: [
+        ...tools.map((t) =>
+          now.describe?.[t.name] ? { ...t, description: now.describe[t.name] } : t,
+        ),
+        ...(now.add ?? []),
+      ],
+    });
+  } else if (m.method === "tools/call") {
     const a = m.params.arguments ?? {};
     switch (m.params.name) {
       case "echo":

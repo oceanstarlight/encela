@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { compile, type Program } from "./jq";
 import { check, typeOf } from "./schema";
-import type { KnownTool } from "./tools";
+import { type KnownTool, speaksOfMoney } from "./tools";
 
 export type StepKind = "tool" | "transform" | "claude";
 export const INPUT_TYPES = ["string", "number", "integer", "boolean", "array", "object"] as const;
@@ -381,12 +381,19 @@ export interface Marks {
   changes: boolean;
   /** It may reach outside this computer: its server doesn't say it stays inside. */
   outside: boolean;
+  /** It may cost money: its piece says so, or its own words speak of credits or billing. */
+  costs: boolean;
 }
 
 /** The marks of a tool. One Encela has never seen has both. */
-export function marksOf(tool: string, known: KnownTool[] | null): Marks {
+export function marksOf(tool: string, known: KnownTool[] | null, paid = false): Marks {
   const t = known?.find((x) => x.name === tool);
-  return { changes: !t?.readOnly, outside: !t || t.openWorld };
+  return {
+    changes: !t?.readOnly,
+    outside: !t || t.openWorld,
+    // A paid piece's tools that only read (a balance, a list) are not charged for.
+    costs: (paid && !t?.readOnly) || !!t?.costs || speaksOfMoney(tool, ""),
+  };
 }
 
 /** What a step does, as written: the part of it an approval covers. */
@@ -452,7 +459,7 @@ export function markedSteps(
     for (const step of p.steps) {
       if (step.kind !== "tool") continue;
       const m = marks(step.piece, step.tool);
-      if (m.changes || m.outside)
+      if (m.changes || m.outside || m.costs)
         out.push({ pipeline: p.name, step, marks: m, print: stepPrint(p, step) });
     }
   }
@@ -473,7 +480,7 @@ export function describe(p: Pipeline, marks: (piece: string, tool: string) => Ma
   const marked = (s: PipelineStep) => {
     if (s.kind !== "tool") return false;
     const m = marks(s.piece, s.tool);
-    return m.changes || m.outside;
+    return m.changes || m.outside || m.costs;
   };
   // Which marked steps each step feeds.
   const feeding = new Map<string, string[]>();
@@ -493,7 +500,7 @@ export function describe(p: Pipeline, marks: (piece: string, tool: string) => Ma
     } else if (s.kind === "claude") out.push(`${n} asks Claude${fed}${when}: ${s.claude}`);
     else {
       const m = marks(s.piece, s.tool);
-      const tags = `${m.changes ? " [may change things]" : ""}${m.outside ? " [may reach outside]" : ""}`;
+      const tags = `${m.changes ? " [may change things]" : ""}${m.outside ? " [may reach outside]" : ""}${m.costs ? " [may cost money]" : ""}`;
       const again = marked(s) && s.retry ? `, tried up to ${s.retry + 1} times if it refuses` : "";
       out.push(
         `${n} calls ${s.piece} ${s.tool}${tags}${s.each ? `, once for each of ${s.each}` : ""}${when}${again}${fed}`,

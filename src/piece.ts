@@ -65,6 +65,8 @@ export interface Piece {
    * them: an account signed in, a key made, a program open. One line each.
    */
   prepare: string[];
+  /** Set when using it can cost the user money or credits: one line on what is charged. */
+  paid: string;
 }
 
 const PERMISSIVE = /^(mit|apache-2\.0|bsd-[23]-clause|bsd|isc|zlib|unlicense|cc0-1\.0|0bsd)$/i;
@@ -191,6 +193,7 @@ export function normalizePiece(raw: unknown, origin: Piece["origin"], trusted: b
     install,
     guide,
     needs: typeof r.needs === "string" ? r.needs : "",
+    paid: typeof r.paid === "string" ? r.paid.replace(/\s+/g, " ").trim().slice(0, 240) : "",
     prepare: strings(r.prepare)
       .map((t) => t.replace(/\s+/g, " ").trim().slice(0, 240))
       .filter(Boolean)
@@ -268,5 +271,6 @@ export function cautions(p: Piece): string[] {
     const missing = missingEnv(p.config);
     if (missing.length) out.push(`Needs the environment variable ${missing.join(", ")}`);
   }
+  if (p.paid) out.push(`May cost money: ${p.paid}`);
   return [...out, ...p.prepare.map((t) => `Have ready first: ${t}`), ...p.warnings];
 }

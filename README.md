@@ -151,12 +151,15 @@ node dist/cli.js setup
 
 그다음 Claude Code를 새로 시작하고 평소처럼 요청을 쓰면 돼요. `/encela:go <요청>`과 `/encela:difficult <요청>`은 작은 요청에도 전체 흐름을 강제하고, `/encela:medium`은 가벼운 흐름을, `/encela:simple`은 엔셀라 없이 하도록 해요. 요청 없이 명령만 쓰면 그 뒤 요청들에 그 수준이 적용돼요.
 
+MCP 서버가 승인받은 뒤에 도구 설명을 바꾸거나 도구를 추가하면, 엔셀라가 그 도구를 막아 두고 설계도를 다시 승인받게 해요. 크레딧이나 요금이 드는 호출에는 "비용이 들 수 있음" 표시가 붙어요.
+
 계정 로그인, 키, 켜 둬야 하는 프로그램(Unity, Godot, Blender 등)이 필요한 부품은 설계도와 조립 결과에 "준비물"로 나와요. 엔셀라는 브라우저 로그인을 대신 하지 않고 키를 보관하지 않아요.
 
 | 명령 | 하는 일 |
 |---|---|
 | `encela setup [--no-auto] [--no-view] [--no-claude]` | 플러그인 설치. `--no-auto`는 프롬프트마다 붙는 안내를, `--no-view`는 작업 화면을 끔 |
 | `encela status` | 부품 수와 저장 위치 |
+| `encela check [부품] [--yes]` | 이 컴퓨터가 준비됐는지 확인. 부품을 주면 여기서 실제로 띄워 보고 도구 목록과 빠진 것(환경변수, 실행 프로그램)을 알려 줌 |
 | `encela pieces [단어…] [--kind <종류>]` | 부품 목록·검색 |
 | `encela add <file.json>` / `encela remove <id>` | 내 부품 추가·삭제 |
 | `encela import [mcp-hub.json]` | 예전 엔셀라(앱, npm 0.1.x)의 모듈 가져오기 |

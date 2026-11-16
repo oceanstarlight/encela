@@ -1,6 +1,7 @@
 // What the tests use.
 export { briefs, copyPath, writeCopies } from "./assemble";
 export { Blueprints, normalizeBlueprint, ready, render, shared } from "./blueprint";
+export { checkPiece, whereIs } from "./check";
 export { CallLost, Client, expand, findReply } from "./client";
 export { Engine } from "./engine";
 export {

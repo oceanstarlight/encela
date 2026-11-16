@@ -119,6 +119,7 @@ function addDocument(source, dir, file) {
     guide: "",
     needs: "",
     prepare: [],
+    paid: "",
   });
 }
 
@@ -168,6 +169,7 @@ for (const m of modules.modules) {
     guide: m.guide?.en ?? "",
     needs: m.needs ?? "",
     prepare: m.prepare?.en ?? [],
+    paid: m.paid?.en ?? "",
   });
 }
 

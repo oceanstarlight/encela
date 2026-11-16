@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { isMainThread } from "node:worker_threads";
+import { check } from "./check";
 import { run as runHook } from "./hook";
 import { home, lang, VERSION } from "./paths";
 import { KINDS, type PieceKind } from "./piece";
@@ -17,6 +18,7 @@ const HELP = `encela ${VERSION} - Encela for Claude Code
 Usage:
   encela setup [--no-auto] [--no-view] [--no-claude] Install the Claude Code plugin
   encela status                                      What Encela has and where
+  encela check [piece] [--yes]                       Whether this computer is ready, or whether one piece starts here
   encela pieces [words...] [--kind <kind>]           List or search the pieces
   encela add <file.json>                             Keep a piece of your own (see README for the format)
   encela remove <id>                                 Remove one of your own pieces
@@ -88,6 +90,8 @@ async function main(argv: string[]): Promise<number> {
       return uninstall();
     case "status":
       return status();
+    case "check":
+      return check(rest);
     case "pieces":
       return pieces(rest);
     case "add": {
