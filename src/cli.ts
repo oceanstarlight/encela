@@ -11,6 +11,7 @@ import { Recipes, recipeLine } from "./recipe";
 import { Registry } from "./registry";
 import { line, search } from "./search";
 import { run as runServer } from "./server";
+import { hintsOn, writeSettings } from "./settings";
 import { setup, uninstall } from "./setup";
 
 const HELP = `encela ${VERSION} - Encela for Claude Code
@@ -22,6 +23,7 @@ Usage:
   encela pieces [words...] [--kind <kind>]           List or search the pieces
   encela add <file.json>                             Keep a piece of your own (see README for the format)
   encela remove <id>                                 Remove one of your own pieces
+  encela hints [on|off]                              Name matching pieces and recipes on each prompt (off unless turned on)
   encela recipes [remove <name>]                     List the recipes you kept, or remove one
   encela import [mcp-hub.json]                       Take in the modules of an earlier Encela
   encela uninstall                                   Remove the Claude Code plugin (your pieces stay)
@@ -40,6 +42,7 @@ function status(): number {
   console.log(`Your Encela folder: ${home()}`);
   console.log(`Your own pieces: ${registry.own().length} (${registry.file})`);
   console.log(`Your recipes: ${new Recipes().list().length}`);
+  console.log(`Hints on each prompt: ${hintsOn() ? "on" : "off"} (encela hints on|off)`);
   console.log(
     `Pieces: ${all.length} (${KINDS.map((k) => `${all.filter((p) => p.kind === k).length} ${k}`).join(", ")})`,
   );
@@ -104,6 +107,15 @@ async function main(argv: string[]): Promise<number> {
       const gone = new Registry().remove(rest[0] ?? "");
       console.log(gone ? `Removed ${rest[0]}.` : `${rest[0]} isn't one of your own pieces.`);
       return gone ? 0 : 1;
+    }
+    case "hints": {
+      if (rest[0] === "on" || rest[0] === "off") writeSettings({ hints: rest[0] === "on" });
+      else if (rest[0]) throw new Error("encela hints on, or encela hints off");
+      const env = process.env.ENCELA_HINTS?.trim();
+      console.log(
+        `Hints on each prompt (matching pieces and recipes): ${hintsOn() ? "on" : "off"}${env === "1" || env === "0" ? " (set by ENCELA_HINTS)" : ""}. The next prompt takes it; the note on the three levels stays either way.`,
+      );
+      return 0;
     }
     case "recipes": {
       const recipes = new Recipes();

@@ -1,7 +1,8 @@
 // `encela hook`: the plugin's UserPromptSubmit hook. It reads the prompt
 // Claude Code is about to send and adds a short note: start with a
-// blueprint (or carry on with the one being built), plus a few pieces whose
-// keywords match. Claude sizes the request: simple (Encela stays out), medium
+// blueprint (or carry on with the one being built). Where the user turned
+// hints on (`encela hints on`), a few pieces and recipes whose keywords match
+// follow. Claude sizes the request: simple (Encela stays out), medium
 // (the light path) or difficult (the full flow).
 // It never stops the prompt: any failure leaves the prompt as it was.
 import { Blueprints, progress } from "./blueprint";
@@ -9,6 +10,7 @@ import { projectDir } from "./paths";
 import { Recipes, recipeLine } from "./recipe";
 import { Registry } from "./registry";
 import { line, search } from "./search";
+import { hintsOn } from "./settings";
 
 const MIN_CHARS = 8;
 /** Keyword matches less sure than this stay out of the prompt. */
@@ -37,6 +39,7 @@ export function hookContext(
   if (active) {
     return `[Encela] The blueprint ${active.id} ("${active.goal}") is ${active.status}, ${progress(active)}. If this message continues that work, keep following it (blueprint_get shows where it stands; record steps with blueprint_step). If it asks for something new, size it: ${NOTE}`;
   }
+  if (!hintsOn(registry.folder)) return `[Encela] ${NOTE}`;
   const hints = search(registry.all(), [prompt], { limit: HINTS })
     .filter((m) => m.score >= HINT_MIN && m.piece.trusted)
     .map((m) => line(m.piece));

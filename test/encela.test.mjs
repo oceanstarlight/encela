@@ -10,6 +10,7 @@ import {
   cautions,
   checkPiece,
   exposed,
+  hintsOn,
   hookCommandFor,
   hookContext,
   launcherFor,
@@ -17,6 +18,7 @@ import {
   normalizePiece,
   permissive,
   Registry,
+  readSettings,
   ready,
   render,
   Server,
@@ -25,6 +27,7 @@ import {
   wantsEncela,
   whereIs,
   writePlugin,
+  writeSettings,
 } from "./.build/lib.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -504,7 +507,14 @@ test("the prompt hook points at a blueprint, or at the one being built", () => {
     /^\[Encela\] Simple \(.*ignore Encela.*Medium \(.*quick_build.*Difficult \(.*encela:orchestrate/,
   );
   assert.ok(fresh.split("\n")[0].length < 480);
-  assert.match(fresh, /mcp:mcp-mermaid/);
+  // Matching pieces are named only once the user turned hints on.
+  assert.ok(!fresh.includes("\n"));
+  assert.equal(readSettings(registry.folder).hints, false);
+  writeSettings({ hints: true }, registry.folder);
+  assert.match(
+    hookContext("Draw a mermaid diagram of this repository", project, registry),
+    /Pieces whose keywords match[\s\S]*mcp:mcp-mermaid/,
+  );
   const plain = hookContext("zzzqqq something entirely unrelated", project, registry);
   assert.ok(plain && !plain.includes("Pieces whose keywords match"));
 
@@ -823,4 +833,22 @@ test("encela check starts a piece here and says what it offers", async () => {
   assert.match(lines.join("\n"), /MISS no-such-program-xyz: not on PATH/);
   assert.ok(whereIs("node"));
   assert.equal(whereIs("no-such-program-xyz"), null);
+});
+
+test("hints are off until the user turns them on, and ENCELA_HINTS decides before the file", () => {
+  const home = temp("home");
+  assert.equal(hintsOn(home), false);
+  writeFileSync(join(home, "settings.json"), '{"hints":"yes","other":1}');
+  assert.equal(hintsOn(home), false);
+  assert.equal(writeSettings({ hints: true }, home).hints, true);
+  // What else the file held is kept.
+  assert.equal(JSON.parse(readFileSync(join(home, "settings.json"), "utf8")).other, 1);
+  process.env.ENCELA_HINTS = "0";
+  try {
+    assert.equal(hintsOn(home), false);
+  } finally {
+    delete process.env.ENCELA_HINTS;
+  }
+  assert.equal(hintsOn(home), true);
+  assert.equal(writeSettings({ hints: false }, home).hints, false);
 });

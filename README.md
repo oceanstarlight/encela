@@ -29,7 +29,7 @@ Medium도 승인 창은 그대로 떠요. 승인 전에는 아무것도 조립�
 
 ```
 프롬프트
-  └ hook이 세 수준을 적은 짧은 안내를 붙임 (Difficult일 때 아래로)
+  └ hook이 세 수준을 적은 짧은 안내를 붙임 (Difficult일 때 아래로). 맞는 부품·레시피 추천은 `encela hints on`으로 켰을 때만 붙음
 ① 분석      목표, 요구사항, 사용자가 정할 것
 ② 부품 찾기  find_pieces → get_piece (없으면 github_search → github_read → piece_add)
 ③ 설계도    blueprint_save: 부품과 역할, 작업자, 단계, 파이프라인, 선택지
@@ -160,12 +160,13 @@ MCP 서버가 승인받은 뒤에 도구 설명을 바꾸거나 도구를 추가
 | `encela setup [--no-auto] [--no-view] [--no-claude]` | 플러그인 설치. `--no-auto`는 프롬프트마다 붙는 안내를, `--no-view`는 작업 화면을 끔 |
 | `encela status` | 부품 수와 저장 위치 |
 | `encela check [부품] [--yes]` | 이 컴퓨터가 준비됐는지 확인. 부품을 주면 여기서 실제로 띄워 보고 도구 목록과 빠진 것(환경변수, 실행 프로그램)을 알려 줌 |
+| `encela hints [on\|off]` | 프롬프트마다 키워드가 맞는 부품·레시피를 추천할지. 기본은 꺼짐. 인자 없이 쓰면 지금 상태를 보여 줌 |
 | `encela pieces [단어…] [--kind <종류>]` | 부품 목록·검색 |
 | `encela add <file.json>` / `encela remove <id>` | 내 부품 추가·삭제 |
 | `encela import [mcp-hub.json]` | 예전 엔셀라(앱, npm 0.1.x)의 모듈 가져오기 |
 | `encela uninstall` | 플러그인 제거(내 부품은 남음) |
 
-환경 변수: `ENCELA_HOME`(기본 `~/.encela`), `ENCELA_AUTO=0`(안내 끄기), `ENCELA_LANG`.
+환경 변수: `ENCELA_HOME`(기본 `~/.encela`), `ENCELA_AUTO=0`(안내 끄기), `ENCELA_HINTS=1`/`0`(추천 켜기/끄기, 설정보다 먼저), `ENCELA_LANG`.
 
 ## 부품
 

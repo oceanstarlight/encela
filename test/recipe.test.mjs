@@ -14,6 +14,7 @@ import {
   recipeName,
   Server,
   ToolCache,
+  writeSettings,
 } from "./.build/lib.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -281,11 +282,10 @@ test("a recipe that names a piece Encela no longer has says so; the prompt hook 
   const draft = JSON.parse(/A blueprint to start from:\n([\s\S]*?)\n\nA recipe is/.exec(got)[1]);
   assert.deepEqual(draft.pieces, []);
 
-  const hint = hookContext(
-    "Please build a landing page for my shop",
-    temp("project"),
-    new Registry(s.home),
-  );
+  const shop = "Please build a landing page for my shop";
+  assert.doesNotMatch(hookContext(shop, temp("project"), new Registry(s.home)), /Recipes/);
+  writeSettings({ hints: true }, s.home);
+  const hint = hookContext(shop, temp("project"), new Registry(s.home));
   assert.match(hint, /Recipes the user kept[\s\S]*- landing-page:/);
   assert.doesNotMatch(
     hookContext("Refactor the database layer please", temp("project"), new Registry(s.home)),
