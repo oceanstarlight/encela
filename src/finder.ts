@@ -1095,6 +1095,9 @@ export class Finder {
       license: r.license === "other" ? "" : r.license,
     };
     r.open.push(
+      "prepare: if its README says the user needs an account or a sign-in, a key, or a program that must be open (an editor, a desktop app), list each in one line; leave it out otherwise",
+    );
+    r.open.push(
       summary
         ? "summary: taken from the repository's own description; say in your words what it is for"
         : "summary: write one line on what it is for",

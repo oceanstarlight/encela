@@ -142,6 +142,8 @@ export class Registry {
         // call. (A piece that was changed is untrusted again and is shown
         // with what is said about it as it is now.)
         piece.warnings = [...new Set([...before.warnings, ...piece.warnings])];
+        piece.prepare = [...new Set([...before.prepare, ...piece.prepare])].slice(0, 6);
+        piece.paid = piece.paid || before.paid;
       }
       own[at] = piece;
     } else own.push(piece);

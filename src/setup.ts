@@ -104,6 +104,36 @@ Use the encela:orchestrate skill for this request, even if it looks small.
 ${FLOW}
 `;
 
+/** The commands that name a request's level, whatever Claude would have picked. */
+const LEVEL_COMMANDS: Record<string, string> = {
+  simple: `---
+description: Encela - simple: do this without Encela
+argument-hint: [request]
+---
+Request: $ARGUMENTS
+
+The user set the level to Simple. Do the request by yourself: call no Encela tool, write no blueprint, and don't mention Encela. With no request given, treat what the user asks from here on as Simple until they name another level.
+`,
+  medium: `---
+description: Encela - medium: the light path (find pieces, one approval, build)
+argument-hint: [request]
+---
+Request: $ARGUMENTS
+
+The user set the level to Medium. Take the light path: call find_pieces once with English keywords for what the task needs, then quick_build with the goal, the pieces that clearly help (none is fine) and one to five step titles. It saves a small blueprint, asks the user and assembles in one call; then build, and mark each step done with blueprint_step. No workers and no pipelines. With no request given, treat what the user asks from here on as Medium until they name another level.
+`,
+  difficult: `---
+description: Encela - difficult: the full flow (blueprint, approval, assembly, build)
+argument-hint: [request]
+---
+Request: $ARGUMENTS
+
+The user set the level to Difficult. Use the encela:orchestrate skill for this request, even if it looks small. With no request given, treat what the user asks from here on as Difficult until they name another level.
+
+${FLOW}
+`,
+};
+
 /**
  * Writes the plugin as a local marketplace; its folder. `auto` adds the note
  * to every prompt, `view` the pane and the line that show a build going on
@@ -172,6 +202,9 @@ export function writePlugin(
   }
   mkdirSync(join(plugin, "commands"), { recursive: true });
   writeFileSync(join(plugin, "commands", "go.md"), GO_COMMAND);
+  for (const [name, body] of Object.entries(LEVEL_COMMANDS)) {
+    writeFileSync(join(plugin, "commands", `${name}.md`), body);
+  }
   return root;
 }
 

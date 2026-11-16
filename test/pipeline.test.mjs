@@ -240,9 +240,24 @@ test("steps wait for everything before them unless they say parallel", () => {
 });
 
 test("marks: what the user must have seen before a call runs unseen", () => {
-  assert.deepEqual(marksOf("list", TOOLS), { changes: false, outside: false });
-  assert.deepEqual(marksOf("write", TOOLS), { changes: true, outside: true });
-  assert.deepEqual(marksOf("list", null), { changes: true, outside: true });
+  assert.deepEqual(marksOf("list", TOOLS), { changes: false, outside: false, costs: false });
+  assert.deepEqual(marksOf("write", TOOLS), { changes: true, outside: true, costs: false });
+  assert.deepEqual(marksOf("list", null), { changes: true, outside: true, costs: false });
+  // Money: the tool's own words, or a piece that says it is paid (its reading tools aside).
+  assert.equal(marksOf("generate_video", [{ name: "generate_video", costs: true }]).costs, true);
+  assert.equal(marksOf("create_payment_link", null).costs, true);
+  assert.equal(marksOf("write", TOOLS, true).costs, true);
+  assert.equal(marksOf("list", TOOLS, true).costs, false);
+  // A call that only reads and stays here is still shown when it costs.
+  const paid = pipe({ steps: [{ id: "a", piece: "t", tool: "list" }] });
+  assert.equal(
+    markedSteps([paid], (_p, name) => ({ ...marksOf(name, TOOLS), costs: true })).length,
+    1,
+  );
+  assert.match(
+    describe(paid, (_p, name) => ({ ...marksOf(name, TOOLS), costs: true })).join("\n"),
+    /\[may cost money\]/,
+  );
   const p = pipe({
     steps: [
       { id: "a", piece: "t", tool: "list" },

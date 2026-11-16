@@ -22,6 +22,60 @@ export interface KnownTool {
   openWorld: boolean;
   /** The server says calling it again with the same arguments changes nothing more (`idempotentHint`). */
   idempotent: boolean;
+  /** Its name or description speaks of money: credits, billing, a purchase. A guess from words. */
+  costs: boolean;
+}
+
+/** Words that say a call may spend the user's money or credits. */
+const MONEY =
+  /\b(credits?|billing|billed|charged?|charges|paid|purchases?|buy|payments?|invoices?|checkout|subscription|refund|payout|top[- ]?up|costs? (money|credits))\b/i;
+
+/** Whether a tool's own words say calling it may cost money. */
+export const speaksOfMoney = (name: string, description: string) =>
+  MONEY.test(name.replace(/[_-]+/g, " ")) || MONEY.test(description);
+
+/**
+ * A fingerprint of a tool as its server lists it: the name, every word of
+ * its description, its schemas and what it says about itself. The model
+ * reads the description as it comes, so one changed word is another tool.
+ */
+export function toolPrint(t: Json): string {
+  const a = (t.annotations ?? {}) as Json;
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        String(t.name ?? ""),
+        String(t.description ?? ""),
+        t.inputSchema ?? null,
+        t.outputSchema ?? null,
+        [a.readOnlyHint, a.destructiveHint, a.idempotentHint, a.openWorldHint].map(
+          (v) => v ?? null,
+        ),
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 20);
+}
+
+/** How a piece's tools differ from those the user accepted. */
+export interface Drift {
+  /** Tools whose description, schema or marks are no longer what was accepted. */
+  changed: string[];
+  /** Tools that were not there when it was accepted. */
+  added: string[];
+  /** Tools that are gone: said, but nothing to hold back. */
+  removed: string[];
+}
+
+/** One line on a drift, for the user. */
+export function driftText(d: Drift): string {
+  const part = (label: string, names: string[]) =>
+    names.length
+      ? `${label}: ${names.slice(0, 8).join(", ")}${names.length > 8 ? ` and ${names.length - 8} more` : ""}`
+      : "";
+  return [part("changed", d.changed), part("new", d.added), part("gone", d.removed)]
+    .filter(Boolean)
+    .join("; ");
 }
 
 const MAX_DESCRIPTION = 400;
@@ -41,6 +95,7 @@ export function knownTool(t: Json): KnownTool {
     readOnly: annotations.readOnlyHint === true,
     openWorld: annotations.openWorldHint !== false,
     idempotent: annotations.idempotentHint === true,
+    costs: speaksOfMoney(String(t.name ?? ""), description),
   };
 }
 
@@ -65,6 +120,15 @@ export function withEnv<T extends { env: Record<string, string> }>(
   return { ...config, env: { ...config.env, ...env } };
 }
 
+interface Stored {
+  piece?: string;
+  config?: string;
+  at?: string;
+  tools?: KnownTool[];
+  prints?: Record<string, string>;
+  accepted?: Record<string, string>;
+}
+
 export class ToolCache {
   constructor(private dir = home()) {}
 
@@ -82,14 +146,67 @@ export class ToolCache {
   save(piece: string, config: unknown, tools: Json[]) {
     try {
       mkdirSync(join(this.dir, "tools"), { recursive: true });
+      const prints: Record<string, string> = {};
+      for (const t of tools) if (t.name) prints[String(t.name)] = toolPrint(t);
+      // What the user accepted stays, for the piece as it is started now. A
+      // list seen for the first time has nothing before it to differ from.
+      const before = this.read(piece, config);
       writeJson(this.file(piece), {
         piece,
         config: configKey(config),
         at: new Date().toISOString(),
         tools: tools.map(knownTool).filter((t) => t.name),
+        prints,
+        accepted: before?.accepted ?? prints,
       });
     } catch {
       // The cache is a convenience; a disk that won't take it changes nothing else.
+    }
+  }
+
+  private read(piece: string, config: unknown): Stored | null {
+    try {
+      const file = this.file(piece);
+      if (!existsSync(file)) return null;
+      const data = JSON.parse(readFileSync(file, "utf8")) as Stored;
+      if (data.config !== configKey(config)) return null;
+      const map = (v: unknown) =>
+        v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, string>) : null;
+      return {
+        ...data,
+        prints: map(data.prints) ?? undefined,
+        accepted: map(data.accepted) ?? undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * How the piece's tools, as last listed, differ from those the user
+   * accepted; null when nothing was changed or added (or nothing is known).
+   * A server can change what a tool says without any new version: this is
+   * how that is seen.
+   */
+  drift(piece: string, config: unknown): Drift | null {
+    const data = this.read(piece, config);
+    if (!data?.prints || !data.accepted) return null;
+    const now = data.prints;
+    const was = data.accepted;
+    const changed = Object.keys(now).filter((n) => n in was && was[n] !== now[n]);
+    const added = Object.keys(now).filter((n) => !(n in was));
+    if (!changed.length && !added.length) return null;
+    return { changed, added, removed: Object.keys(was).filter((n) => !(n in now)) };
+  }
+
+  /** The user accepted the piece with the tools it lists now. */
+  accept(piece: string, config: unknown) {
+    try {
+      const data = this.read(piece, config);
+      if (!data?.prints) return;
+      writeJson(this.file(piece), { ...data, accepted: data.prints });
+    } catch {
+      // Nothing known to accept.
     }
   }
 

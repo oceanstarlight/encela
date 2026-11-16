@@ -16,7 +16,7 @@ import {
 } from "./pipeline";
 import { type Registry, writeJson } from "./registry";
 import { place, type Seals } from "./seal";
-import { type ToolCache, withEnv } from "./tools";
+import { driftText, type ToolCache, withEnv } from "./tools";
 
 export type Status = "draft" | "approved" | "assembled" | "done" | "cancelled";
 export type StepStatus = "todo" | "doing" | "done" | "failed";
@@ -108,7 +108,7 @@ export function marker(registry: Registry, tools: ToolCache | undefined, b: Blue
   return (piece: string, tool: string): Marks => {
     const p = registry.find(piece);
     const env = b?.pieces.find((x) => x.piece === p?.id)?.env;
-    return marksOf(tool, p && tools ? tools.load(p.name, withEnv(p.config, env)) : null);
+    return marksOf(tool, p && tools ? tools.load(p.name, withEnv(p.config, env)) : null, !!p?.paid);
   };
 }
 
@@ -444,6 +444,13 @@ export function render(b: Blueprint, registry: Registry, brief = false, tools?: 
       out.push(`  Started with: ${env.map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}`);
     }
     for (const c of cautions(p)) out.push(`  ! ${c}`);
+    // A server can change what its tools say without a new version.
+    const drift = p.kind === "mcp" ? tools?.drift(p.name, withEnv(p.config, bp.env)) : null;
+    if (drift) {
+      out.push(
+        `  ! Its tools are not what you accepted before (${driftText(drift)}). Approving accepts them as they are now`,
+      );
+    }
   }
   if (b.workers.length && !brief) {
     out.push("", "## Workers", ...b.workers.map((w) => `- ${w.name}: ${w.role}`));
