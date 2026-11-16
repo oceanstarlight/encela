@@ -299,6 +299,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A GitHub personal access token in the GITHUB_PAT environment variable"
+        ]
       }
     },
     {
@@ -490,6 +495,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Notion account. Encela can't do this server's browser sign-in: add it to Claude Code yourself (claude mcp add --transport http notion https://mcp.notion.com/mcp), sign in with /mcp, and Claude uses its tools from there"
+        ]
       }
     },
     {
@@ -522,6 +532,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Linear account. Encela can't do this server's browser sign-in: add it to Claude Code yourself (claude mcp add --transport http linear https://mcp.linear.app/mcp/readonly), sign in with /mcp, and Claude uses its tools from there"
+        ]
       }
     },
     {
@@ -559,6 +574,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Cloudflare account. Encela can't do this server's browser sign-in: add it to Claude Code yourself (claude mcp add --transport http cloudflare https://mcp.cloudflare.com/mcp), sign in with /mcp, and Claude uses its tools from there"
+        ]
       }
     },
     {
@@ -596,6 +616,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Supabase account. Encela can't do this server's browser sign-in: add it to Claude Code yourself (claude mcp add --transport http supabase https://mcp.supabase.com/mcp?read_only=true), sign in with /mcp, and Claude uses its tools from there"
+        ]
       }
     },
     {
@@ -633,6 +658,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Stripe account. Encela can't do this server's browser sign-in: add it to Claude Code yourself (claude mcp add --transport http stripe https://mcp.stripe.com), sign in with /mcp, and Claude uses its tools from there"
+        ]
       }
     },
     {
@@ -716,6 +746,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A PostgreSQL database you can reach, with its connection string in the DATABASE_URI environment variable"
+        ]
       }
     },
     {
@@ -825,6 +860,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "An Atlassian account with an API token; set JIRA_URL, JIRA_USERNAME and JIRA_API_TOKEN (and the CONFLUENCE_ ones for Confluence)"
+        ]
       }
     },
     {
@@ -879,6 +919,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Figma account and a personal access token in the FIGMA_API_KEY environment variable"
+        ]
       }
     },
     {
@@ -1111,6 +1156,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A Qdrant instance you can reach; set QDRANT_URL (and QDRANT_API_KEY if it asks for one) and COLLECTION_NAME"
+        ]
       }
     },
     {
@@ -1168,6 +1218,11 @@
       "warnings": {
         "ko": [],
         "en": []
+      },
+      "prepare": {
+        "en": [
+          "A running Jupyter server; set JUPYTER_URL and JUPYTER_TOKEN"
+        ]
       }
     },
     {
@@ -1282,6 +1337,11 @@
         "en": [
           "Added read-only (restricted). Change to --access-mode=unrestricted to allow writes."
         ]
+      },
+      "prepare": {
+        "en": [
+          "A PostgreSQL database you can reach, with its connection string in the DATABASE_URI environment variable"
+        ]
       }
     },
     {
@@ -1340,6 +1400,11 @@
         ],
         "en": [
           "Install and start Ghidra with the GhidraMCP extension first. It fetches the latest from git."
+        ]
+      },
+      "prepare": {
+        "en": [
+          "Ghidra installed and open, with the GhidraMCP extension turned on"
         ]
       }
     },
@@ -1690,6 +1755,11 @@
           "The README promotes a paid Premium option; the open-source server works without it",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
         ]
+      },
+      "prepare": {
+        "en": [
+          "Blender open, with the MCP for Blender add-on installed and enabled and its server started (the piece's guide has the steps)"
+        ]
       }
     },
     {
@@ -1754,6 +1824,11 @@
           "Godot must be installed; set GODOT_PATH if it is not found automatically",
           "It edits scene and project files and runs the project on the user's machine",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
+        ]
+      },
+      "prepare": {
+        "en": [
+          "Godot installed on this computer (set GODOT_PATH if it isn't found by itself)"
         ]
       }
     },
@@ -1830,6 +1905,11 @@
           "Sponsored by a commercial vendor (Aura) that advertises paid tools in the README; the server itself is free MIT",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
         ]
+      },
+      "prepare": {
+        "en": [
+          "Unity Editor open on your project, with the MCP for Unity package added through the Package Manager"
+        ]
       }
     },
     {
@@ -1901,6 +1981,11 @@
           "It can modify the project; building the plugin from source needs a C++ project and a compiler (Fab or prebuilt zip avoids that)",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
         ]
+      },
+      "prepare": {
+        "en": [
+          "Unreal Editor open on your project with the EngineWire plugin enabled, and UE_PROJECT_PATH set to the project's folder"
+        ]
       }
     },
     {
@@ -1966,6 +2051,11 @@
           "Roblox Studio must be open; the command writes a plugin file into Studio's Plugins folder",
           "Runs Luau code in Studio and can change scripts and properties; give any Open Cloud key only the scopes the agent may use",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
+        ]
+      },
+      "prepare": {
+        "en": [
+          "Roblox Studio open; after the first start close and reopen it so the plugin connects"
         ]
       }
     },
@@ -2452,6 +2542,11 @@
           "Includes an anti-debug hide feature, meant for analysing protected samples.",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
         ]
+      },
+      "prepare": {
+        "en": [
+          "Windows with x64dbg running, the server's plugin in its plugins folder, and a target open"
+        ]
       }
     },
     {
@@ -2855,6 +2950,11 @@
           "Anonymous usage statistics go to Grafana Labs by default; this entry sets GRAFANA_USAGE_STATS=disabled.",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
         ]
+      },
+      "prepare": {
+        "en": [
+          "A Grafana instance and a service account token; set GRAFANA_URL and GRAFANA_SERVICE_ACCOUNT_TOKEN"
+        ]
       }
     },
     {
@@ -3184,6 +3284,11 @@
           "Telemetry is on by default (README); this entry sets MDB_MCP_TELEMETRY=disabled and DO_NOT_TRACK=1.",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
         ]
+      },
+      "prepare": {
+        "en": [
+          "A MongoDB database you can reach, with its connection string in MDB_MCP_CONNECTION_STRING"
+        ]
       }
     },
     {
@@ -3318,6 +3423,11 @@
           "Community project, not published by Oracle or MySQL.",
           "It has no read-only mode: INSERT, UPDATE and DELETE run; use a database user with only the rights you want to give.",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
+        ]
+      },
+      "prepare": {
+        "en": [
+          "A MySQL database you can reach; set MYSQL_HOST, MYSQL_PORT, MYSQL_USER and MYSQL_PASSWORD"
         ]
       }
     },
@@ -3514,6 +3624,11 @@
           "Needs OBSIDIAN_API_KEY from that plugin",
           "It can overwrite and permanently delete notes (obsidian_delete_note deletes without confirmation by default); limit with OBSIDIAN_READ_PATHS, OBSIDIAN_DENY_PATHS or OBSIDIAN_READ_ONLY",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
+        ]
+      },
+      "prepare": {
+        "en": [
+          "Obsidian open with the Local REST API plugin enabled, and that plugin's key in OBSIDIAN_API_KEY"
         ]
       }
     },
@@ -3913,6 +4028,11 @@
           "Needs a SearXNG instance you run or can use; set SEARXNG_URL (a public instance may log your queries)",
           "Needs Node.js 22 or later",
           "Not start-tested by Encela yet: the start command comes from the project's README and package metadata."
+        ]
+      },
+      "prepare": {
+        "en": [
+          "A SearXNG instance you run or may use; set SEARXNG_URL"
         ]
       }
     },

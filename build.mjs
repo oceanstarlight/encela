@@ -118,6 +118,7 @@ function addDocument(source, dir, file) {
     install: [],
     guide: "",
     needs: "",
+    prepare: [],
   });
 }
 
@@ -166,6 +167,7 @@ for (const m of modules.modules) {
     install: m.install ?? [],
     guide: m.guide?.en ?? "",
     needs: m.needs ?? "",
+    prepare: m.prepare?.en ?? [],
   });
 }
 

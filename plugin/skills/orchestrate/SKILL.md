@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Turns a request into a blueprint the user approves, then assembles the pieces it needs (MCP servers, CLIs, skills, rules, subagents) and builds with them. Use when a request builds, changes or produces something beyond a quick answer or a small edit, when an "[Encela]" note says to, or for /encela:go.
+description: The full flow for a difficult request (a new app or workflow, many parts, workers side by side, pipelines, pieces from GitHub): turns it into a blueprint the user approves, then assembles the pieces it needs (MCP servers, CLIs, skills, rules, subagents) and builds with them. Not for simple requests (answer them without Encela) or medium ones (find_pieces once, then quick_build). Use for /encela:go and /encela:difficult.
 ---
 
 # Orchestrating a build with Encela
@@ -9,7 +9,15 @@ You are the orchestrator. The user gave one request; you write the blueprint, th
 
 The encela MCP tools do the bookkeeping. Their names end in `find_pieces`, `get_piece`, `piece_add`, `github_search`, `github_read`, `blueprint_save`, `blueprint_get`, `blueprint_approve`, `blueprint_assemble`, `blueprint_step`, `piece_open`, `piece_tools`, `piece_call`, `piece_close`, `pipeline_run`, `pipeline_resume`, `pipeline_get`, `recipe_save`, `recipe_get`.
 
-Skip all of this for questions, explanations and small edits: just answer.
+## Which requests come here
+
+Size a request before anything else, and tell the user the level in one line when it is not simple:
+
+- **Simple** (a question, a small edit, one thing Claude Code does by itself: a commit, a pull request, a deploy): no Encela. Just do it.
+- **Medium** (a small page or script, a follow-up change, a few files): not this skill. Call `find_pieces` once, then `quick_build {request, goal, pieces, steps}`: it saves a small blueprint, asks the user and assembles in one call. Build, and mark each step done with `blueprint_step`.
+- **Difficult** (a new app or workflow, many parts, workers side by side, pipelines, pieces from GitHub): the rest of this skill.
+
+When unsure, take the smaller; a light build that grows can move here (save it again with `blueprint_save` and its id). A level the user named (`/encela:simple`, `/encela:medium`, `/encela:difficult`) stands.
 
 ## 1. Analyse
 
@@ -30,6 +38,7 @@ Call `find_pieces` with several English keyword queries at once. Search for what
 - Settle what the draft leaves open (write the summary in your words, replace placeholders in `config.args`, write a `guide` for a CLI or library from the README), then keep it with `piece_add`, passing `piece` and the `from` that `github_read` gave, unchanged (its `commit` is the full commit): Encela reads the repository again at that commit and sets the source, the license, the warnings and a document's text itself, and keeps the piece as the kind the files say it is. The start command you pass in `config` is checked the same way as the README's: Encela looks its package up on npm or PyPI (is it there, does it name this repository as its source), pins its version, and leaves out environment names that load code or turn off a check. Take seriously a package that names another repository, and a command Encela says it could not check.
 - A piece that is kept again with other text, files, guide, command or source is no longer the piece the user accepted: it waits for approval again, and so does a blueprint that uses it. A piece the user added themselves is never replaced; give yours another name.
 - Pieces from outside are shown to the user with their warnings and cannot run until the blueprint is approved. Tell the user which environment variables a piece needs (never ask for the values in chat).
+- Some pieces need something only the user can do: sign in to an account, make a key, keep a program open (an editor such as Unity, Godot or Blender). `get_piece` lists these as "Have ready first". Say them to the user with the blueprint, and when you draft a piece from GitHub, write them into its `prepare` (one line each) from what its README asks for. A server that needs a browser sign-in can't be started by Encela at all: tell the user to add it to Claude Code and sign in with `/mcp`, and use its tools from there.
 - Keep only pieces that clearly help. Three that fit beat ten that might. A blueprint with no pieces is fine.
 
 ## 3. Write the blueprint
@@ -56,6 +65,8 @@ Show the user the blueprint in their language: the goal, every piece with its ro
 ## 5. Assemble
 
 Call `blueprint_assemble`. It starts the MCP pieces (their tools appear as `<piece>__<tool>`), writes a working copy of each document under `.encela/build/<blueprint>/`, and returns what to adapt and a brief for each worker.
+
+If the result has a "Have ready first" section, tell the user what to prepare and wait for their word before the steps that use those pieces.
 
 If the result lists copies to adapt, start the `encela:assembler` subagent with that list and the blueprint's goal and requirements, before the steps that use them. Only the copies change; pieces stay as they are.
 

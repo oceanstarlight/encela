@@ -63,7 +63,14 @@ export const FLOW = `How to take a request through Encela (the encela:orchestrat
 6. Build: adapt the working copies as the blueprint says (encela:assembler subagent), run workers whose steps don't depend on each other as parallel subagents with their briefs, and record each step with blueprint_step. Where one tool runs over many items, or a tool's large output only feeds another tool, put that chain in the blueprint as a pipeline and run it with pipeline_run: Encela makes the calls and you get a short report.
 7. When every step is done, tell the user what was built and with which pieces, and offer to keep the blueprint as a recipe (recipe_save) if a build like it may come again.`;
 
-const INSTRUCTIONS = `Encela holds pieces for Claude Code: MCP servers, command line tools, libraries, skills, rules, instructions and subagents. For a request that builds, changes or produces something beyond a quick answer, Encela turns it into a blueprint the user approves, then assembles the pieces. Nothing runs until then.\n${FLOW}`;
+/** The three sizes of a request, and what Encela does for each. The hook, the commands and the server's instructions use it. */
+export const LEVELS = `Size the request first:
+- Simple (a question, a small edit, or one thing Claude Code does by itself: a commit, a pull request, a deploy): don't use Encela at all, and don't mention it.
+- Medium (a small page or script, a follow-up change to something built, a few files, no parts that run side by side): say in one line that you take the light path, call find_pieces once, then quick_build with the pieces that clearly help (none is fine). It saves, asks the user and assembles in one call.
+- Difficult (a new app or workflow, many parts, workers side by side, pipelines, pieces from GitHub): say so in one line and use the encela:orchestrate skill for the full flow.
+When unsure between two, take the smaller. The user can name the level themselves (/encela:simple, /encela:medium, /encela:difficult), and that stands.`;
+
+const INSTRUCTIONS = `Encela holds pieces for Claude Code: MCP servers, command line tools, libraries, skills, rules, instructions and subagents. For a request that builds, changes or produces something beyond a quick answer, Encela turns it into a blueprint the user approves, then assembles the pieces. Nothing runs until then.\n${LEVELS}\n${FLOW}`;
 
 export function exposed(piece: string, tool: string): string {
   const clean = (s: string) => s.replace(/[^A-Za-z0-9_-]/g, "_");
@@ -131,7 +138,7 @@ function ownTools() {
         piece: {
           type: "object",
           description:
-            "kind, name, summary, tags, capabilities, inputs, outputs, source {repo, commit, path}, license, warnings; for mcp: config {transport stdio|http, command, args, env, url, headers}; for cli/library: guide, install; for documents: body",
+            "kind, name, summary, tags, capabilities, inputs, outputs, source {repo, commit, path}, license, warnings, prepare (what the user must have ready that Encela can't do: an account signed in, a key, a program open; one line each); for mcp: config {transport stdio|http, command, args, env, url, headers}; for cli/library: guide, install; for documents: body",
         },
       },
       ["piece"],
@@ -192,6 +199,36 @@ function ownTools() {
       { id: blueprint, pipeline: { type: "string", description: "A pipeline's name" } },
       [],
       true,
+    ),
+    tool(
+      "quick_build",
+      "The light path for a medium request: saves a small blueprint (a goal, the pieces, a few steps), asks the user to approve it and assembles it, in one call. No workers, pipelines or choices: a request that needs those takes the full flow (blueprint_save). Where the user can't be asked directly, ask them yourself, then call it again with id and user_answer.",
+      {
+        request: { type: "string", description: "The user's words" },
+        goal: { type: "string", description: "One sentence on what will exist when this is done" },
+        pieces: {
+          type: "array",
+          items: { type: "object" },
+          description:
+            "[{piece, role, adapt}] from find_pieces; leave empty when none clearly helps",
+        },
+        steps: {
+          ...strings,
+          description: "One to five short titles, in order; left out, the goal is the one step",
+        },
+        id: {
+          ...blueprint,
+          description: "Only when calling again for a blueprint this tool saved",
+        },
+        user_answer: {
+          type: "string",
+          enum: ["approve", "revise", "cancel"],
+          description: "What the user answered when you asked them",
+        },
+        note: { type: "string", description: "What the user said" },
+      },
+      [],
+      false,
     ),
     tool(
       "blueprint_approve",
@@ -673,6 +710,8 @@ export class Server {
           return text(
             this.getBlueprint(args.id as string | undefined, args.pipeline as string | undefined),
           );
+        case "quick_build":
+          return text(await this.quick(args));
         case "blueprint_approve":
           return text(await this.approve(args));
         case "blueprint_assemble":
@@ -1107,6 +1146,55 @@ export class Server {
     return `The user wants changes${note ? `: ${note}` : " (ask them which)"}. Change the blueprint, save it with blueprint_save (id ${b.id}) and ask for approval again.`;
   }
 
+  /**
+   * The light path: a small blueprint, the user's answer and the assembly in
+   * one call. It is the same blueprint, the same question and the same
+   * assembly as the full flow's, so nothing here runs before the user said yes.
+   */
+  private async quick(args: Json): Promise<string> {
+    let id = String(args.id ?? "").trim();
+    if (!id) {
+      const goal = String(args.goal ?? "").trim();
+      const titles = (Array.isArray(args.steps) ? args.steps : [])
+        .map((t) => String(t ?? "").trim())
+        .filter(Boolean);
+      if (titles.length > 5) {
+        throw new Error(
+          "quick_build takes five steps at most: a build with more goes through the full flow (the encela:orchestrate skill, blueprint_save).",
+        );
+      }
+      for (const k of ["workers", "pipelines", "choices"]) {
+        if (Array.isArray(args[k]) && (args[k] as unknown[]).length) {
+          throw new Error(
+            `quick_build takes no ${k}: a build that needs them goes through the full flow (the encela:orchestrate skill, blueprint_save).`,
+          );
+        }
+      }
+      this.saveBlueprint({
+        request: args.request,
+        goal,
+        pieces: args.pieces,
+        steps: (titles.length ? titles : [goal]).map((title, i) => ({
+          id: `s${i + 1}`,
+          title,
+          after: i ? [`s${i}`] : [],
+        })),
+      });
+      id = this.current;
+    }
+    const again = `Call quick_build again with {id: "${id}", user_answer, note} once the user has answered.`;
+    if (this.blueprints.get(id).status === "draft") {
+      const said = await this.approve({ id, user_answer: args.user_answer, note: args.note });
+      const now = this.blueprints.get(id).status;
+      if (now === "draft") return `${said}\n\nOn the light path: ${again}`;
+      if (now !== "approved") return said;
+    }
+    const b = this.blueprints.get(id);
+    const built = await this.assemble(id);
+    const steps = b.steps.map((s) => s.id).join(", ");
+    return `${built}\n\nLight path: build it now. No need to mark a step as started; when a step is done call blueprint_step {id: "${id}", step, status: "done"} (steps: ${steps}). If this turns out bigger than it looked, say so and move to the full flow (blueprint_save with this id).`;
+  }
+
   private async assemble(id: string): Promise<string> {
     const b = this.blueprints.get(id);
     if (b.status !== "approved" && b.status !== "assembled") {
@@ -1168,7 +1256,10 @@ export class Server {
       } catch (e) {
         failed++;
         usage.set(piece.id, `${piece.id}: could not be started`);
-        out.push(`- ${piece.id}: ${e instanceof Error ? e.message : e}`);
+        const why = piece.prepare.length
+          ? ` (it needs this ready first: ${piece.prepare.join("; ")}; once the user has it, piece_open {id: "${piece.id}"} starts it)`
+          : "";
+        out.push(`- ${piece.id}: ${e instanceof Error ? e.message : e}${why}`);
       }
     }
     // From here this computer watches the build, or goes on watching one it
@@ -1184,6 +1275,17 @@ export class Server {
     this.current = b.id;
     this.live.note("assembled", b.id, String(b.pieces.length - failed));
 
+    const needing = b.pieces
+      .map((p) => this.registry.find(p.piece))
+      .filter((p): p is Piece => !!p && p.prepare.length > 0);
+    if (needing.length) {
+      out.push(
+        "",
+        "## Have ready first",
+        "Encela can't do these for the user. Tell them now, in their language, and ask them to say when it is done; don't start a step that uses the piece before that. Never ask for a key or a password in chat:",
+        ...needing.flatMap((p) => p.prepare.map((t) => `- ${p.id}: ${t}`)),
+      );
+    }
     const toAdapt = copies.filter((c) => c.entry.adapt);
     if (toAdapt.length) {
       out.push(

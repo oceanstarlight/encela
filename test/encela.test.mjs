@@ -472,7 +472,7 @@ test("the server speaks MCP: tools, prompt, unknown methods", async () => {
   assert.match(hello.result.instructions, /blueprint_approve/);
   const list = await server.handle({ jsonrpc: "2.0", id: 1, method: "tools/list" });
   const names = list.result.tools.map((t) => t.name);
-  assert.equal(names.length, 19);
+  assert.equal(names.length, 20);
   for (const n of names) assert.ok(`mcp__plugin_encela_encela__${n}`.length <= 64, n);
   const go = await server.handle({
     jsonrpc: "2.0",
@@ -495,7 +495,12 @@ test("the prompt hook points at a blueprint, or at the one being built", () => {
   assert.equal(hookContext("<task-notification>done</task-notification>", project, registry), null);
   assert.ok(!wantsEncela("continue [Encela] note"));
   const fresh = hookContext("Draw a mermaid diagram of this repository", project, registry);
-  assert.match(fresh, /^\[Encela\] If this request builds/);
+  // Short, because it rides on every prompt: the three levels and what each means.
+  assert.match(
+    fresh,
+    /^\[Encela\] Simple \(.*ignore Encela.*Medium \(.*quick_build.*Difficult \(.*encela:orchestrate/,
+  );
+  assert.ok(fresh.split("\n")[0].length < 480);
   assert.match(fresh, /mcp:mcp-mermaid/);
   const plain = hookContext("zzzqqq something entirely unrelated", project, registry);
   assert.ok(plain && !plain.includes("Pieces whose keywords match"));
@@ -519,6 +524,10 @@ test("the plugin is written with its skill, subagent, hook and server", () => {
   const hooks = JSON.parse(read("hooks", "hooks.json")).hooks.UserPromptSubmit[0].hooks[0];
   assert.match(hooks.command, / hook$/);
   assert.equal(JSON.parse(read(".claude-plugin", "plugin.json")).name, "encela");
+  // A command for each level, for when the user wants to name it themselves.
+  assert.match(read("commands", "simple.md"), /call no Encela tool/);
+  assert.match(read("commands", "medium.md"), /quick_build/);
+  assert.match(read("commands", "difficult.md"), /encela:orchestrate[\s\S]*blueprint_save/);
   // Without the note on every prompt, only the view's module is left there.
   const quiet = join(writePlugin(root, false), "plugins", "encela", "hooks", "hooks.json");
   assert.deepEqual(JSON.parse(readFileSync(quiet, "utf8")), { modules: ["./view.tsx"] });
@@ -552,4 +561,117 @@ test("the plugin starts Encela the right way on each OS", () => {
     hookCommandFor("win32", false, cli, "C:\\Program Files\\nodejs\\node.exe"),
     "'C:/Program Files/nodejs/node.exe' C:/Users/me/AppData/npm/node_modules/encela/dist/cli.js hook",
   );
+});
+
+test("a medium request: one call saves, asks and assembles", async () => {
+  const { server, sent, project, ready: init } = start({ elicitation: {} });
+  await init;
+  const answer = (content, action = "accept") => {
+    const asked = sent.find((m) => m.method === "elicitation/create" && !m.answered);
+    asked.answered = true;
+    return server.handle({ jsonrpc: "2.0", id: asked.id, result: { action, content } });
+  };
+  const pending = server.call("quick_build", {
+    request: "a small page",
+    goal: "A landing page",
+    pieces: [{ piece: "skill:anthropics_skills/frontend-design", role: "design" }],
+    steps: ["Write the page", "Check it"],
+  });
+  // Nothing is assembled before the user said yes.
+  const store = new Blueprints(project);
+  assert.equal(store.list()[0].status, "draft");
+  await answer({ decision: "approve" });
+  const built = said(await pending);
+  assert.match(built, /^Assembled /);
+  assert.match(built, /Light path: build it now[\s\S]*steps: s1, s2/);
+  const id = store.list()[0].id;
+  assert.equal(store.get(id).status, "assembled");
+  assert.equal(store.get(id).approval, "direct");
+  // A step is marked done without having been marked started, and the build ends.
+  await server.call("blueprint_step", { id, step: "s1", status: "done" });
+  assert.match(
+    said(await server.call("blueprint_step", { id, step: "s2", status: "done" })),
+    /Every step of .* is done/,
+  );
+});
+
+test("a medium request the user turns down, or answers through Claude", async () => {
+  const { server, project, ready: init } = start();
+  await init;
+  const first = said(await server.call("quick_build", { goal: "A script" }));
+  const store = new Blueprints(project);
+  const id = store.list()[0].id;
+  // The user can't be asked here: Claude asks, nothing is assembled meanwhile.
+  assert.match(first, /hasn't decided yet/);
+  assert.match(first, new RegExp(`Call quick_build again with \\{id: "${id}", user_answer`));
+  assert.equal(store.get(id).status, "draft");
+  assert.deepEqual(
+    store.get(id).steps.map((s) => s.title),
+    ["A script"],
+  );
+  const changes = said(
+    await server.call("quick_build", { id, user_answer: "revise", note: "in Python" }),
+  );
+  assert.match(changes, /wants changes: in Python/);
+  assert.equal(store.get(id).status, "draft");
+  assert.match(
+    said(await server.call("quick_build", { id, user_answer: "approve" })),
+    /^Assembled /,
+  );
+  assert.equal(store.get(id).approval, "relayed");
+  const other = said(await server.call("quick_build", { goal: "Another" }));
+  assert.match(other, /hasn't decided yet/);
+  const next = store.list().find((b) => b.id !== id).id;
+  assert.match(
+    said(await server.call("quick_build", { id: next, user_answer: "cancel" })),
+    /cancelled/,
+  );
+  assert.equal(store.get(next).status, "cancelled");
+});
+
+test("the light path takes nothing that needs the full flow", async () => {
+  const { server, project, ready: init } = start();
+  await init;
+  const no = async (args, why) => {
+    const r = await server.call("quick_build", { goal: "g", ...args });
+    assert.ok(r.isError);
+    assert.match(said(r), why);
+  };
+  await no({ workers: [{ name: "a", role: "b" }] }, /takes no workers.*full flow/);
+  await no({ pipelines: [{ name: "p", steps: [] }] }, /takes no pipelines/);
+  await no({ steps: ["1", "2", "3", "4", "5", "6"] }, /five steps at most/);
+  assert.equal(new Blueprints(project).list().length, 0);
+});
+
+test("what the user has to have ready is said before a piece is used", async () => {
+  const { server, registry, ready: init } = start();
+  await init;
+  const unity = registry.get("mcp:unity");
+  assert.ok(unity.prepare.some((t) => /Unity Editor open/.test(t)));
+  assert.ok(cautions(unity).some((c) => /^Have ready first: Unity Editor open/.test(c)));
+  assert.match(
+    said(await server.call("get_piece", { id: "mcp:notion" })),
+    /Have ready first: A Notion account\. Encela can't do this server's browser sign-in/,
+  );
+  // Claude writes it for a piece from outside; a later call doesn't take it off.
+  const piece = { kind: "cli", name: "tool-x", summary: "s", guide: "Run tool-x", license: "MIT" };
+  await server.call("piece_add", {
+    piece: { ...piece, prepare: ["An account at example.com", "  ", "x".repeat(400)] },
+  });
+  assert.deepEqual(registry.get("cli:tool-x").prepare, [
+    "An account at example.com",
+    "x".repeat(240),
+  ]);
+  await server.call("piece_add", { piece });
+  assert.equal(registry.get("cli:tool-x").prepare.length, 2);
+  const saved = said(
+    await server.call("blueprint_save", {
+      blueprint: {
+        goal: "g",
+        pieces: [{ piece: "cli:tool-x", role: "r" }],
+        steps: [{ title: "t" }],
+      },
+    }),
+  );
+  assert.match(saved, /! Have ready first: An account at example\.com/);
 });
