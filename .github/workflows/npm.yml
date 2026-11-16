@@ -1,8 +1,10 @@
 # Publishes the package to npm when its version changes on main, with npm
-# Trusted Publishing (GitHub Actions OIDC): no npm token is stored, and the
-# package gets a provenance statement. On npmjs.com the package's trusted
+# Trusted Publishing (GitHub Actions OIDC): no npm token is stored. On
+# npmjs.com the package's trusted
 # publisher must name this repository and this file (npm.yml). A version
-# already on npm is skipped.
+# already on npm is skipped. No provenance statement is asked for: npm
+# refuses one from a private repository, and makes one by itself once the
+# repository is public.
 name: npm
 
 on:
@@ -51,4 +53,4 @@ jobs:
           pnpm test
       - name: Publish
         if: steps.version.outputs.skip != 'true'
-        run: npm publish --provenance --access public
+        run: npm publish --access public
