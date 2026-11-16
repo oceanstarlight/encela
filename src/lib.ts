@@ -39,6 +39,7 @@ export { check, signature } from "./schema";
 export { Seals } from "./seal";
 export { search, words } from "./search";
 export { exposed, FLOW, pieceText, Server } from "./server";
+export { hintsOn, readSettings, writeSettings } from "./settings";
 export { hookCommandFor, launcherFor, writePlugin } from "./setup";
 export { findOnWindows, launch } from "./spawn";
 export { knownTool, ToolCache, withEnv } from "./tools";
