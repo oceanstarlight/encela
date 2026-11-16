@@ -1,6 +1,6 @@
 {
   "name": "encela",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "Encela for Claude Code: one prompt in, and Claude drafts a blueprint, picks the pieces (MCP servers, CLIs, skills, rules, subagents) it needs, asks you to approve, then assembles and builds.",
   "license": "Apache-2.0",
   "repository": {
