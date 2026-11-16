@@ -31,7 +31,7 @@ import {
   type StepStatus,
   unapprove,
 } from "./blueprint";
-import { Client, forThisOs, supported } from "./client";
+import { Client, supported } from "./client";
 import { type Answer, Engine, type Host } from "./engine";
 import { Finder, foundText, readingText } from "./finder";
 import { type Live, LiveWriter, type Phase } from "./live";
@@ -450,9 +450,10 @@ export class Server {
               id: run.id,
               pipeline: run.pipeline.name,
               status: run.status,
-              steps: run.steps.map((s) => ({
+              steps: run.steps.map((s, i) => ({
                 id: s.id,
                 kind: s.kind,
+                piece: run.pipeline.steps[i]?.piece ?? "",
                 state: s.state,
                 items: s.items,
                 itemsDone: s.itemsDone,
@@ -1286,7 +1287,7 @@ export class Server {
       if (!start) {
         const started = withEnv(config, env) as McpConfig;
         const name = piece.name;
-        start = Client.start(forThisOs(started), this.project, () => {
+        start = Client.start(started, this.project, () => {
           this.send({ jsonrpc: "2.0", method: "notifications/tools/list_changed" });
           // What it says about its tools changed: keep the new list for the next blueprint.
           const now = this.open.get(name);

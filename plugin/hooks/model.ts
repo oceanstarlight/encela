@@ -164,6 +164,9 @@ const DONE_FOR = 120_000;
 const HUES = 3;
 
 const seg = (text: string, tone: Tone = "plain"): Seg => ({ text, tone });
+/** An argument of a tool call as text: anything but a string or a number says nothing. */
+export const asText = (v: unknown): string =>
+  typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
 /**
  * Text as one line that is safe to draw: control characters (an escape
  * sequence in a command, say) and the marks that reorder or hide text are
@@ -172,7 +175,13 @@ const seg = (text: string, tone: Tone = "plain"): Seg => ({ text, tone });
  */
 export const oneLine = (s: string) =>
   s
-    .replace(/[\p{Cc}\p{Cf}\u2028\u2029]|\u034f|\u180e/gu, " ")
+    // Half a pair (text cut in the middle of a character), and letters that draw nothing.
+    .replace(/[\p{Cc}\p{Cf}\p{Cs}\u2028\u2029]|\u034f|\u115f|\u1160|\u180e|\u3164|\uffa0/gu, " ")
+    // Decomposed Korean and accents as one character each, so a width can be told.
+    .normalize("NFC")
+    // What picks an emoji's look, and marks piled on one letter beyond two.
+    .replace(/[\ufe00-\ufe0f]/g, "")
+    .replace(/(\p{M}{2})\p{M}+/gu, "$1")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -187,14 +196,65 @@ function wide(code: number): boolean {
     (code >= 0xfe30 && code <= 0xfe4f) ||
     (code >= 0xff00 && code <= 0xff60) ||
     (code >= 0xffe0 && code <= 0xffe6) ||
-    code >= 0x1f300
+    code === 0x1f004 ||
+    code === 0x1f0cf ||
+    (code >= 0x1f18e && code <= 0x1f19a) ||
+    (code >= 0x1f200 && code <= 0x1f251) ||
+    code >= 0x1f300 ||
+    EMOJI.some(([from, to]) => code >= from && code <= to)
   );
+}
+
+/** The emoji below U+1F300 that a terminal draws two cells wide (Unicode's East Asian Wide). */
+const EMOJI: [number, number][] = [
+  [0x231a, 0x231b],
+  [0x23e9, 0x23ec],
+  [0x23f0, 0x23f0],
+  [0x23f3, 0x23f3],
+  [0x25fd, 0x25fe],
+  [0x2614, 0x2615],
+  [0x2648, 0x2653],
+  [0x267f, 0x267f],
+  [0x2693, 0x2693],
+  [0x26a1, 0x26a1],
+  [0x26aa, 0x26ab],
+  [0x26bd, 0x26be],
+  [0x26c4, 0x26c5],
+  [0x26ce, 0x26ce],
+  [0x26d4, 0x26d4],
+  [0x26ea, 0x26ea],
+  [0x26f2, 0x26f3],
+  [0x26f5, 0x26f5],
+  [0x26fa, 0x26fa],
+  [0x26fd, 0x26fd],
+  [0x2705, 0x2705],
+  [0x270a, 0x270b],
+  [0x2728, 0x2728],
+  [0x274c, 0x274c],
+  [0x274e, 0x274e],
+  [0x2753, 0x2755],
+  [0x2757, 0x2757],
+  [0x2795, 0x2797],
+  [0x27b0, 0x27b0],
+  [0x27bf, 0x27bf],
+  [0x2b1b, 0x2b1c],
+  [0x2b50, 0x2b50],
+  [0x2b55, 0x2b55],
+];
+
+/** A mark that sits on the character before it and takes no cell of its own. */
+const MARK = /^[\p{Mn}\p{Me}\u1161-\u11ff\u200d]$/u;
+
+/** The cells one character takes in a terminal: 0 for a mark, 2 for a wide one. */
+export function cellsOf(ch: string): number {
+  if (MARK.test(ch)) return 0;
+  return wide(ch.codePointAt(0) ?? 0) ? 2 : 1;
 }
 
 /** The cells a text takes in a terminal. */
 export function cells(text: string): number {
   let n = 0;
-  for (const ch of text) n += wide(ch.codePointAt(0) ?? 0) ? 2 : 1;
+  for (const ch of text) n += cellsOf(ch);
   return n;
 }
 
@@ -205,7 +265,7 @@ export function fit(text: string, max: number): string {
   let out = "";
   let n = 0;
   for (const ch of text) {
-    const w = wide(ch.codePointAt(0) ?? 0) ? 2 : 1;
+    const w = cellsOf(ch);
     if (n + w > max - 1) break;
     out += ch;
     n += w;
@@ -242,7 +302,13 @@ function fitLine(line: Line, columns: number): Line {
 const rec = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const str = (v: unknown, max = 160) =>
-  typeof v === "string" ? oneLine(v.slice(0, max * 2)).slice(0, max) : "";
+  typeof v === "string"
+    ? oneLine(
+        Array.from(oneLine(v.slice(0, max * 2)))
+          .slice(0, max)
+          .join(""),
+      )
+    : "";
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
 const arr = (v: unknown, max: number): unknown[] => (Array.isArray(v) ? v.slice(0, max) : []);
@@ -314,6 +380,7 @@ export function parse(text: string): Live | null {
           .map((s) => ({
             id: str(s.id, 40),
             kind: among(s.kind, ["tool", "transform", "claude"] as const, "tool"),
+            piece: str(s.piece, 120),
             state: among(
               s.state,
               ["todo", "running", "waiting", "done", "failed", "skipped"] as const,
@@ -392,7 +459,7 @@ export function doing(tool: string, input: Record<string, unknown>): string {
   let text: string;
   if (own !== null) {
     if (own === "piece_call") {
-      const piece = String(input.id ?? "").replace(/^mcp:/, "");
+      const piece = asText(input.id).replace(/^mcp:/, "");
       const called = typeof input.tool === "string" && input.tool !== tool ? input.tool : "";
       text = called ? `${piece} · ${called}` : piece || own;
     } else if (OWN.has(own)) {
@@ -409,9 +476,9 @@ export function doing(tool: string, input: Record<string, unknown>): string {
     text = `${server.replace(/^plugin_/, "")} · ${rest.join("__")}`;
   } else if (["Read", "Edit", "Write", "NotebookEdit", "MultiEdit"].includes(tool)) {
     text = `${tool} ${base(input.file_path ?? input.notebook_path)}`;
-  } else if (tool === "Bash") text = `$ ${String(input.command ?? "")}`;
-  else if (tool === "Grep" || tool === "Glob") text = `${tool} ${String(input.pattern ?? "")}`;
-  else if (tool === "Agent" || tool === "Task") text = `${tool} ${String(input.description ?? "")}`;
+  } else if (tool === "Bash") text = `$ ${asText(input.command)}`;
+  else if (tool === "Grep" || tool === "Glob") text = `${tool} ${asText(input.pattern)}`;
+  else if (tool === "Agent" || tool === "Task") text = `${tool} ${asText(input.description)}`;
   else text = tool;
   return fit(oneLine(text), 60);
 }
@@ -715,7 +782,7 @@ export function frame(read: Live | null, agents: readonly Agent[], opts: FrameOp
     (pieces.length ? pieces.length + 2 : 0) +
     (runs.length ? runs.length + 1 : 0) +
     (events.length ? events.length + 2 : 0);
-  const rows = Math.max(8, opts.rows);
+  const rows = Math.max(7, opts.rows);
   if (size() > rows) events = [];
   if (size() > rows && pieces.length > 1) {
     const up = servers.filter((p) => p.running).length;

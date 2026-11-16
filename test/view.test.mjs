@@ -276,6 +276,7 @@ test("what the server wrote is read with care: sizes bounded, unknown words repl
   assert.deepEqual(odd.runs[0].steps[0], {
     id: "s",
     kind: "tool",
+    piece: "",
     state: "todo",
     items: 0,
     itemsDone: 0,

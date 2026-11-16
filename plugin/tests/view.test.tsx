@@ -508,3 +508,24 @@ test("packets run along the canvas's lines while a worker is at work, and stop w
   expect(await pane.find({ type: "Text", text: /✓/, in: "pane" })).toBeDefined();
   await pane.unmount();
 });
+
+test("review: a key on the small form chooses no tab", async ($, on) => {
+  const clock = mock.clock(on, { now: 1000 });
+  world(on, { text: JSON.stringify(building(2000)) });
+  await $.session.start({ cwd: ROOT, surface: "terminal", isInteractive: true });
+  await $.tool.call(STEP);
+  await clock.advance(10);
+  const small = await $.ui.mount({
+    ...PANE,
+    props: { ...PANE.props, placement: "widget", isFocused: true },
+    surface: "terminal",
+  } as never);
+  await small.key({ key: "right" } as never);
+  await small.unmount();
+  const pane = await $.ui.mount({ ...PANE, surface: "terminal" });
+  const at = within("terminal", "pane");
+  // Nobody chose the canvas: the pane opens on the graph.
+  expect(await pane.find({ type: "Text", text: /오케스트레이터/, ...at })).toBeUndefined();
+  expect(await pane.find({ type: "Text", text: /API 구현/, ...at })).toBeDefined();
+  await pane.unmount();
+});

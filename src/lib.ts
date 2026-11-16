@@ -1,7 +1,7 @@
 // What the tests use.
 export { briefs, copyPath, writeCopies } from "./assemble";
 export { Blueprints, normalizeBlueprint, ready, render, shared } from "./blueprint";
-export { CallLost, Client, expand, findReply, forThisOs } from "./client";
+export { CallLost, Client, expand, findReply } from "./client";
 export { Engine } from "./engine";
 export {
   clean,
@@ -39,4 +39,5 @@ export { Seals } from "./seal";
 export { search, words } from "./search";
 export { exposed, FLOW, pieceText, Server } from "./server";
 export { hookCommandFor, launcherFor, writePlugin } from "./setup";
+export { findOnWindows, launch } from "./spawn";
 export { knownTool, ToolCache, withEnv } from "./tools";

@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { VERSION } from "./paths";
 import type { McpConfig } from "./piece";
+import { launch } from "./spawn";
 
 type Json = Record<string, unknown>;
 const PROTOCOL = "2025-06-18";
@@ -42,14 +43,6 @@ export function resolve(config: McpConfig, project: string): McpConfig {
 }
 
 export const supported = (c: McpConfig) => c.transport === "stdio" || c.transport === "http";
-
-/** Catalog configs are written for macOS and Linux; on Windows `npx` runs through `cmd /c`. */
-export function forThisOs(config: McpConfig, platform = process.platform): McpConfig {
-  if (platform === "win32" && config.command === "npx") {
-    return { ...config, command: "cmd", args: ["/c", "npx", ...config.args] };
-  }
-  return config;
-}
 
 /**
  * A call that got no answer: it timed out, or the connection ended. Nobody
@@ -160,11 +153,6 @@ export class Client {
   }
 }
 
-/** On Windows, `npx` is `npx.cmd`, which spawn finds only through a shell. */
-function needsShell(command: string): boolean {
-  return process.platform === "win32" && !/[\\/]/.test(command) && !/\.\w+$/.test(command);
-}
-
 class Pipe implements Conn {
   private child: ChildProcess;
   private pending = new Map<number, (m: Json) => void>();
@@ -172,11 +160,13 @@ class Pipe implements Conn {
   private stderr = "";
 
   constructor(config: McpConfig, cwd: string, onChange: () => void) {
-    this.child = spawn(config.command, config.args, {
+    const env = { ...process.env, ...config.env };
+    const run = launch(config.command, config.args, { env });
+    this.child = spawn(run.command, run.args, {
       cwd,
-      env: { ...process.env, ...config.env },
+      env,
       stdio: ["pipe", "pipe", "pipe"],
-      shell: needsShell(config.command),
+      windowsVerbatimArguments: run.verbatim,
       windowsHide: true,
     });
     this.child.on("error", (e) => this.end(`Couldn't run ${config.command}: ${e.message}`));

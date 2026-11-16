@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { asset, home, PACKAGE, VERSION } from "./paths";
 import { Registry } from "./registry";
 import { FLOW } from "./server";
+import { type Launch, launch } from "./spawn";
 
 export const MARKETPLACE = "encela";
 export const PLUGIN = "encela";
@@ -176,9 +177,15 @@ export function writePlugin(
 
 /** The user's `claude`; its output, or why it failed. */
 function claude(args: string[]): { ok: boolean; out: string } {
-  const r = spawnSync("claude", args, {
+  let run: Launch;
+  try {
+    run = launch("claude", args);
+  } catch (e) {
+    return { ok: false, out: (e as Error).message };
+  }
+  const r = spawnSync(run.command, run.args, {
     encoding: "utf8",
-    shell: process.platform === "win32",
+    windowsVerbatimArguments: run.verbatim,
     windowsHide: true,
     env: { ...process.env, CLAUDE_CODE_DISABLE_TERMINAL_TITLE: "1" },
   });
